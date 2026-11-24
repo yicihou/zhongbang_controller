@@ -1,3 +1,8 @@
+/**
+ * 时间按 Asia/Shanghai 格式化成 yyyy-MM-dd HH:mm:ss。
+ * 不用 toISOString，是为了避免页面上显示成 UTC。24 点会被改成 00，否则部分环境会写出 24。
+ * addDays 按公历日期加减，不处理夏令时。slotFromAppoint 用小时划分上午、下午、晚上，供报修派工占档期。
+ */
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 
 export function formatDateTime(date = new Date()): string {

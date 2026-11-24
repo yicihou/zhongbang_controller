@@ -1,3 +1,8 @@
+/**
+ * 管理端每个按钮对应的函数。它们只拼路径和请求体，规则在 Mock 的 domain 或将来的 Java 里。
+ * 金额字段单位是分。这些 /api/admin/** 和 /api/auth/staff/login 在当前 Spring Boot 工程里还没有控制器。
+ * 关掉 Mock 之后，未带令牌会先被安全配置拒绝（401）；带了 STAFF 令牌也会 404，因为没有对应类。
+ */
 import type {
   AdminNotice,
   AdminOrder,

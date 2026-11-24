@@ -16,6 +16,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 用 MockMvc 起完整 Spring 上下文，不真正监听 8080，检查骨架的公开接口、登录和鉴权。
+ *
+ * <p>覆盖：探活的统一响应、健康检查 200、商品空分页、未登录访问设备得到 401 且业务码 2001、
+ * 用 code 登录后能绑定一台设备并在列表里看到它、未登录访问 H2 控制台和 {@code /actuator/info} 得到 401。
+ * 没有覆盖「已登录但角色不对」的 403，也没有覆盖手机号接口。
+ *
+ * <p>{@code @SpringBootTest} 启动应用；{@code @AutoConfigureMockMvc} 提供一个可发假请求的客户端。
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 class SkeletonSecurityTest {

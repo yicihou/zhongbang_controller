@@ -40,6 +40,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 员工登录。提交走 session.login → POST /api/auth/staff/login。
+ * 默认 Mock：admin/admin123、clerk/clerk123。后端没有这个接口。
+ * 也可以粘贴一枚已有 JWT，但必须能解出 STAFF 且未过期。客户小程序的令牌会被拒绝。
+ */
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'

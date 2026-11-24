@@ -1,4 +1,9 @@
-/** 对齐后端 ApiResponse：code=0 成功，金额字段单位为分。 */
+/**
+ * 和页面、Mock 约定的数据结构。金额字段单位是分。
+ * 成功响应外形对齐后端 ApiResponse（code=0）。
+ * 订单行、运费、报修这些类型描述的是管理端 Mock 和 docs/04，不是 V1 表的列。
+ * V1 的 orders 表还是总额/定金/尾款，没有这里的 goodsAmount、items。
+ */
 export interface ApiResponse<T> {
   code: number
   msg: string

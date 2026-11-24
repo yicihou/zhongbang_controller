@@ -1,4 +1,8 @@
-/** §5.3：SSE 连续失败后降级为 30 秒轮询 notices。 */
+/**
+ * 实时连接的降级规则，不负责真正去连。
+ * 连续失败 3 次后 mode 变成 poll，间隔 30 秒。未满 3 次时仍是 sse，等待时间按 1 秒、2 秒翻倍，上限 30 秒。
+ * 一旦 registerStreamOpen，失败计数清零。
+ */
 
 export const SSE_POLL_INTERVAL_MS = 30_000
 export const SSE_FAIL_THRESHOLD = 3

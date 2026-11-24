@@ -1,3 +1,4 @@
+/** 测 domain/order.ts：改价、运费、发货、派工、取消等规则，不经过 HTTP。 */
 import { describe, expect, it } from 'vitest'
 import type { AdminOrder, Technician, TechnicianSchedule } from '../src/api/types'
 import { ApiError } from '../src/domain/errors'

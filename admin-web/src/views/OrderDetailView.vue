@@ -325,6 +325,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 一张订单上的改价、运费、拆分应付、发货、派安装师傅、线下收款和取消。
+ * 每个按钮调用 api/admin.ts 里对应的函数；Mock 下规则在 domain/order.ts。
+ * 页面上的金额输入是元，提交前用 yuanToFen 换成分。后端还没有这些接口。
+ */
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'

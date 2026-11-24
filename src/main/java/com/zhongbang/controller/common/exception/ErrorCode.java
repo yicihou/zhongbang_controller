@@ -1,6 +1,12 @@
 package com.zhongbang.controller.common.exception;
 
-/** Business error codes aligned with docs §6.5. */
+/**
+ * 业务错误码，写在响应 JSON 的 {@code code} 字段里，和 HTTP 状态码不是同一个数。
+ * 例如未登录是业务码 2001，HTTP 状态是 401。
+ *
+ * <p>库存、档期、金额、支付这几项已经编号，但对应的下单和支付代码还没写，目前不会被抛出。
+ * 登录占位、设备冲突、参数校验会用到其中一部分。
+ */
 public enum ErrorCode {
     OK(0, "ok"),
     BAD_REQUEST(1001, "参数错误"),

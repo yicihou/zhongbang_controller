@@ -56,6 +56,12 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 工作台。四个数字不是单独的汇总接口：分别请求订单、报修列表，用返回的 total 或把列表再数一遍。
+ * 待付款含部分付款。待发货只统计状态为已付款的订单数。
+ * 待派工把已付款和履约中里「上门安装还没师傅」的订单，加上已付款和可派工里「有行没师傅」的报修，加在一起。
+ * 列表请求的 size 最大 100，超过时待派工名单会缺。
+ */
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { listOrders, listRepairs } from '@/api/admin'

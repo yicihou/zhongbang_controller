@@ -1,3 +1,9 @@
+/**
+ * 登录态。令牌同时放在 Pinia 和 localStorage 键 zb_admin_token。
+ * login 调用 POST /api/auth/staff/login（Mock 或后端），成功后只接受 type/role 为 STAFF 的 JWT。
+ * 客户小程序拿到的 CUSTOMER 令牌会被 adopt 拒绝，进不了后台。
+ * 刷新页面会从 localStorage 读回令牌，再由路由守卫检查是否过期、是否员工。
+ */
 import { defineStore } from 'pinia'
 import { staffLogin } from '@/api/admin'
 import { readToken, writeToken } from '@/api/http'

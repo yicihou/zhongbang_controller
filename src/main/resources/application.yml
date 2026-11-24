@@ -1,62 +1,93 @@
+# 所有环境共用的配置。具体数据库在 application-dev.yml / infra / prod 里覆盖。
+# 默认激活 dev：内存数据库，不连 Redis 和 RabbitMQ。
+# 改环境：启动前设置环境变量 SPRING_PROFILES_ACTIVE=infra 或 prod。
+
 server:
+  # HTTP 端口。管理端开发时由 Vite 把 /api 代理到这个端口。
   port: 8080
 
 spring:
   application:
+    # 出现在探活接口的 service 字段，以及日志里的服务名。
     name: zhongbang-controller
   profiles:
+    # 冒号后面是没设置环境变量时的默认值。
     active: ${SPRING_PROFILES_ACTIVE:dev}
   jackson:
+    # 值为 null 的字段不写进 JSON，和 ApiResponse 上的注解一致。
     default-property-inclusion: non_null
+    # 日期按上海时区理解。接口里的时间字符串不是时间戳数字。
     time-zone: Asia/Shanghai
     serialization:
       write-dates-as-timestamps: false
   flyway:
+    # 启动时按文件名版本执行 src/main/resources/db/migration 下的 SQL。
+    # 改过已经跑过的脚本（包括只改注释）会让校验和不匹配，已有的 MySQL 库会启动失败。
+    # dev 使用内存库，每次进程重启都重新建表，不受旧校验和影响。
     enabled: true
     locations: classpath:db/migration
+    # 库不是空的、但还没有 flyway 历史表时，把当前状态当作基线再继续迁移。
     baseline-on-migrate: true
 
 management:
   endpoints:
     web:
       exposure:
+        # 只把 health 暴露成 HTTP。info、metrics 等即使打开了依赖也不会从网页访问到，
+        # 安全配置还会拒绝 /actuator/** 里除 health 以外的路径。
         include: health
   endpoint:
     health:
       probes:
+        # 额外提供 /actuator/health/liveness 和 readiness，给以后的容器探针用。
         enabled: true
+      # 不在健康检查响应里列出各项细节，避免泄露依赖是否连上。
       show-details: never
   health:
     redis:
+      # 默认不把 Redis 算进健康检查。infra / prod 里改成 true。
       enabled: false
     rabbit:
       enabled: false
 
 zhongbang:
   cors:
+    # 允许带 Authorization 的跨域来源。只作用于 /api/**。
+    # 管理端 Vite 默认是 5173，不在这份名单里；开发时走代理，浏览器看起来是同源。
     allowed-origins:
       - http://localhost:3000
       - http://127.0.0.1:3000
   redis:
+    # false：幂等和锁用内存实现，并且 dev 配置会排除 Redis 自动配置。
+    # 改成 true 时不要继续用 dev，否则缺少 Redis 连接对象，启动失败。用 infra。
     enabled: false
   rabbitmq:
+    # false：发消息只打 debug 日志，不连接 RabbitMQ。
     enabled: false
   h2-console:
+    # 这个开关目前没有 Java 代码读取。安全配置始终拒绝 /h2-console，改成 true 也不会打开。
     enabled: false
   jwt:
+    # HMAC 密钥至少 32 字节。生产用环境变量 JWT_SECRET 覆盖，不要把真实密钥写进仓库。
     secret: ${JWT_SECRET:zhongbang-dev-only-secret-change-me-32bytes!!}
+    # 令牌有效期，单位秒。2592000 = 30 天。
     expires-seconds: 2592000
 
 mybatis-plus:
   configuration:
+    # 表列 user_name 自动对应 Java 字段 userName。
     map-underscore-to-camel-case: true
   global-config:
     db-config:
+      # 主键用雪花算法在插入前赋值，不是数据库自增。
       id-type: assign_id
+      # 带 deleted 字段的表：删除语句会改成把 deleted 更新成 1，查询自动带 deleted=0。
+      # customer_asset 没有这一列，不要对它做逻辑删除。
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
 
 logging:
   pattern:
+    # %X{traceId} 来自 TraceIdFilter 放进 MDC 的值。没有时显示为空。
     level: "%5p [${spring.application.name:},%X{traceId:-}]"

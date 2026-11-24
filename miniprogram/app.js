@@ -1,3 +1,5 @@
+// 小程序入口。onLaunch 读本地 token，并静默调用后端 POST /api/auth/login。
+// 该登录在 Java 里是占位：不访问微信，openid 为 dev_ 加 code。失败不阻塞页面。
 const api = require('./utils/api');
 
 App({

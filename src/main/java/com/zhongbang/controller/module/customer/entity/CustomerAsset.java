@@ -7,6 +7,10 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * 客户名下的一台机器。表上没有 deleted 列，不受全局逻辑删除配置影响。
+ * 绑定占位时 model 会写成「待完善机型」，保修截止日是绑定当天加两年，并不是查出来的真实保修。
+ */
 @TableName("customer_asset")
 public class CustomerAsset {
 

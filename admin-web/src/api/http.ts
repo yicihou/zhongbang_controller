@@ -1,3 +1,9 @@
+/**
+ * 所有管理端请求的出口。页面不要自己 fetch。
+ * USE_MOCK 为真时调用 mock/handle.ts，在内存里算出和后端一样的 {code,msg,data}。
+ * 为假时用 fetch 访问 API_BASE + 路径，并带上 localStorage 里的 Bearer。
+ * code===0 才把 data 交回调用方，否则抛 ApiError。业务码 2001 表示未登录。
+ */
 import { API_BASE, USE_MOCK } from '@/config'
 import { ApiError } from '@/domain/errors'
 import { handle } from '@/mock/handle'
@@ -39,6 +45,10 @@ function unwrap<T>(body: ApiResponse<T> | null | undefined, status: number): T {
   throw new ApiError(body.code || status, body.msg || '请求失败')
 }
 
+/**
+ * auth 默认 true，会附带令牌。登录接口要传 auth:false，否则空令牌没意义，Mock 里登录本身也不校验令牌。
+ * GET 不发送 body。网络失败时业务码是 -1，和后端错误码不是同一套。
+ */
 export async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
   const auth = options.auth !== false
   const token = auth ? readToken() : ''

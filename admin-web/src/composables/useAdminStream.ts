@@ -1,3 +1,10 @@
+/**
+ * 顶栏的实时通知。
+ * Mock：订阅 mock/bus，并每 120 秒自动造一笔新订单广播出去。状态一开始就是 live。
+ * 真实 API：用 fetch 读 /api/admin/stream（浏览器的 EventSource 不能加 Authorization 头），自己拆 SSE 帧。
+ * 连续失败 3 次后改为每 30 秒调用 GET /api/admin/notices?unread=1。
+ * 后端目前没有 stream 和 notices 控制器，关掉 Mock 后这里会一直重连再进入轮询，轮询同样 404。
+ */
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElNotification } from 'element-plus'

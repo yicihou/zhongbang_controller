@@ -1,3 +1,4 @@
+/** 新订单提示音。用 Web Audio 合成两个短音，没有音频文件。浏览器可能拦截，调用方接住异常即可。 */
 export function playChime(): void {
   const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!Ctx) return

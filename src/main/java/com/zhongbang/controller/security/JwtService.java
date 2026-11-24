@@ -10,6 +10,16 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 
+/**
+ * 签发和校验 JWT。登录成功时 {@code AuthService} 调用 {@code issue}；
+ * 之后每个请求由 {@code JwtAuthenticationFilter} 调用 {@code parse}。
+ *
+ * <p>JWT 是一段带签名的字符串，服务器不保存会话。令牌里有用户 id（subject）、
+ * {@code type}（CUSTOMER / STAFF / TECHNICIAN）、{@code name}、签发时间和过期时间。
+ * 签名算法是 HMAC-SHA，密钥来自配置。校验失败会抛运行时异常，过滤器负责接住。
+ *
+ * <p>{@code @Service} 和 {@code @Component} 一样会放进容器，习惯上用来标业务类。
+ */
 @Service
 public class JwtService {
 
@@ -19,12 +29,14 @@ public class JwtService {
     public JwtService(JwtProperties properties) {
         this.properties = properties;
         byte[] bytes = properties.getSecret().getBytes(StandardCharsets.UTF_8);
+        // JJWT 要求 HMAC 密钥至少 256 位（32 字节），太短就拒绝启动，避免用一个能被猜到的密钥上线。
         if (bytes.length < 32) {
             throw new IllegalStateException("zhongbang.jwt.secret must be at least 32 bytes");
         }
         this.key = Keys.hmacShaKeyFor(bytes);
     }
 
+    /** 按用户 id、类型和显示名签发令牌。过期时间是当前时间加上配置的秒数。 */
     public String issue(LoginUser user) {
         Instant now = Instant.now();
         Instant exp = now.plusSeconds(properties.getExpiresSeconds());
@@ -38,6 +50,10 @@ public class JwtService {
                 .compact();
     }
 
+    /**
+     * 验签并读出用户。过期、签名不对、type 不是已知枚举时抛异常。
+     * 不查数据库，所以令牌在过期前不会因为用户被删而立刻失效。
+     */
     public LoginUser parse(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(key)

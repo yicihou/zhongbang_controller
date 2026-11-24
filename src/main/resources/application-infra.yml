@@ -1,7 +1,11 @@
-# Use instead of (not stacked with) `dev` when Redis/RabbitMQ/MySQL from docker/compose are up:
-#   SPRING_PROFILES_ACTIVE=infra
+# 连 docker/docker-compose.yml 里的 MySQL、Redis、RabbitMQ。
+# 不要和 dev 叠在一起用（dev 排除了 Redis/Rabbit 自动配置，也会换掉数据源）。
+# 启动：SPRING_PROFILES_ACTIVE=infra mvn spring-boot:run
+# 冒号后面是没设环境变量时的默认值，和 compose 文件里的账号一致。
+
 spring:
   datasource:
+    # 库名 zhongbang 需要已经存在。compose 是否建库以 docker 目录里的定义为准。
     url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/zhongbang?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
     username: ${DB_USERNAME:zhongbang}
     password: ${DB_PASSWORD:zhongbang}
@@ -18,13 +22,16 @@ spring:
 
 zhongbang:
   redis:
+    # true 才会注册 Redis 版幂等和锁。业务代码目前还没有调用它们。
     enabled: true
   rabbitmq:
+    # true 才会注册真正的发送器。没有消费者，消息发出去不一定有人接。
     enabled: true
 
 management:
   health:
     redis:
+      # 健康检查会尝试连 Redis。连不上时 /actuator/health 不再是单纯的 UP。
       enabled: true
     rabbit:
       enabled: true

@@ -1,14 +1,22 @@
+# 默认环境。数据在进程内的 H2 里，停掉进程数据就没了。
+# 不连接 Redis、RabbitMQ、MySQL。本机没有 Docker 也能 mvn spring-boot:run。
+
 spring:
   datasource:
+    # MODE=MySQL 让 H2 尽量按 MySQL 语法执行 Flyway 脚本和分页语句。
+    # DB_CLOSE_DELAY=-1：最后一个连接关掉后也不销毁库，否则同一次启动里的后续请求会看到空库。
     url: jdbc:h2:mem:zhongbang;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
     driver-class-name: org.h2.Driver
     username: sa
+    # 空密码。只用于本机内存库。
     password:
   h2:
     console:
+      # Spring 自带的网页控制台。false 表示不注册该功能。安全配置另外拒绝了 /h2-console。
       enabled: false
   autoconfigure:
     exclude:
+      # 依赖在 pom 里，但默认不创建 Redis / Rabbit 客户端，避免本机没装时启动报错。
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
       - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
@@ -19,9 +27,11 @@ zhongbang:
   rabbitmq:
     enabled: false
   h2-console:
+    # 仍无代码读取。保持 false，与控制台关闭一致。
     enabled: false
 
 logging:
   level:
     root: INFO
+    # 本包打 DEBUG，便于看 MyBatis 和自己的日志。生产配置会把这里调高。
     com.zhongbang.controller: DEBUG

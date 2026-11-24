@@ -1,3 +1,12 @@
+/**
+ * 管理端订单规则，纯函数：传入订单副本，返回新对象，不请求网络。
+ * Mock 的 handle.ts 调用它们；Java 后端还没有同样的实现。
+ * 金额单位是分。应付 = 商品行金额 + 上门安装费（未定价的行按 0 计）+ 运费 + 整单调整。
+ * 已取消、已完成的订单不能再改价或发货。已有成功付款时不能直接取消（退款未做）。
+ * 新应付低于已付时拒绝修改，不自动退差。安装费只能出现在 ON_SITE_INSTALL 行；null 表示还没定价，0 表示明确免费。
+ * 发货要求订单已是 PAID 或 FULFILLING，并按行上的配送方式检查单号或送货人。
+ * 派安装师傅会占档期。没有这一格时新建，容量 2；已用满则报档期冲突（业务码 3002）。
+ */
 import type {
   AdminOrder,
   AssignOrderRequest,
@@ -37,6 +46,7 @@ function fulfillmentStarted(order: AdminOrder): boolean {
   })
 }
 
+/** 按行重算商品合计、安装费合计和应付。不改已付，也不改状态。 */
 export function recalcOrder(order: AdminOrder): void {
   order.goodsAmount = order.items.reduce((sum, item) => sum + item.lineAmount, 0)
   order.installAmount = order.items.reduce((sum, item) => {
@@ -59,6 +69,11 @@ export function installFeeState(order: Pick<AdminOrder, 'items' | 'installAmount
   return { kind: 'set', amount: order.installAmount }
 }
 
+/**
+ * 按已付和未付应付单改状态。已取消、已完成保持不动。
+ * 没有待付且已付不少于应付：有发货或已派安装则为履约中，否则已付款。
+ * 有待付且已付大于 0：部分付款。否则待付款。
+ */
 export function syncOrderStatus(order: AdminOrder): void {
   const paid = paidAmount(order)
   order.paidAmount = paid

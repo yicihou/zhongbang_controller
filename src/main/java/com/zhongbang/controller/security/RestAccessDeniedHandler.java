@@ -12,6 +12,10 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+/**
+ * 已经登录，但角色不够（例如客户令牌访问 {@code /api/admin/**}）时，由过滤器链调用。
+ * 返回 HTTP 403，JSON 业务码 2003。不跳转登录页，因为调用方是接口不是浏览器表单。
+ */
 @Component
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
 

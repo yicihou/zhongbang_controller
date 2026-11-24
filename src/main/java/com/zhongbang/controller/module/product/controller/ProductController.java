@@ -11,11 +11,16 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
-/** Public product shell aligned with /api/products. */
+/**
+ * 商品公开接口的空壳，不查 {@code product} 表。
+ * 列表永远是空的一页；详情只把路径里的 id 原样放进一个 Map，并带 {@code note=product-detail-shell}，
+ * 用来标明这不是真实商品。id 不存在也不会 404。
+ */
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {
 
+    /** page 默认 1，size 默认 20，都会再被收进 1–100。total 固定 0。 */
     @GetMapping
     public ApiResponse<PageResult<Map<String, Object>>> list(
             @RequestParam(defaultValue = "1") int page,

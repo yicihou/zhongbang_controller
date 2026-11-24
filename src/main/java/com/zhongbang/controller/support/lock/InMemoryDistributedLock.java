@@ -5,6 +5,10 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 进程内锁。方法加了 synchronized，所以单机并发是安全的，多实例部署时各锁各的，起不到互斥。
+ * Redis 关闭时由自动配置注册。
+ */
 public class InMemoryDistributedLock implements DistributedLock {
 
     private final Map<String, Instant> locks = new ConcurrentHashMap<>();

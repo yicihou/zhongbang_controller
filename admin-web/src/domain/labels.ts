@@ -1,3 +1,7 @@
+/**
+ * 把接口里的英文枚举显示成中文。未知状态不要假设有文案：函数直接取表，缺 key 会得到 undefined。
+ * 订单状态是 docs/04 的新枚举，不是 V1 表或旧 OpenAPI 示例里的 PENDING_BALANCE。
+ */
 import type {
   DeliveryMethod,
   OrderStatus,

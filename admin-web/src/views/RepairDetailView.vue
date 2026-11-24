@@ -126,6 +126,10 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 一张报修单：按行报价、派师傅、登记线下维修费。
+ * 保内或 0 元在 Mock 里会直接变成可派工；保外会生成待付。后端 aftersale 包是空的。
+ */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'

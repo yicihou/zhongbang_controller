@@ -1,4 +1,8 @@
-/** §4.2 管理端路径。cancel / technicians / staff login 为页面所需的预留路径，见 README。 */
+/**
+ * 管理端路径常量，避免页面里手写字符串。
+ * staffLogin、cancelOrder、technicians、schedules 是页面需要、后端骨架尚未提供的路径。
+ * 其余路径对齐 docs/04 的设计，同样还没有 Java 控制器。
+ */
 export const paths = {
   staffLogin: '/api/auth/staff/login',
   orders: '/api/admin/orders',
