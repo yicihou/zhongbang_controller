@@ -1,3 +1,4 @@
+/** 测 SSE 降级：失败三次后改为 30 秒轮询，以及从文本缓冲里切出完整事件帧。 */
 import { describe, expect, it } from 'vitest'
 import {
   SSE_FAIL_THRESHOLD,

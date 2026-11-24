@@ -5,6 +5,11 @@ import com.zhongbang.controller.module.customer.entity.CustomerAsset;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * 返回给前端的设备卡片。日期用 ISO 本地日期（yyyy-MM-dd）。
+ * {@code warrantyStatus}：没有保修截止日是 UNKNOWN；截止日不早于今天是 IN；否则 OUT。
+ * 比较用的是服务器当天，不是客户时区。
+ */
 public record AssetResponse(
         Long id,
         String model,

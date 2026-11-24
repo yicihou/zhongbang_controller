@@ -1,3 +1,4 @@
+/** 测前端如何识别员工令牌：Mock 签发的 STAFF 能通过，客户令牌和过期令牌不能。不连后端。 */
 import { describe, expect, it } from 'vitest'
 import { decodeJwtPayload, isStaffPayload, issueMockStaffToken } from '../src/domain/jwt'
 

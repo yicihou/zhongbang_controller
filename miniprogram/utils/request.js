@@ -3,7 +3,11 @@ const mock = require('../mock/index');
 
 let refreshing = null;
 
-/** 真正发起请求，返回 {statusCode, body}；Mock 模式走本地路由 */
+/**
+ * 真正发起请求，返回 {statusCode, body}。
+ * config.js 里 USE_MOCK 为 true 时不访问后端，改走 mock/index.js。
+ * 改成 false 后才会请求 config.baseUrl（默认 http://127.0.0.1:8080）。
+ */
 function raw(path, method, data, auth) {
   if (config.USE_MOCK) {
     return mock.request(path, method, data);

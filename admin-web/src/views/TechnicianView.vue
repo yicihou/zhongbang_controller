@@ -45,6 +45,10 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 师傅名单，以及从选定日期起 7 天的档期。打开时请求师傅列表和 schedules?from&to。
+ * 只展示，不在这个页面上派工。派工在订单详情和报修详情里，成功后档期的 used 会变。
+ */
 import { computed, onMounted, ref } from 'vue'
 import { listSchedules, listTechnicians } from '@/api/admin'
 import type { Technician, TechnicianSchedule } from '@/api/types'

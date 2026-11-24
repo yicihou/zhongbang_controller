@@ -1,3 +1,8 @@
+/**
+ * 造一笔「客户刚提交」的待付款订单，写进内存库，并返回一条 ORDER_CREATED 通知。
+ * 不负责推送；订单列表按钮和顶栏的定时器各自决定要不要 publishMockStream。
+ * 单号形如 SO + 上海日期 + 6 位序号。安装行的 installFee 为 null，表示管理员还没定价。
+ */
 import type { AdminNotice, AdminOrder } from '@/api/types'
 import { formatDateTime, todayShanghai } from '@/domain/clock'
 import { db } from './db'

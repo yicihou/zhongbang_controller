@@ -316,6 +316,12 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 一张订单上的改价、运费、拆分应付、发货、派安装师傅、线下收款和取消。
+ * 发货和派工不要求已经付款。收款弹窗可以只收一部分，剩下的拆成余款。
+ * 每个按钮调用 api/admin.ts；Mock 下规则在 domain/order.ts。金额输入是元，提交前换成 分。
+ * 后端还没有这些接口。
+ */
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'

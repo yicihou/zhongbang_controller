@@ -1,3 +1,4 @@
+/** 测分页：非法页码落到第 1 页，size 超过 100 会被截断。 */
 import { describe, expect, it } from 'vitest'
 import { paginate } from '../src/domain/page'
 

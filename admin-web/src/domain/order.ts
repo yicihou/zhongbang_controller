@@ -1,3 +1,13 @@
+/**
+ * 管理端订单规则，纯函数：传入订单副本，返回新对象，不请求网络。
+ * Mock 的 handle.ts 调用它们；Java 后端还没有同样的实现。
+ * 金额单位是分。应付 = 商品行金额 + 上门安装费（未定价的行按 0 计）+ 运费 + 整单调整。
+ * 已取消、已完成不能改价、发货或派工。待付款也可以发货和派安装师傅。
+ * 已有成功付款，或已有未取消的发货 / 派工，不能直接取消（退款未做）。
+ * 新应付低于已付时拒绝修改，不自动退差。安装费只能出现在 ON_SITE_INSTALL 行；null 表示还没定价，0 表示明确免费。
+ * 线下收款可以少于这一笔应付：实收记成功，差额拆成标题带「（余款）」的新待付。
+ * 派安装师傅会占档期。没有这一格时新建，容量 2；已用满则报档期冲突（业务码 3002）。
+ */
 import type {
   AdminOrder,
   AssignOrderRequest,
@@ -44,7 +54,10 @@ function fulfillmentStarted(order: AdminOrder): boolean {
   })
 }
 
-/** 发货进度与收款状态相互独立：已发出 / 已完成的行数。 */
+/**
+ * 发货进度，和有没有收到钱无关。
+ * shipped：状态不是待发出、也不是已取消的行数。done：其中已完成的行数。total：全部订单行。
+ */
 export function fulfillmentProgress(order: Pick<AdminOrder, 'items'>): { shipped: number; done: number; total: number } {
   let shipped = 0
   let done = 0
@@ -56,12 +69,16 @@ export function fulfillmentProgress(order: Pick<AdminOrder, 'items'>): { shipped
   return { shipped, done, total: order.items.length }
 }
 
-/** 先发货后收款（2026-11-24 用户决定）：只拦已取消 / 已完成订单和已有有效发货记录的行。 */
+/**
+ * 这一行现在能不能发货。不看付款状态。
+ * 订单已取消或已完成则不行；该行已经有一条未取消的发货记录也不行。
+ */
 export function canShipItem(order: Pick<AdminOrder, 'status'>, item: OrderItem): boolean {
   if (order.status === 'CANCELLED' || order.status === 'COMPLETED') return false
   return !hasActiveShipment(item)
 }
 
+/** 按行重算商品合计、安装费合计和应付。不改已付，也不改状态。 */
 export function recalcOrder(order: AdminOrder): void {
   order.goodsAmount = order.items.reduce((sum, item) => sum + item.lineAmount, 0)
   order.installAmount = order.items.reduce((sum, item) => {
@@ -84,6 +101,11 @@ export function installFeeState(order: Pick<AdminOrder, 'items' | 'installAmount
   return { kind: 'set', amount: order.installAmount }
 }
 
+/**
+ * 收款和发货分开决定状态。已取消、已完成保持不动。
+ * 没有待付且已付不少于应付：每一行都已完成则为已完成；已经发出或已派安装则为履约中；否则已付款。
+ * 还有待付且已付大于 0：部分付款。还没结清、又不满足上一种情况时是待付款，已经发货也不会改成履约中。
+ */
 export function syncOrderStatus(order: AdminOrder): void {
   const paid = paidAmount(order)
   order.paidAmount = paid
@@ -401,6 +423,7 @@ export function offlineAmountError(amount: number | undefined | null, remaining:
   return null
 }
 
+/** 余款标题。已经带「（余款）」时先去掉再补上，避免叠成两截。 */
 export function splitTitle(title: string): string {
   return `${title.replace(SPLIT_SUFFIX, '')}${SPLIT_SUFFIX}`
 }
@@ -428,6 +451,7 @@ export function confirmOffline(
   if (amountError) throw new ApiError(1001, amountError)
   const paidAt = req.paidAt?.trim() || now
   if (!PAID_AT_PATTERN.test(paidAt)) throw new ApiError(1001, '收款时间格式应为 yyyy-MM-dd HH:mm:ss')
+  // 格式补齐了年月日时分秒，按字符串比较就等于按时间先后比较。
   if (paidAt > now) throw new ApiError(1001, '收款时间不能晚于当前时间')
 
   const remaining = payment.amount - amount
@@ -506,6 +530,11 @@ function assertVoucher(method: DeliveryMethod, req: CreateShipmentRequest): void
   }
 }
 
+/**
+ * 按行发货，不要求已经付款。已取消、已完成，或该行已有未取消的发货记录时拒绝。
+ * 快递要承运商和单号；物流要公司，以及物流单号或车牌；上门送货要送货人和电话；
+ * 上门安装要师傅姓名；到店自提没有自提码时生成 ZT 加 id 末 6 位。
+ */
 export function addShipment(
   order: AdminOrder,
   req: CreateShipmentRequest,
@@ -606,6 +635,10 @@ function occupySchedule(
   if (!row.customerName && hint?.customerName) row.customerName = hint.customerName
 }
 
+/**
+ * 给上门安装行派师傅，不要求已经付款。换了人或时段会先释放旧档期再占新档期。
+ * 这一行还没有发货记录时，补一条状态为已发出的安装发货，所以派工之后就不能再点「发货」。
+ */
 export function assignInstall(
   order: AdminOrder,
   schedules: TechnicianSchedule[],

@@ -1,3 +1,9 @@
+/**
+ * Mock 的「后端」：按方法和路径分发，返回 {status, body}，body 外形与 ApiResponse 相同。
+ * http.ts 在 USE_MOCK 时调用 handle。不访问网络，不读 MySQL。
+ * 登录账号写在 mock/db.ts。除登录外都要未过期的 STAFF 令牌，否则业务码 2001 或 2003。
+ * 订单和报修的规则在 domain/order.ts、domain/repair.ts，这里只负责查找、保存和套上响应壳。
+ */
 import type {
   AdjustPriceRequest,
   ApiResponse,
@@ -60,6 +66,7 @@ function asRecord(body: unknown): Record<string, unknown> {
   return body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
 }
 
+/** 只解码 JWT，不校验签名。Mock 令牌的签名段是字面量 mock，真实后端不会承认它。 */
 function requireStaff(token: string): { id: number; name: string } {
   const payload = decodeJwtPayload(token)
   if (!payload || isExpired(payload, Date.now() / 1000)) {

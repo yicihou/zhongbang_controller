@@ -66,6 +66,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 订单列表。打开页面或改筛选时调用 GET /api/admin/orders。
+ * 默认走 Mock，数据在 mock/db.ts。inbox.revision 变化（来了新通知）会重新拉列表。
+ * 「模拟新订单」只在 Mock 下出现：写入内存库并广播一条通知，不请求 Java。
+ */
 import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { listOrders } from '@/api/admin'

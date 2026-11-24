@@ -4,6 +4,7 @@
 
 业务契约以仓库内文档为准：
 
+- `docs/05-代码导读（初学者版）.md`：目录、一次请求怎么走、在 IDEA 里打开并启动
 - `docs/02-技术架构与数据库设计.md`
 - `api/openapi.yaml` / `api/接口清单.md`
 - 小程序：`miniprogram/`

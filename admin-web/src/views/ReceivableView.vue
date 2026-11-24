@@ -59,6 +59,10 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 待收款。GET /api/admin/receivables，默认 Mock 把订单和报修里 status=WAIT 的应付单拼成一页。
+ * 行上可以直接打开线下收款弹窗，支持只收一部分。单号仍能点进订单或报修详情。
+ */
 import { onMounted, ref } from 'vue'
 import { listReceivables } from '@/api/admin'
 import type { Receivable } from '@/api/types'

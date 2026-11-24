@@ -1,3 +1,8 @@
+/**
+ * 接口失败。code 用后端那套业务码（2001 未登录、2003 无权限、3002 档期冲突等）。
+ * httpStatusFor 只在 Mock 里把业务码映射成 HTTP 状态，真实请求的 HTTP 状态由后端决定。
+ * 网络不通时 http.ts 使用 -1，这里会映射成 400。
+ */
 export class ApiError extends Error {
   readonly code: number
 

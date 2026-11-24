@@ -1,3 +1,4 @@
+/** 测 Mock 通知：时间再往前拨也不会自己造订单，只有模拟新订单并广播后才会响铃和加角标。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 

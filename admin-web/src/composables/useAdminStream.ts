@@ -1,3 +1,11 @@
+/**
+ * 顶栏的实时通知。Mock 只订阅 mock/bus，不会自己定时造订单。
+ * 新订单要订单列表上的「模拟新订单」按钮调用 simulateIncomingOrder 再 publish。
+ * 真实 API：用 fetch 读 /api/admin/stream（浏览器的 EventSource 不能加 Authorization 头），自己拆 SSE 帧。
+ * 连续失败 3 次后改为每 30 秒调用 GET /api/admin/notices?unread=1。
+ * 后端目前没有 stream 和 notices 控制器，关掉 Mock 后这里会一直重连再进入轮询，轮询同样 404。
+ * 「模拟断线」只在 Mock 下把状态改成轮询，不写入新订单。
+ */
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElNotification } from 'element-plus'

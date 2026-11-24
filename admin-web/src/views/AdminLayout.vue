@@ -73,6 +73,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 登录后的外壳：侧栏菜单、顶栏通知和实时连接状态。
+ * 子页面由路由填进 main。角标数字来自 inbox，连接由 useAdminStream 维护。
+ * 退出只清前端令牌，没有调用后端注销接口（后端也没有会话可注销）。
+ */
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Bell, Calendar, List, Odometer, Tools, Wallet } from '@element-plus/icons-vue'

@@ -1,3 +1,9 @@
+/**
+ * 顶栏通知和侧栏角标。数据来自 SSE（或 Mock 的内存广播），不是单独的未读接口轮询结果才有。
+ * 断线降级后，useAdminStream 会把轮询到的通知也送进 ingest。
+ * soundOn 记在 localStorage 键 zb_admin_mute，1 表示静音。
+ * linkMode 只反映连接状态文案，不自己去连服务器。
+ */
 import { defineStore } from 'pinia'
 import type { AdminNotice } from '@/api/types'
 
@@ -20,6 +26,10 @@ export const useInboxStore = defineStore('inbox', {
     },
   },
   actions: {
+    /**
+     * 收进一条通知。live 为 false 时只入列表（例如刚进页面拉历史），不增加角标。
+     * 返回 true 表示这是一条还没提示过的实时通知，调用方可以响铃和弹窗。
+     */
     ingest(notice: AdminNotice, live: boolean) {
       const known = this.notices.some((item) => item.id === notice.id)
       if (!known) this.notices.unshift(notice)

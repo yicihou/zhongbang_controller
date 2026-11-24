@@ -1,3 +1,4 @@
+/** 测报修报价、派工和线下收款的状态变化。 */
 import { describe, expect, it } from 'vitest'
 import type { RepairTicket, Technician } from '../src/api/types'
 import { ApiError } from '../src/domain/errors'

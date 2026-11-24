@@ -1,3 +1,8 @@
+/**
+ * 管理端入口。浏览器打开页面后先执行这里，再画出 App.vue 里的路由出口。
+ * Pinia 管登录态和通知；Vue Router 管页面地址；Element Plus 用中文文案。
+ * 不在这里请求接口。默认数据来自 Mock，见 config.ts 的 USE_MOCK。
+ */
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'

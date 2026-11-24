@@ -1,3 +1,4 @@
+/** 测分和元的换算与千分位显示，包括负数和 0.1+0.2。 */
 import { describe, expect, it } from 'vitest'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '../src/domain/money'
 

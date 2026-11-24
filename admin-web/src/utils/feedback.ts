@@ -1,3 +1,7 @@
+/**
+ * 页面上包一层请求：成功时可弹一句提示；失败弹错误信息。
+ * 业务码 2001 会退出登录并跳到 /login。其他错误留在当前页。
+ */
 import { ElMessage } from 'element-plus'
 import { ApiError } from '@/domain/errors'
 import { router } from '@/router'

@@ -75,6 +75,12 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 订单详情、报修详情、待收款页共用的线下收款弹窗。
+ * 打开时金额默认等于这一笔剩余应付（页面上是元），方式默认银行转账，时间默认现在。
+ * 金额可以改小：小于剩余时，确认后本笔按实收记已收，差额由 domain/order.ts 拆成新的待付。
+ * 凭证和备注可以空着。这里不调起微信支付。提交走 POST /api/admin/payments/{id}/offline-confirm，默认由 Mock 处理。
+ */
 import { computed, ref, watch } from 'vue'
 import { offlineConfirm } from '@/api/admin'
 import type { OfflinePayMethod, Payment } from '@/api/types'

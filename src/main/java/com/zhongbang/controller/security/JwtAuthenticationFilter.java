@@ -13,6 +13,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * 在 Spring Security 的用户名密码过滤器之前执行：看请求头里有没有 {@code Authorization: Bearer} 加令牌。
+ *
+ * <p>有令牌且能解析，就把 {@code LoginUser} 放进当前请求的安全上下文，后面的 {@code hasRole} 才能读到角色。
+ * 没有头、或令牌解析失败，就清空上下文并继续往下走，不在这里直接返回 401。
+ * 该不该登录由 {@code SecurityConfig} 的路径规则决定：公开接口照常进入控制器，受保护接口随后被入口点拒绝。
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -23,6 +30,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
+    /**
+     * 只处理以 {@code Bearer } 开头的头。令牌前后空白会去掉。
+     * 解析抛出的任何异常都被吃掉，避免一个坏令牌把公开接口也打成 500。
+     */
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,

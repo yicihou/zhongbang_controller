@@ -5,6 +5,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Web 层的少量自定义。目前只做跨域。
+ *
+ * <p>{@code @EnableConfigurationProperties} 让 {@code zhongbang.*} 绑定到 {@code ZhongbangProperties}。
+ * 不写这行，yml 里的 cors 列表不会进这个类。
+ */
 @Configuration
 @EnableConfigurationProperties(ZhongbangProperties.class)
 public class WebConfig implements WebMvcConfigurer {
@@ -15,6 +21,12 @@ public class WebConfig implements WebMvcConfigurer {
         this.properties = properties;
     }
 
+    /**
+     * 只对 {@code /api/**} 生效。允许的来源来自 {@code zhongbang.cors.allowed-origins}。
+     * 列表为空就什么都不注册（同源或走开发代理时不需要跨域）。
+     * 允许带 Cookie / Authorization（allowCredentials），预检结果缓存 3600 秒。
+     * 默认来源是 localhost:3000；管理端 Vite 在 5173，README 建议用代理，避免改这里。
+     */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         var origins = properties.getCors().getAllowedOrigins();

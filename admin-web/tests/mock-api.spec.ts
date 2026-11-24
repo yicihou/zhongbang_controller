@@ -1,3 +1,4 @@
+/** 测 Mock 路由：没令牌查订单是 2001，用 admin 登录后能拿到从 1 开始的分页。 */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { paths } from '../src/api/paths'
 import type { AdminOrder, PageResult, Payment, Receivable, StaffLoginResponse } from '../src/api/types'

@@ -6,6 +6,13 @@ import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDateTime;
 
+/**
+ * 客户表一行。登录时按 openid 查找或插入。
+ *
+ * <p>{@code @TableName} 指定表名。{@code @TableId(type = ASSIGN_ID)} 表示主键不靠数据库自增，
+ * 插入前由 MyBatis-Plus 生成雪花 id（一个很长的 long）。
+ * 全局配置把名为 deleted 的字段当作逻辑删除：0 未删，1 已删。本类有这个字段。
+ */
 @TableName("customer")
 public class Customer {
 

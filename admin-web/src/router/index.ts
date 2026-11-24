@@ -1,3 +1,9 @@
+/**
+ * 页面地址。除 /login 外都套在 AdminLayout 里（侧栏 + 顶栏）。
+ * 进入业务页之前看 session 里的 JWT：解出来不是未过期的 STAFF，就清掉令牌并回到登录页。
+ * 这里只看令牌内容，不请求后端。真实模式下令牌仍要后端验签，前端这一步挡不住伪造后的「看起来像 STAFF」的字符串进入页面，
+ * 但接口会失败。Mock 自己签的令牌没有真实签名，见 domain/jwt.ts。
+ */
 import { createRouter, createWebHistory } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import AdminLayout from '@/views/AdminLayout.vue'
@@ -30,6 +36,7 @@ export const router = createRouter({
   ],
 })
 
+/** 未登录访问业务页会带上 redirect，登录成功后再跳回去。已登录再打开 /login 则直接进工作台。 */
 router.beforeEach((to) => {
   const session = useSessionStore()
   if (to.path !== '/login' && !session.isStaff) {

@@ -15,6 +15,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 设备档案规则。控制器只负责 HTTP，查谁的设备、能不能绑，在这里决定。
+ * 通过 {@code UserContext} 读当前客户 id，不信任请求体里的客户 id（请求体里也没有）。
+ */
 @Service
 public class AssetService {
 
@@ -24,6 +28,7 @@ public class AssetService {
         this.customerAssetMapper = customerAssetMapper;
     }
 
+    /** 只读事务：按客户 id 查询并转成响应对象。 */
     @Transactional(readOnly = true)
     public List<AssetResponse> listMine() {
         Long customerId = UserContext.require().getUserId();
@@ -36,8 +41,9 @@ public class AssetService {
     }
 
     /**
-     * Skeleton bind: creates a placeholder archive for the SN if missing.
-     * Real flow should look up factory SN / order history first.
+     * 占位绑定：不查出厂序列号，也不查订单。
+     * 已有且属于当前客户则直接返回；属于别人则抛业务码 4090；没有则插入一行假档案
+     * （机型「待完善机型」，购买日今天，保修两年）。sn 先 trim。
      */
     @Transactional
     public AssetResponse bind(AssetBindRequest request) {

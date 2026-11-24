@@ -1,3 +1,8 @@
+/**
+ * 报修规则，同样只给 Mock 用，后端 aftersale 包是空的。
+ * 报价：已取消、已完成、维修中不能再报。保内或合计为 0 时关掉待付并变成可派工（CONFIRMED）。
+ * 保外则生成或更新一笔 type=REPAIR 的待付。派工只允许已付款、可派工或维修中，并占用师傅档期。
+ */
 import type {
   OfflineConfirmRequest,
   RepairAssignRequest,

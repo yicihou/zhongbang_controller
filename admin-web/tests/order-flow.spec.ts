@@ -1,3 +1,4 @@
+/** 测 domain/order.ts：未付款可发货、部分收款拆成余款、派工、取消。不经过 HTTP。 */
 import { describe, expect, it } from 'vitest'
 import type { AdminOrder, Technician, TechnicianSchedule } from '../src/api/types'
 import { ApiError } from '../src/domain/errors'

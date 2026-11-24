@@ -1,3 +1,9 @@
+/**
+ * 前端只把 JWT 中间一段解码出来看 type、name、exp，不验证签名。
+ * 真正验签在后端 JwtService。Mock 签发的第三段是固定字符串 mock，不能拿去访问关掉 Mock 之后的 Java。
+ * isStaffPayload 接受 type=STAFF，或 role 为 ROLE_STAFF / STAFF。过期（exp 小于等于当前秒）视为不是员工。
+ * 没有 exp 的令牌不会因过期被拒绝。
+ */
 export interface JwtPayload {
   sub?: string
   type?: string
