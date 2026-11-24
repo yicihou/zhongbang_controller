@@ -1,81 +1,63 @@
 # Zhongbang Controller
 
-缝纫机经销商小程序后端骨架（Spring Boot 3 + Java 21）。
+缝纫机经销商小程序 / 管理端后端（Spring Boot 3 + Java 21）。
 
-业务契约以仓库内文档为准：
+业务契约：
 
-- `docs/02-技术架构与数据库设计.md`
-- `api/openapi.yaml` / `api/接口清单.md`
-- 小程序：`miniprogram/`
+- `docs/03-需求澄清与决策.md`（D1–D11）
+- `docs/04-功能实现设计.md`（P1a/P1b/P1c）
+- `api/openapi.yaml`
 
-当前 Java 代码只落实架构评审中的 **H1–H6** 骨架，业务模块多数仍是空包，便于你继续扩展。
+## 当前阶段：P1a
 
-## 已对齐的能力（H1–H6）
+已落地：
 
-| 项 | 说明 |
+| 能力 | 说明 |
 | --- | --- |
-| H1 | MyBatis-Plus；`module/*` + `adapter/*` + `security` + `job`；`/api/assets` 替换原 device 示例 |
-| H2 | Spring Security + JWT；角色 `CUSTOMER` / `STAFF` / `TECHNICIAN` |
-| H3 | Flyway `db/migration`；不再使用 JPA/`ddl-auto` |
-| H4 | 响应体 `{code,msg,data,traceId}`；分页 `page` 从 1、`list`；路径对齐 OpenAPI |
-| H5 | Redis/RabbitMQ 接入位 + 本地内存/NoOp 回退；`docker/docker-compose.yml` |
-| H6 | 默认关闭 H2 Console；Actuator 仅暴露 `health`（含 probes），其余拒绝 |
+| Flyway `V2` | 购物车、订单行、发货单、报修票/行、排班、支付阶段字段、管理端通知、演示 SKU |
+| 购物车 | `GET/POST /api/cart`、`PUT/DELETE /api/cart/items/{id}` |
+| 多行下单 | `POST /api/orders`：标价合计、运费默认 0、一笔 `FULL/WAIT/OFFLINE`、SSE `ORDER_CREATED` |
+| 管理端订单 | `GET /api/admin/orders`、详情；`POST /api/auth/staff-login`（dev stub） |
+| 实时推送 | `GET /api/admin/stream`（SSE）+ `GET /api/admin/notices` |
+| 支付渠道 | `PaymentChannelHandler`：`OFFLINE` 已实现登记；`WXPAY` stub |
+| 状态机 | `OrderStateMachine` / `RepairStateMachine` / `PaymentStateMachine` |
+
+P1b/P1c 接口已挂 Controller，业务多为 TODO（改价、运费、定金尾款、发货、派工、报修闭环等）。
 
 ## 技术栈
 
 - Spring Boot 3.4 / Java 21 / Maven
-- MyBatis-Plus + Flyway
-- Spring Security + JJWT
-- Redis / RabbitMQ（可选，默认关闭）
+- MyBatis-Plus + Flyway（无 JPA ddl-auto）
+- Spring Security + JWT（`CUSTOMER` / `STAFF` / `TECHNICIAN`）
+- Redis / RabbitMQ 可选（默认内存回退）
 
-## 目录（后端）
-
-```text
-src/main/java/com/zhongbang/controller
-├── common/                 统一响应、错误码、TraceId
-├── config/                 Web / MyBatis / 基础设施开关
-├── security/               JWT、三角色、过滤器
-├── support/                幂等、分布式锁、消息发布（Redis/内存）
-├── adapter/                wx / oss / map 外部能力空壳
-├── module/                 auth / customer / product / ... 领域包
-└── job/                    定时任务占位
-```
-
-## 本地启动（无需 Redis/MQ）
+## 本地启动
 
 ```bash
 mvn spring-boot:run
 ```
 
-默认 `dev`：H2 内存库 + Flyway；`zhongbang.redis.enabled=false`、`zhongbang.rabbitmq.enabled=false`。
+默认 `dev`：H2 + Flyway；端口 `8080`。
 
-端口：`8080`
-
-### 常用接口
-
-| Method | Path | 鉴权 |
-| --- | --- | --- |
-| POST | `/api/auth/login` | 公开（本地 stub：`code` → openid） |
-| GET | `/api/products` | 公开 |
-| GET | `/api/assets` | CUSTOMER |
-| POST | `/api/assets/bind` | CUSTOMER |
-| GET | `/api/system/ping` | 公开 |
-| GET | `/actuator/health` | 公开 |
-
-登录示例：
+### P1a 冒烟
 
 ```bash
+# 客户登录
 curl -s localhost:8080/api/auth/login -H 'Content-Type: application/json' -d '{"code":"demo"}'
+
+# 加购 + 下单（Bearer 换成客户 token）
+curl -s localhost:8080/api/cart -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"skuId":1011,"quantity":1,"deliveryMethod":"EXPRESS"}'
+
+curl -s localhost:8080/api/orders -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"requestId":"req-1","items":[{"skuId":1011,"quantity":1,"deliveryMethod":"EXPRESS"}]}'
+
+# 管理端
+curl -s localhost:8080/api/auth/staff-login -H 'Content-Type: application/json' -d '{"username":"admin"}'
+curl -s 'localhost:8080/api/admin/orders' -H "Authorization: Bearer $STAFF"
 ```
 
-## 启用 Redis / RabbitMQ
-
-```bash
-docker compose -f docker/docker-compose.yml up -d
-SPRING_PROFILES_ACTIVE=infra mvn spring-boot:run
-```
-
-`infra` profile 会连 Compose 中的 MySQL/Redis/RabbitMQ，并切换到 Redis/Rabbit 实现（幂等、锁、消息）。
+演示 SKU：`1011`（整机 328000 分）、`2011`（零件 8800 分）。
 
 ## 测试
 
@@ -83,9 +65,23 @@ SPRING_PROFILES_ACTIVE=infra mvn spring-boot:run
 mvn test
 ```
 
-## 后续扩展建议
+覆盖：安全骨架、`Order`/`Repair` 状态机、P1a 购物车→下单→SSE 通知→管理端列表。
 
-1. 按 `api/接口清单.md` 在空模块中补 Controller/Service/Mapper。
-2. 将 `WxAuthAdapter` 换成 WxJava；补齐 `/api/auth/phone`。
-3. 订单状态机、支付回调验签、延迟关单消费者落在 `module/order`、`module/payment`、`job`。
-4. 中优先级项（SpringDoc、CI、更完整异常映射等）见项目 Agent Store 中的架构评审文档。
+## 目录
+
+```text
+src/main/java/com/zhongbang/controller
+├── common/enums + api + exception
+├── module/order|payment|aftersale|notify|admin|product|...
+├── security/
+└── support/  幂等、锁、消息
+src/main/resources/db/migration
+├── V1__init.sql
+└── V2__cart_fulfillment_repair_payment.sql
+```
+
+## 后续（按设计分期）
+
+1. **P1b**：改价、手加运费、定金/尾款拆分、线下收款闭环、五行发货、安装派工  
+2. **P1c**：报修一单多行 + 外购 + 报价 + 维修费支付  
+3. **P2**：微信支付实付、管理端小程序、企微/订阅推送  

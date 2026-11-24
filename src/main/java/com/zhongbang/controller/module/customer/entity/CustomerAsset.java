@@ -21,6 +21,8 @@ public class CustomerAsset {
     private LocalDate warrantyEnd;
     private Long installOrder;
     private LocalDateTime lastServiceAt;
+    private String source;
+    private String brand;
     private LocalDateTime createdAt;
 
     public Long getId() { return id; }
@@ -43,6 +45,10 @@ public class CustomerAsset {
     public void setInstallOrder(Long installOrder) { this.installOrder = installOrder; }
     public LocalDateTime getLastServiceAt() { return lastServiceAt; }
     public void setLastServiceAt(LocalDateTime lastServiceAt) { this.lastServiceAt = lastServiceAt; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
+    public String getBrand() { return brand; }
+    public void setBrand(String brand) { this.brand = brand; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

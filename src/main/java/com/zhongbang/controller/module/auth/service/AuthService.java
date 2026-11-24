@@ -3,9 +3,15 @@ package com.zhongbang.controller.module.auth.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zhongbang.controller.adapter.wx.WxAuthAdapter;
 import com.zhongbang.controller.module.auth.dto.LoginRequest;
+import com.zhongbang.controller.module.auth.dto.StaffLoginRequest;
+import com.zhongbang.controller.module.auth.dto.StaffLoginResponse;
 import com.zhongbang.controller.module.auth.dto.LoginResponse;
 import com.zhongbang.controller.module.customer.entity.Customer;
+import com.zhongbang.controller.common.exception.BusinessException;
+import com.zhongbang.controller.common.exception.ErrorCode;
 import com.zhongbang.controller.module.customer.mapper.CustomerMapper;
+import com.zhongbang.controller.module.user.entity.SysUser;
+import com.zhongbang.controller.module.user.mapper.SysUserMapper;
 import com.zhongbang.controller.security.JwtService;
 import com.zhongbang.controller.security.LoginUser;
 import com.zhongbang.controller.security.UserType;
@@ -19,11 +25,13 @@ public class AuthService {
 
     private final WxAuthAdapter wxAuthAdapter;
     private final CustomerMapper customerMapper;
+    private final SysUserMapper sysUserMapper;
     private final JwtService jwtService;
 
-    public AuthService(WxAuthAdapter wxAuthAdapter, CustomerMapper customerMapper, JwtService jwtService) {
+    public AuthService(WxAuthAdapter wxAuthAdapter, CustomerMapper customerMapper, SysUserMapper sysUserMapper, JwtService jwtService) {
         this.wxAuthAdapter = wxAuthAdapter;
         this.customerMapper = customerMapper;
+        this.sysUserMapper = sysUserMapper;
         this.jwtService = jwtService;
     }
 
@@ -62,6 +70,27 @@ public class AuthService {
                         levelText(customer.getLevel())
                 )
         );
+    }
+
+
+    /** Dev/staff stub: issues STAFF JWT for seeded sys_user (no password check yet). */
+    public StaffLoginResponse staffLogin(StaffLoginRequest request) {
+        SysUser user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, request.username())
+                .eq(SysUser::getDeleted, 0)
+                .last("LIMIT 1"));
+        if (user == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "管理员账号不存在");
+        }
+        UserType type = UserType.STAFF;
+        try {
+            type = UserType.valueOf(user.getRole());
+        } catch (Exception ignored) {
+            // keep STAFF
+        }
+        LoginUser loginUser = new LoginUser(user.getId(), type, user.getUsername());
+        String token = jwtService.issue(loginUser);
+        return new StaffLoginResponse(token, jwtService.expiresSeconds(), user.getId(), user.getUsername(), type.name());
     }
 
     private static String maskMobile(String mobile) {
