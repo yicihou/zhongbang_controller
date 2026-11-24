@@ -16,7 +16,7 @@
 
 | 项 | 说明 |
 | --- | --- |
-| H1 | MyBatis-Plus；`module/*` + `adapter/*` + `security` + `job`；`/api/assets` 替换原 device 示例 |
+| H1 | MyBatis-Plus；`controller` / `service` / `mapper` / `pojo` 按业务再分，另有 `adapter`、`security`、`job`；`/api/assets` 替换原 device 示例 |
 | H2 | Spring Security + JWT；角色 `CUSTOMER` / `STAFF` / `TECHNICIAN` |
 | H3 | Flyway `db/migration`；不再使用 JPA/`ddl-auto` |
 | H4 | 响应体 `{code,msg,data,traceId}`；分页 `page` 从 1、`list`；路径对齐 OpenAPI |
@@ -34,14 +34,19 @@
 
 ```text
 src/main/java/com/zhongbang/controller
+├── controller/             HTTP 入口，按业务再分（auth / customer / product / system）
+├── service/                业务规则（auth、customer 已有类；实现可放 <业务>/impl）
+├── mapper/                 表访问，@MapperScan 扫这里
+├── pojo/                   entity / dto / vo，按业务再分
 ├── common/                 统一响应、错误码、TraceId
 ├── config/                 Web / MyBatis / 基础设施开关
 ├── security/               JWT、三角色、过滤器
 ├── support/                幂等、分布式锁、消息发布（Redis/内存）
 ├── adapter/                wx / oss / map 外部能力空壳
-├── module/                 auth / customer / product / ... 领域包
 └── job/                    定时任务占位
 ```
+
+请求路径：`controller/<业务>` 收 HTTP → `service/<业务>` 写规则 → `mapper/<业务>` 访问数据库。数据对象在 `pojo/<业务>`。订单、支付、工单、售后、师傅、通知、报表这 7 个业务在四层下都只有 `package-info.java`。
 
 ## 本地启动（无需 Redis/MQ）
 
@@ -87,7 +92,7 @@ mvn test
 
 ## 后续扩展建议
 
-1. 按 `api/接口清单.md` 在空模块中补 Controller/Service/Mapper。
+1. 按 `api/接口清单.md` 在对应业务子包补 Controller、Service、Mapper 和 pojo。
 2. 将 `WxAuthAdapter` 换成 WxJava；补齐 `/api/auth/phone`。
-3. 订单状态机、支付回调验签、延迟关单消费者落在 `module/order`、`module/payment`、`job`。
+3. 订单状态机、支付回调验签落在 `controller/order`、`service/order`、`mapper/order`、`pojo/order` 与 payment 的同名四层；延迟关单消费者仍在 `job`。
 4. 中优先级项（SpringDoc、CI、更完整异常映射等）见项目 Agent Store 中的架构评审文档。

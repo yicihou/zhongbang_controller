@@ -9,11 +9,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *
  * <p>{@code @SpringBootApplication} 表示：这是启动类，并自动扫描本包及子包里的组件，
  * 同时按 classpath 上的依赖打开 Web、数据源等自动配置。
- * {@code @MapperScan} 让 MyBatis 把 {@code module} 下标了 {@code @Mapper} 的接口变成可用的数据库访问对象。
+ * {@code @MapperScan} 扫描 {@code mapper} 包及其子包（例如 {@code mapper.customer}），
+ * 把标了 {@code @Mapper} 的接口变成可用的数据库访问对象。
  * 不写这行的话，{@code CustomerMapper} 注入时会找不到 Bean。
  */
 @SpringBootApplication
-@MapperScan("com.zhongbang.controller.module")
+@MapperScan("com.zhongbang.controller.mapper")
 public class ZhongbangControllerApplication {
 
     public static void main(String[] args) {
