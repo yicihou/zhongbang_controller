@@ -108,11 +108,13 @@
             <template #default="{ row }">{{ paymentStatusText(row.status) }}</template>
           </el-table-column>
           <el-table-column label="渠道" width="90">
-            <template #default="{ row }">{{ row.channel === 'OFFLINE' ? '线下' : '微信' }}</template>
+            <template #default="{ row }">
+              {{ row.channel === 'OFFLINE' ? offlineMethodText(row.offlineMethod) || '线下' : '微信' }}
+            </template>
           </el-table-column>
           <el-table-column label="凭证 / 时间" min-width="220">
             <template #default="{ row }">
-              <div>{{ (row.voucherUrls || []).join('；') || '—' }}</div>
+              <div>{{ [...(row.voucherUrls || []), row.remark].filter(Boolean).join('；') || '—' }}</div>
               <div class="muted">{{ row.paidAt || '' }} {{ row.operatorName || '' }}</div>
             </template>
           </el-table-column>
@@ -238,21 +240,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="offlineVisible" title="登记线下收款" width="480px">
-      <p class="muted">一期只登记线下到账。微信支付在二期打开。</p>
-      <el-form label-width="80px">
-        <el-form-item label="凭证">
-          <el-input v-model="voucherText" type="textarea" :rows="3" placeholder="转账单号或图片 URL，一行一条" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="offlineRemark" placeholder="例如：对公账户已到账" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="offlineVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitOffline">确认收款</el-button>
-      </template>
-    </el-dialog>
+    <OfflineConfirmDialog v-model="offlineVisible" :payment="offlineTarget" @done="load" />
 
     <el-dialog v-model="shipVisible" title="按行发货" width="520px">
       <p v-if="shipItem">{{ shipItem.productName }} · {{ DELIVERY_LABEL[shipItem.deliveryMethod] }}</p>
@@ -339,11 +327,11 @@ import {
   createShipment,
   getOrder,
   listTechnicians,
-  offlineConfirm,
   setOrderFreight,
   updatePayment,
 } from '@/api/admin'
 import type { AdminOrder, OrderItem, Payment, PaymentType, Technician } from '@/api/types'
+import OfflineConfirmDialog from '@/components/OfflineConfirmDialog.vue'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
 import { canShipItem, fulfillmentProgress, installFeeState } from '@/domain/order'
 import {
@@ -352,6 +340,7 @@ import {
   PAYMENT_TYPE_LABEL,
   PRICE_FIELD_LABEL,
   deliveryText,
+  offlineMethodText,
   orderTagType,
   paymentStatusText,
   paymentTypeText,
@@ -401,8 +390,6 @@ const patchTitle = ref('')
 const patchYuan = ref(0)
 const offlineVisible = ref(false)
 const offlineTarget = ref<Payment | null>(null)
-const voucherText = ref('')
-const offlineRemark = ref('')
 const shipVisible = ref(false)
 const shipItem = ref<OrderItem | null>(null)
 const shipForm = reactive({
@@ -488,8 +475,6 @@ function openPatch(payment: Payment) {
 
 function openOffline(payment: Payment) {
   offlineTarget.value = payment
-  voucherText.value = ''
-  offlineRemark.value = ''
   offlineVisible.value = true
 }
 
@@ -594,16 +579,6 @@ async function submitPatch() {
     await load()
   }, '已修改应付')
   if (ok) patchVisible.value = false
-}
-
-async function submitOffline() {
-  if (!offlineTarget.value) return
-  const vouchers = voucherText.value.split('\n').map((line) => line.trim()).filter(Boolean)
-  const ok = await run(async () => {
-    await offlineConfirm(offlineTarget.value!.id, { voucherUrls: vouchers, remark: offlineRemark.value })
-    await load()
-  }, '已登记收款')
-  if (ok) offlineVisible.value = false
 }
 
 async function submitShip() {

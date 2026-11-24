@@ -295,11 +295,11 @@ function dispatch(method: string, path: string, query: Record<string, string>, b
     if (action === 'offline-confirm' && method === 'POST') {
       const req = body as OfflineConfirmRequest
       if (order) {
-        const next = offlineConfirmOrder(order, paymentId, req, operator.name, operator.id, now)
+        const next = offlineConfirmOrder(order, paymentId, req, operator, now, ids())
         saveOrder(order.id, next)
         return next.payments.find((payment) => payment.id === paymentId)
       }
-      const next = offlineConfirmRepair(ticket!, paymentId, req, operator.name, operator.id, now)
+      const next = offlineConfirmRepair(ticket!, paymentId, req, operator, now, ids())
       saveRepair(ticket!.id, next)
       return next.payments.find((payment) => payment.id === paymentId)
     }

@@ -1,5 +1,6 @@
 import type {
   DeliveryMethod,
+  OfflinePayMethod,
   OrderStatus,
   PaymentStatus,
   PaymentType,
@@ -48,6 +49,20 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   SUCCESS: '已收',
   CLOSED: '已关闭',
   REFUNDED: '已退款',
+}
+
+export const OFFLINE_METHOD_LABEL: Record<OfflinePayMethod, string> = {
+  BANK_TRANSFER: '银行转账',
+  WECHAT_TRANSFER: '微信转账',
+  ALIPAY: '支付宝',
+  CASH: '现金',
+  OTHER: '其他',
+}
+
+export const OFFLINE_METHOD_OPTIONS = Object.keys(OFFLINE_METHOD_LABEL) as OfflinePayMethod[]
+
+export function offlineMethodText(method: OfflinePayMethod | undefined): string {
+  return method ? OFFLINE_METHOD_LABEL[method] : ''
 }
 
 export const SHIPMENT_STATUS_LABEL: Record<ShipmentStatus, string> = {

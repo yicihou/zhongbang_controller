@@ -18,6 +18,8 @@ import type {
   TechnicianSchedule,
 } from '@/api/types'
 import { ApiError } from './errors'
+import { OFFLINE_METHOD_LABEL } from './labels'
+import { formatYuan } from './money'
 
 export interface IdSource {
   next(): number
@@ -387,40 +389,93 @@ export function patchOrderPayment(
   return next
 }
 
+const PAID_AT_PATTERN = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
+const SPLIT_SUFFIX = '（余款）'
+
+/** 本次线下收款金额（分）校验，弹窗与 mock 共用；通过返回 null。 */
+export function offlineAmountError(amount: number | undefined | null, remaining: number): string | null {
+  if (amount == null || !Number.isFinite(amount)) return '请填写本次收款金额'
+  if (!Number.isInteger(amount)) return '收款金额须精确到分'
+  if (amount <= 0) return '本次收款金额须大于 0'
+  if (amount > remaining) return `本次收款金额不能超过剩余 ¥${formatYuan(remaining)}`
+  return null
+}
+
+export function splitTitle(title: string): string {
+  return `${title.replace(SPLIT_SUFFIX, '')}${SPLIT_SUFFIX}`
+}
+
+/**
+ * 登记一笔线下到账。amount 小于应付单金额时，该笔按实收金额记为已收，
+ * 剩余部分拆成一笔新的 WAIT（同类型，标题加「余款」），保证每条 SUCCESS 对应一次真实到账，
+ * 且未关闭应付合计仍等于订单应付。
+ */
 export function confirmOffline(
-  payment: Payment,
+  payments: Payment[],
+  paymentId: number,
+  bizNo: string,
   req: OfflineConfirmRequest,
-  operator: string,
-  operatorId: number,
+  operator: { name: string; id: number },
   now: string,
-): void {
+  ids: IdSource,
+): Payment {
+  const payment = payments.find((p) => p.id === paymentId)
+  if (!payment) throw new ApiError(4040, '应付单不存在')
   if (payment.status !== 'WAIT') throw new ApiError(3003, '该应付单不是待付状态')
-  const vouchers = (req.voucherUrls ?? []).map((item) => item.trim()).filter(Boolean)
+  if (!req.method || !(req.method in OFFLINE_METHOD_LABEL)) throw new ApiError(1001, '请选择收款方式')
+  const amount = req.amount ?? payment.amount
+  const amountError = offlineAmountError(amount, payment.amount)
+  if (amountError) throw new ApiError(1001, amountError)
+  const paidAt = req.paidAt?.trim() || now
+  if (!PAID_AT_PATTERN.test(paidAt)) throw new ApiError(1001, '收款时间格式应为 yyyy-MM-dd HH:mm:ss')
+  if (paidAt > now) throw new ApiError(1001, '收款时间不能晚于当前时间')
+
+  const remaining = payment.amount - amount
+  if (remaining > 0) {
+    const sortNo = payments.reduce((max, p) => Math.max(max, p.sortNo), 0) + 1
+    const rest = buildPayment({
+      ids,
+      bizType: payment.bizType,
+      bizId: payment.bizId,
+      bizNo,
+      draft: {
+        type: payment.type,
+        title: splitTitle(payment.title),
+        amount: remaining,
+        channel: 'OFFLINE',
+      },
+      sortNo,
+      now,
+    })
+    rest.splitFromId = payment.id
+    payments.push(rest)
+  }
+
   const remark = req.remark?.trim() ?? ''
-  if (vouchers.length === 0 && !remark) throw new ApiError(1001, '请填写收款凭证')
+  payment.amount = amount
   payment.status = 'SUCCESS'
   payment.channel = 'OFFLINE'
-  payment.voucherUrls = vouchers.length > 0 ? vouchers : [remark]
+  payment.offlineMethod = req.method
+  payment.voucherUrls = (req.voucherUrls ?? []).map((item) => item.trim()).filter(Boolean)
   payment.remark = remark || undefined
-  payment.paidAt = req.paidAt?.trim() || now
-  payment.operatorId = operatorId
-  payment.operatorName = operator
+  payment.paidAt = paidAt
+  payment.operatorId = operator.id
+  payment.operatorName = operator.name
   payment.updatedAt = now
+  return payment
 }
 
 export function offlineConfirmOrder(
   order: AdminOrder,
   paymentId: number,
   req: OfflineConfirmRequest,
-  operator: string,
-  operatorId: number,
+  operator: { name: string; id: number },
   now: string,
+  ids: IdSource,
 ): AdminOrder {
   if (order.status === 'CANCELLED') throw new ApiError(3003, '已取消订单不能登记收款')
   const next = cloneData(order)
-  const payment = next.payments.find((p) => p.id === paymentId)
-  if (!payment) throw new ApiError(4040, '应付单不存在')
-  confirmOffline(payment, req, operator, operatorId, now)
+  confirmOffline(next.payments, paymentId, next.orderNo, req, operator, now, ids)
   next.updatedAt = now
   syncOrderStatus(next)
   return next

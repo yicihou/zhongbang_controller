@@ -76,7 +76,7 @@ VITE_API_BASE=
 | 手加运费（绝对值，默认 0） | `POST /api/admin/orders/{id}/freight` | `{ freightAmount }` |
 | 手拆定金+尾款，或追加一笔 | `POST /api/admin/orders/{id}/payments` | `{ mode: "SPLIT" \| "APPEND", payments: [{ type, title, amount }] }` |
 | 改未付金额 / 标题 | `PATCH /api/admin/payments/{id}` | `{ amount?, title? }` |
-| 线下收款 | `POST /api/admin/payments/{id}/offline-confirm` | `{ voucherUrls?, remark?, paidAt? }` |
+| 线下收款（可部分收款） | `POST /api/admin/payments/{id}/offline-confirm` | `{ amount, method, paidAt, voucherUrls?, remark? }` |
 | 按行发货 | `POST /api/admin/orders/{id}/shipments` | `{ orderItemId, method?, carrier?, trackingNo?, logisticsCompany?, freightNo?, vehicleNo?, courierName?, courierMobile?, appointAt?, pickupCode?, remark? }` |
 | 上门安装派师傅、定时间 | `POST /api/admin/orders/{id}/assign` | `{ orderItemId, technicianId, installDate, installSlot, reason? }` |
 | 取消（无成功付款、无发货记录） | `POST /api/admin/orders/{id}/cancel` | `{ reason }` |
@@ -84,6 +84,12 @@ VITE_API_BASE=
 发货凭证按行上的方式校验：快递要承运商和快递单号；物流要公司，以及物流单号或车牌；上门送货要送货人和电话；到店自提可生成自提码。安装费只能加在 `ON_SITE_INSTALL` 行上（D4）。上门安装行的 `installFee` 为 `null` 表示管理员还没定价（D3），页面显示「待定」；`0` 表示明确免安装费。改价请求里不带 `installFee` 时保持原值。
 
 允许先发货后收款（2026-11-24 用户决定，docs/03 D12）。未付清（`PENDING_PAYMENT` / `PARTIALLY_PAID`）的订单也能按行发货和派安装师傅，收款仍在「应付与收款」里逐笔登记。订单状态只要还有待付就保持待付款 / 部分付款，详情页另外显示「已发货 n/m 行」。结清后，有行已发出就是 `FULFILLING`，所有行完成就是 `COMPLETED`。已取消、已完成的订单不能发货或派工；同一行已有未取消的发货记录时不能重复发货；已有发货或派工记录的订单不能直接取消。
+
+登记线下收款（订单详情、报修详情、待收款页共用一个弹窗）要填本次收款金额、收款方式和收款时间；凭证和备注选填。
+- **金额**：默认是该笔应付的剩余金额，可以改小，但必须大于 0，且不能超过剩余。
+- **收款方式**：`BANK_TRANSFER` 银行转账、`WECHAT_TRANSFER` 微信转账、`ALIPAY` 支付宝、`CASH` 现金、`OTHER` 其他。
+- **收款时间**：格式 `yyyy-MM-dd HH:mm:ss`，不能晚于当前时间。
+- **部分收款**：这笔应付按实收金额记为已收；剩余部分自动生成一笔新的待付，同类型，标题加「（余款）」，`splitFromId` 指向原笔。订单进入部分付款，付清后进入已付款，有发货时进入履约中。报修单在付清前保持待付款。
 
 报修：
 
