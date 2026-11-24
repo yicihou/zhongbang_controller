@@ -5,11 +5,15 @@ import {
   addShipment,
   adjustPrice,
   assignInstall,
+  canShipItem,
   cancelOrder,
   createPayments,
+  fulfillmentProgress,
   installFeeState,
+  offlineAmountError,
   offlineConfirmOrder,
   setFreight,
+  syncOrderStatus,
   type IdSource,
 } from '../src/domain/order'
 
@@ -162,36 +166,114 @@ describe('order admin flow', () => {
     const depositPaid = offlineConfirmOrder(
       split,
       split.payments.find((item) => item.type === 'DEPOSIT')!.id,
-      { voucherUrls: ['对公 8891'] },
-      '李敏',
-      1,
+      { method: 'BANK_TRANSFER', voucherUrls: ['对公 8891'] },
+      { name: '李敏', id: 1 },
       now,
+      ids(500),
     )
     expect(depositPaid.status).toBe('PARTIALLY_PAID')
     expect(depositPaid.paidAmount).toBe(100000)
     const paid = offlineConfirmOrder(
       depositPaid,
       depositPaid.payments.find((item) => item.type === 'BALANCE')!.id,
-      { remark: '尾款已到' },
-      '李敏',
-      1,
+      { method: 'BANK_TRANSFER', remark: '尾款已到' },
+      { name: '李敏', id: 1 },
       now,
+      ids(500),
     )
     expect(paid.status).toBe('PAID')
     expect(paid.paidAmount).toBe(339000)
   })
 
-  it('ships by line only after payment and blocks a second shipment', () => {
-    expect(() => addShipment(order(), { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF1' }, now, ids())).toThrow(
-      /付款结清/,
-    )
-    let current = offlineConfirmOrder(order(), 21, { voucherUrls: ['现金'] }, '李敏', 1, now)
-    current = addShipment(current, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF1' }, now, ids())
-    expect(current.status).toBe('FULFILLING')
+  it('ships before payment, keeps the payment status, and moves to FULFILLING once paid', () => {
+    const unpaid = order()
+    expect(canShipItem(unpaid, unpaid.items[1]!)).toBe(true)
+    let current = addShipment(unpaid, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF1' }, now, ids())
+    expect(current.status).toBe('PENDING_PAYMENT')
     expect(current.items[1]?.shipment?.trackingNo).toBe('SF1')
+    expect(fulfillmentProgress(current)).toEqual({ shipped: 1, done: 0, total: 2 })
+    expect(canShipItem(current, current.items[1]!)).toBe(false)
     expect(() => addShipment(current, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF2' }, now, ids())).toThrow(
       /已有发货/,
     )
+    expect(() => cancelOrder(current, { reason: '不要了' }, now)).toThrow(/已有发货/)
+
+    current = offlineConfirmOrder(
+      current,
+      21,
+      { method: 'BANK_TRANSFER', voucherUrls: ['现金'] },
+      { name: '李敏', id: 1 },
+      now,
+      ids(500),
+    )
+    expect(current.status).toBe('FULFILLING')
+  })
+
+  it('keeps PARTIALLY_PAID after shipping and completes only when paid and every line is done', () => {
+    let current = createPayments(
+      order(),
+      {
+        mode: 'SPLIT',
+        payments: [
+          { type: 'DEPOSIT', title: '定金', amount: 100000 },
+          { type: 'BALANCE', title: '尾款', amount: 237000 },
+        ],
+      },
+      now,
+      ids(),
+    )
+    current = offlineConfirmOrder(
+      current,
+      current.payments.find((p) => p.type === 'DEPOSIT')!.id,
+      { method: 'BANK_TRANSFER', remark: '定金' },
+      { name: '李敏', id: 1 },
+      now,
+      ids(500),
+    )
+    current = addShipment(current, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF9' }, now, ids())
+    const assigned = assignInstall(
+      current,
+      [],
+      technicians,
+      { orderItemId: 11, technicianId: 88, installDate: '2026-11-28', installSlot: '上午' },
+      now,
+      ids(),
+    )
+    current = assigned.order
+    expect(current.status).toBe('PARTIALLY_PAID')
+    expect(fulfillmentProgress(current).shipped).toBe(2)
+
+    for (const item of current.items) item.shipment!.status = 'DONE'
+    syncOrderStatus(current)
+    expect(current.status).toBe('PARTIALLY_PAID')
+
+    current = offlineConfirmOrder(
+      current,
+      current.payments.find((p) => p.type === 'BALANCE')!.id,
+      { method: 'BANK_TRANSFER', remark: '尾款' },
+      { name: '李敏', id: 1 },
+      now,
+      ids(500),
+    )
+    expect(current.status).toBe('COMPLETED')
+  })
+
+  it('still refuses shipping and dispatch on a cancelled order', () => {
+    const cancelled = cancelOrder(order(), { reason: '客户不要了' }, now)
+    expect(canShipItem(cancelled, cancelled.items[1]!)).toBe(false)
+    expect(() => addShipment(cancelled, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF1' }, now, ids())).toThrow(
+      /已取消/,
+    )
+    expect(() =>
+      assignInstall(
+        cancelled,
+        [],
+        technicians,
+        { orderItemId: 11, technicianId: 88, installDate: '2026-11-28', installSlot: '上午' },
+        now,
+        ids(),
+      ),
+    ).toThrow(/已取消/)
   })
 
   it('assigns a technician and refuses an overbooked slot', () => {
@@ -218,6 +300,7 @@ describe('order admin flow', () => {
       ids(),
     )
     expect(assigned.order.items[0]?.technicianName).toBe('王建国')
+    expect(assigned.order.items[0]?.shipment?.method).toBe('ON_SITE_INSTALL')
     expect(assigned.order.status).toBe('PENDING_PAYMENT')
     expect(assigned.schedules[0]?.used).toBe(1)
   })
@@ -226,7 +309,102 @@ describe('order admin flow', () => {
     const cancelled = cancelOrder(order(), { reason: '客户不要了' }, now)
     expect(cancelled.status).toBe('CANCELLED')
     expect(cancelled.payments[0]?.status).toBe('CLOSED')
-    const paid = offlineConfirmOrder(order(), 21, { voucherUrls: ['转账'] }, '李敏', 1, now)
+    const paid = offlineConfirmOrder(
+      order(),
+      21,
+      { method: 'BANK_TRANSFER', voucherUrls: ['转账'] },
+      { name: '李敏', id: 1 },
+      now,
+      ids(500),
+    )
     expect(() => cancelOrder(paid, { reason: '想退' }, now)).toThrow(/退款/)
+  })
+})
+
+describe('offline confirm with amount', () => {
+  const now = '2026-11-24 10:00:00'
+  const staff = { name: '李敏', id: 1 }
+
+  it('validates the amount against the remaining balance', () => {
+    expect(offlineAmountError(337000, 337000)).toBeNull()
+    expect(offlineAmountError(1, 337000)).toBeNull()
+    expect(offlineAmountError(0, 337000)).toMatch(/大于 0/)
+    expect(offlineAmountError(-100, 337000)).toMatch(/大于 0/)
+    expect(offlineAmountError(337001, 337000)).toMatch(/不能超过剩余 ¥3,370.00/)
+    expect(offlineAmountError(100.5, 337000)).toMatch(/精确到分/)
+    expect(offlineAmountError(null, 337000)).toMatch(/请填写/)
+  })
+
+  it('records a partial payment, splits the rest into a new WAIT, then reaches PAID', () => {
+    const first = offlineConfirmOrder(
+      order(),
+      21,
+      {
+        amount: 100000,
+        method: 'WECHAT_TRANSFER',
+        paidAt: '2026-11-24 09:30:00',
+        remark: '先付一部分',
+      },
+      staff,
+      now,
+      ids(500),
+    )
+    expect(first.status).toBe('PARTIALLY_PAID')
+    expect(first.paidAmount).toBe(100000)
+    const received = first.payments.find((p) => p.id === 21)!
+    expect(received).toMatchObject({
+      status: 'SUCCESS',
+      amount: 100000,
+      offlineMethod: 'WECHAT_TRANSFER',
+      paidAt: '2026-11-24 09:30:00',
+      operatorName: '李敏',
+    })
+    const rest = first.payments.find((p) => p.status === 'WAIT')!
+    expect(rest).toMatchObject({
+      amount: 237000,
+      type: 'FULL',
+      title: '全款（余款）',
+      splitFromId: 21,
+      sortNo: 2,
+    })
+    expect(first.payments.filter((p) => p.status !== 'CLOSED').reduce((sum, p) => sum + p.amount, 0)).toBe(
+      first.payableAmount,
+    )
+
+    const second = offlineConfirmOrder(first, rest.id, { amount: 37000, method: 'CASH' }, staff, now, ids(600))
+    expect(second.status).toBe('PARTIALLY_PAID')
+    expect(second.payments.find((p) => p.status === 'WAIT')).toMatchObject({
+      amount: 200000,
+      title: '全款（余款）',
+    })
+
+    const last = second.payments.find((p) => p.status === 'WAIT')!
+    const paid = offlineConfirmOrder(second, last.id, { method: 'BANK_TRANSFER' }, staff, now, ids(700))
+    expect(paid.status).toBe('PAID')
+    expect(paid.paidAmount).toBe(337000)
+    expect(paid.payments.some((p) => p.status === 'WAIT')).toBe(false)
+    expect(paid.payments.filter((p) => p.status === 'SUCCESS')).toHaveLength(3)
+  })
+
+  it('rejects bad amount, missing method and a future paidAt without changing anything', () => {
+    const base = order()
+    const call = (req: Parameters<typeof offlineConfirmOrder>[2]) => () =>
+      offlineConfirmOrder(base, 21, req, staff, now, ids(500))
+    expect(call({ amount: 0, method: 'CASH' })).toThrow(/大于 0/)
+    expect(call({ amount: 400000, method: 'CASH' })).toThrow(/不能超过剩余/)
+    expect(call({ amount: 1000 } as Parameters<typeof offlineConfirmOrder>[2])).toThrow(/收款方式/)
+    expect(call({ amount: 1000, method: 'CASH', paidAt: '2026-11-25 08:00:00' })).toThrow(/晚于当前/)
+    expect(call({ amount: 1000, method: 'CASH', paidAt: '2026/11/24' })).toThrow(/格式/)
+    expect(base.payments).toHaveLength(1)
+    expect(base.payments[0]?.status).toBe('WAIT')
+  })
+
+  it('keeps PARTIALLY_PAID after shipping and moves to FULFILLING once the split rest is paid', () => {
+    let current = addShipment(order(), { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF1' }, now, ids())
+    current = offlineConfirmOrder(current, 21, { amount: 300000, method: 'ALIPAY' }, staff, now, ids(500))
+    expect(current.status).toBe('PARTIALLY_PAID')
+    const rest = current.payments.find((p) => p.status === 'WAIT')!
+    current = offlineConfirmOrder(current, rest.id, { method: 'OTHER', remark: '刷卡' }, staff, now, ids(600))
+    expect(current.status).toBe('FULFILLING')
   })
 })

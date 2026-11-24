@@ -7,12 +7,9 @@ import { paths } from '@/api/paths'
 import type { AdminNotice } from '@/api/types'
 import { API_BASE, USE_MOCK } from '@/config'
 import { consumeSseBuffer, initialStreamState, registerStreamFailure, registerStreamOpen, type StreamState } from '@/domain/sse'
-import { publishMockStream, subscribeMockStream } from '@/mock/bus'
-import { simulateIncomingOrder } from '@/mock/sim'
+import { subscribeMockStream } from '@/mock/bus'
 import { useInboxStore } from '@/stores/inbox'
 import { playChime } from './sound'
-
-const AUTO_MS = 120_000
 
 export function useAdminStream() {
   const inbox = useInboxStore()
@@ -48,7 +45,6 @@ export function useAdminStream() {
   let stopped = false
   let policy: StreamState = initialStreamState()
   let pollTimer = 0
-  let autoTimer = 0
   let unsubscribe = () => {}
   let abort: AbortController | null = null
 
@@ -77,10 +73,6 @@ export function useAdminStream() {
     policy = registerStreamOpen()
     setStatus('live')
     unsubscribe = subscribeMockStream((notice) => openNotice(notice))
-    if (autoTimer) window.clearInterval(autoTimer)
-    autoTimer = window.setInterval(() => {
-      if (inbox.linkMode === 'live') publishMockStream(simulateIncomingOrder())
-    }, AUTO_MS)
   }
 
   async function connectReal() {
@@ -157,8 +149,6 @@ export function useAdminStream() {
     if (!USE_MOCK) return
     unsubscribe()
     unsubscribe = () => {}
-    if (autoTimer) window.clearInterval(autoTimer)
-    autoTimer = 0
     policy = initialStreamState()
     policy = registerStreamFailure(policy)
     policy = registerStreamFailure(policy)
@@ -186,7 +176,6 @@ export function useAdminStream() {
     unsubscribe()
     stopPoll()
     abort?.abort()
-    if (autoTimer) window.clearInterval(autoTimer)
   })
 
   return { status, reconnect, simulateDrop, pollNow }

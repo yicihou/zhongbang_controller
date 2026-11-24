@@ -85,14 +85,13 @@ export function offlineConfirmRepair(
   ticket: RepairTicket,
   paymentId: number,
   req: OfflineConfirmRequest,
-  operator: string,
-  operatorId: number,
+  operator: { name: string; id: number },
   now: string,
+  ids: IdSource,
 ): RepairTicket {
+  if (ticket.status === 'CANCELLED') throw new ApiError(3003, '已取消报修单不能登记收款')
   const next = cloneData(ticket)
-  const payment = next.payments.find((p) => p.id === paymentId)
-  if (!payment) throw new ApiError(4040, '应付单不存在')
-  confirmOffline(payment, req, operator, operatorId, now)
+  confirmOffline(next.payments, paymentId, next.ticketNo, req, operator, now, ids)
   next.updatedAt = now
   syncRepairPayment(next)
   return next
