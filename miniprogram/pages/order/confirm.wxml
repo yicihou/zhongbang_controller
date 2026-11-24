@@ -6,50 +6,62 @@
         <view class="t2" style="margin-top:6rpx" wx:if="{{address.id}}">
           {{address.province}}{{address.city}}{{address.district}}{{address.detail}}
         </view>
-        <view class="t2" style="margin-top:6rpx" wx:else>点击选择安装地址，师傅按此导航上门</view>
+        <view class="t2" style="margin-top:6rpx" wx:else>快递/送货/安装均按此地址；自提可到店核销</view>
       </view>
       <text class="arrow">›</text>
     </view>
   </view>
 
-  <view class="card">
+  <view class="card" wx:for="{{items}}" wx:key="key" wx:for-index="lineIdx">
     <view class="row">
-      <view class="thumb mini-thumb" style="width:160rpx;height:160rpx">产品图</view>
+      <view class="thumb mini-thumb" style="width:140rpx;height:140rpx">图</view>
       <view class="col" style="margin-left:18rpx">
-        <view class="t1">{{productName}}</view>
-        <view class="t2" style="margin-top:6rpx">{{skuName}}</view>
+        <view class="t1">{{item.name}}</view>
+        <view class="t2" style="margin-top:6rpx">{{item.skuName}}</view>
         <view class="between" style="margin-top:12rpx">
-          <text class="price"><text class="cny">¥</text>{{priceText}}</text>
+          <text class="price"><text class="cny">¥</text>{{item.priceText}}</text>
           <view class="stepper">
-            <text data-step="-1" catchtap="changeQty">－</text>
-            <text class="num">{{quantity}}</text>
-            <text data-step="1" catchtap="changeQty">＋</text>
+            <text data-idx="{{lineIdx}}" data-step="-1" catchtap="changeQty">－</text>
+            <text class="num">{{item.quantity}}</text>
+            <text data-idx="{{lineIdx}}" data-step="1" catchtap="changeQty">＋</text>
           </view>
         </view>
       </view>
     </view>
+
+    <view class="t1" style="margin-top:20rpx;margin-bottom:8rpx">发货方式</view>
+    <view class="cats">
+      <view class="cat {{item.deliveryMethod === opt.value ? 'on' : ''}}"
+            wx:for="{{deliveryOptions}}" wx:for-item="opt" wx:key="value"
+            data-idx="{{lineIdx}}" data-method="{{opt.value}}" bindtap="onDelivery">{{opt.label}}</view>
+    </view>
+    <view class="t3">{{item.needInstall ? '安装费待管理员确认' : '运费默认 0，管理员后加'}}</view>
+
+    <block wx:if="{{item.needInstall}}">
+      <picker mode="date" value="{{item.installDate}}" start="{{minDate}}"
+              data-idx="{{lineIdx}}" bindchange="onDate">
+        <view class="field">
+          <text class="field-k">安装日期</text>
+          <text class="field-v">{{item.installDate}}<text class="arrow">›</text></text>
+        </view>
+      </picker>
+      <view class="field">
+        <text class="field-k">时段</text>
+        <view class="row">
+          <text class="cat {{item.installSlot === 'AM' ? 'on' : ''}}" data-idx="{{lineIdx}}" data-slot="AM"
+                bindtap="onSlot" style="margin:0 12rpx 0 0">上午</text>
+          <text class="cat {{item.installSlot === 'PM' ? 'on' : ''}}" data-idx="{{lineIdx}}" data-slot="PM"
+                bindtap="onSlot" style="margin:0">下午</text>
+        </view>
+      </view>
+      <view class="field" data-idx="{{lineIdx}}" bindtap="chooseTech">
+        <text class="field-k">安装师傅</text>
+        <text class="field-v">{{item.technicianName || '系统派单（可自选）'}}<text class="arrow">›</text></text>
+      </view>
+    </block>
   </view>
 
   <view class="card">
-    <picker mode="date" value="{{installDate}}" start="{{minDate}}" bindchange="onDate">
-      <view class="field">
-        <text class="field-k">期望安装日期</text>
-        <text class="field-v">{{installDate}}<text class="arrow">›</text></text>
-      </view>
-    </picker>
-    <view class="field">
-      <text class="field-k">时段</text>
-      <view class="row">
-        <text class="cat {{slot === 'AM' ? 'on' : ''}}" data-slot="AM" bindtap="onSlot"
-              style="margin:0 12rpx 0 0">上午</text>
-        <text class="cat {{slot === 'PM' ? 'on' : ''}}" data-slot="PM" bindtap="onSlot"
-              style="margin:0">下午</text>
-      </view>
-    </view>
-    <view class="field" bindtap="chooseTech">
-      <text class="field-k">安装师傅</text>
-      <text class="field-v">{{tech ? tech.name : '系统派单（可自选）'}}<text class="arrow">›</text></text>
-    </view>
     <view class="field" bindtap="editInvoice">
       <text class="field-k">发票</text>
       <text class="field-v">{{invoice.need ? invoice.title : '不开发票'}}<text class="arrow">›</text></text>
@@ -61,21 +73,17 @@
   </view>
 
   <view class="card">
-    <view class="between"><text class="t2">商品总额</text><text>¥{{priceText}}</text></view>
-    <view class="between" style="margin-top:12rpx">
-      <text class="t2">定金（{{depositRate}}%）</text><text class="price">¥{{depositText}}</text>
-    </view>
-    <view class="between" style="margin-top:12rpx">
-      <text class="t2">尾款（验收后支付）</text><text class="price">¥{{balanceText}}</text>
-    </view>
-    <view class="tint-box">提交后 30 分钟内未支付，订单自动关闭并释放库存与师傅档期。</view>
+    <view class="between"><text class="t2">商品标价合计</text><text class="price">¥{{goodsText}}</text></view>
+    <view class="between" style="margin-top:12rpx"><text class="t2">运费</text><text class="t3">{{freightTip}}</text></view>
+    <view class="between" style="margin-top:12rpx"><text class="t2">安装费</text><text class="t3">{{installTip}}</text></view>
+    <view class="tint-box">提交后按标价生成一笔待付款（全款）。管理员可改价、加运费或拆成定金+尾款；一期线下转账，不调起微信支付。</view>
   </view>
 
   <view class="bar">
     <view class="bar-price">
-      <view class="t3">应付定金</view>
-      <view class="price price-md"><text class="cny">¥</text>{{depositText}}</view>
+      <view class="t3">应付（标价）</view>
+      <view class="price price-md"><text class="cny">¥</text>{{goodsText}}</view>
     </view>
-    <view class="btn {{submitting ? 'disabled' : ''}}" bindtap="submit">{{submitting ? '提交中…' : '提交并支付'}}</view>
+    <view class="btn {{submitting ? 'disabled' : ''}}" bindtap="submit">{{submitting ? '提交中…' : '提交订单'}}</view>
   </view>
 </view>

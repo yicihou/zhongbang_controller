@@ -1,13 +1,12 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
-const { pay } = require('../../utils/pay');
+const { deliveryLabel } = require('../../utils/constants');
 
 const TABS = [
   { label: '全部', value: 'ALL' },
-  { label: '待付款', value: 'UNPAID' },
-  { label: '待安装', value: 'DEPOSIT_PAID' },
-  { label: '待验收', value: 'INSTALLING' },
-  { label: '待尾款', value: 'PENDING_BALANCE' },
+  { label: '待付款', value: 'PENDING_PAYMENT' },
+  { label: '已付款', value: 'PAID' },
+  { label: '履约中', value: 'FULFILLING' },
   { label: '已完成', value: 'COMPLETED' },
   { label: '售后', value: 'AFTER_SALE' }
 ];
@@ -46,17 +45,19 @@ Page({
         loading: false,
         list: (d.list || []).map((o) => Object.assign({}, o, {
           done: o.status === 'COMPLETED',
-          totalText: fmt.yuan(o.totalAmount),
-          paidText: fmt.yuan(o.paidAmount),
-          balanceText: fmt.yuan(o.balanceAmount),
-          depositText: fmt.yuan(o.depositAmount),
-          metaText: (o.installDate ? '安装 ' + o.installDate : '') + (o.technicianName ? ' · ' + o.technicianName : ''),
-          items: (o.items || []).map((it) => Object.assign({}, it, { priceText: fmt.yuan(it.price) }))
+          totalText: fmt.yuan(o.payableAmount || o.totalAmount || 0),
+          paidText: fmt.yuan(o.paidAmount || 0),
+          waitText: fmt.yuan(o.waitAmount || 0),
+          canOffline: o.status === 'PENDING_PAYMENT' || o.status === 'PARTIALLY_PAID',
+          items: (o.items || []).map((it) => Object.assign({}, it, {
+            priceText: fmt.yuan(it.unitPrice || it.price || 0),
+            deliveryMethodText: it.deliveryMethodText || deliveryLabel(it.deliveryMethod)
+          }))
         })),
         repairs: (r.list || []).map((w) => Object.assign({}, w, {
-          techName: (w.technician && w.technician.name) || '待派师傅',
           quoteText: fmt.yuan(w.quoteAmount || 0),
-          timeline: (w.timeline || []).slice(0, 4)
+          workNo: w.ticketNo || w.workNo,
+          lineHint: (w.lineCount || 1) + ' 台设备'
         }))
       });
     }).catch(() => this.setData({ loading: false }));
@@ -68,15 +69,5 @@ Page({
 
   goRepair(e) {
     wx.navigateTo({ url: '/pages/repair/detail?id=' + e.currentTarget.dataset.id });
-  },
-
-  pay(e) {
-    const id = e.currentTarget.dataset.id;
-    const type = e.currentTarget.dataset.type;
-    pay(id, type).then(() => {
-      wx.navigateTo({ url: '/pages/order/result?orderId=' + id + '&type=' + type });
-    }).catch((err) => {
-      if (err && err.msg && !err.code) wx.showToast({ title: err.msg, icon: 'none' });
-    });
   }
 });

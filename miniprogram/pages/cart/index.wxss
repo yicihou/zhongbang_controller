@@ -1,0 +1,2 @@
+/* 购物车沿用全局样式 */
+.bar .check { flex: none; }

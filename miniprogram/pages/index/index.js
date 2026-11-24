@@ -48,6 +48,7 @@ Page({
   onQuick(e) {
     const code = e.currentTarget.dataset.code;
     if (code === 'BUY') return wx.switchTab({ url: '/pages/product/list' });
+    if (code === 'CART') return wx.switchTab({ url: '/pages/cart/index' });
     if (code === 'REPAIR') return wx.navigateTo({ url: '/pages/repair/create' });
     if (code === 'ASSET') return wx.navigateTo({ url: '/pages/asset/list' });
     if (code === 'INVOICE') return wx.navigateTo({ url: '/pages/mine/invoice' });

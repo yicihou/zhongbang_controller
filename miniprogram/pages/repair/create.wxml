@@ -1,40 +1,77 @@
 <view class="page with-bar">
-  <view class="card tint">
+  <view class="card" wx:for="{{lines}}" wx:key="key" wx:for-index="lineIdx">
     <view class="between">
-      <view>
-        <view class="t1">{{asset.model || '请选择设备'}}</view>
-        <view class="t3" wx:if="{{asset.id}}">{{asset.sn}} · 购机 {{asset.buyDate}}</view>
+      <text class="t1">设备 {{lineIdx + 1}}</text>
+      <text class="t3" wx:if="{{lines.length > 1}}" data-idx="{{lineIdx}}" bindtap="removeLine">删除</text>
+    </view>
+
+    <view class="row" style="margin-top:16rpx">
+      <text class="cat {{item.mode === 'asset' ? 'on' : ''}}" data-idx="{{lineIdx}}" data-mode="asset"
+            bindtap="setMode" style="margin:0 12rpx 0 0">本店设备</text>
+      <text class="cat {{item.mode === 'external' ? 'on' : ''}}" data-idx="{{lineIdx}}" data-mode="external"
+            bindtap="setMode" style="margin:0">外购设备</text>
+    </view>
+
+    <block wx:if="{{item.mode === 'asset'}}">
+      <view class="field" data-idx="{{lineIdx}}" bindtap="chooseAsset">
+        <text class="field-k">选择设备</text>
+        <text class="field-v">{{item.assetLabel || '请选择'}}<text class="arrow">›</text></text>
       </view>
-      <text class="tag {{asset.warrantyStatus === 'IN' ? '' : 'grey'}}">
-        {{asset.warrantyStatus === 'IN' ? '保内' : '已过保'}}
-      </text>
-    </view>
-    <view class="t2" style="margin-top:10rpx;color:#96061F" wx:if="{{asset.warrantyText}}">{{asset.warrantyText}}</view>
-    <view class="t3" style="margin-top:8rpx" bindtap="chooseAsset">切换设备 ›</view>
-  </view>
+      <view class="t3" wx:if="{{item.warrantyText}}">{{item.warrantyText}}</view>
+    </block>
 
-  <view class="card">
-    <view class="t1">故障类型</view>
+    <block wx:else>
+      <view class="field">
+        <text class="field-k">品牌*</text>
+        <input class="remark" placeholder="必填" value="{{item.external.brand}}"
+               data-idx="{{lineIdx}}" data-field="brand" bindinput="onExt" />
+      </view>
+      <view class="field">
+        <text class="field-k">型号*</text>
+        <input class="remark" placeholder="必填" value="{{item.external.model}}"
+               data-idx="{{lineIdx}}" data-field="model" bindinput="onExt" />
+      </view>
+      <view class="field">
+        <text class="field-k">SN</text>
+        <input class="remark" placeholder="选填" value="{{item.external.sn}}"
+               data-idx="{{lineIdx}}" data-field="sn" bindinput="onExt" />
+      </view>
+      <view class="field">
+        <text class="field-k">购买渠道</text>
+        <input class="remark" placeholder="选填" value="{{item.external.purchaseChannel}}"
+               data-idx="{{lineIdx}}" data-field="purchaseChannel" bindinput="onExt" />
+      </view>
+      <view class="t1" style="margin-top:12rpx">故障描述*</view>
+      <textarea class="ta" placeholder="必填" value="{{item.external.faultDesc}}"
+                data-idx="{{lineIdx}}" data-field="faultDesc" bindinput="onExt" maxlength="300" />
+    </block>
+
+    <view class="t1" style="margin-top:16rpx">故障类型</view>
     <view class="cats">
-      <view class="cat {{activeFault === item.code ? 'on' : ''}}" wx:for="{{faults}}" wx:key="code"
-            data-code="{{item.code}}" bindtap="onFault">{{item.label}}</view>
+      <view class="cat {{item.faultType === f.code ? 'on' : ''}}" wx:for="{{faults}}" wx:for-item="f" wx:key="code"
+            data-idx="{{lineIdx}}" data-code="{{f.code}}" bindtap="onFault">{{f.label}}</view>
     </view>
-    <view class="t1" style="margin-top:20rpx">故障描述</view>
-    <textarea class="ta" placeholder="描述现象、出现时间、是否自行处理过" value="{{desc}}"
-              bindinput="onDesc" maxlength="300" />
-    <view class="t3" style="text-align:right">{{desc.length}}/300</view>
-  </view>
 
-  <view class="card">
-    <view class="between"><text class="t1">照片 / 视频</text><text class="t3">最多 9 图 + 1 段 30 秒视频</text></view>
+    <block wx:if="{{item.mode === 'asset'}}">
+      <view class="t1" style="margin-top:16rpx">故障描述*</view>
+      <textarea class="ta" placeholder="描述现象、出现时间" value="{{item.faultDesc}}"
+                data-idx="{{lineIdx}}" bindinput="onDesc" maxlength="300" />
+    </block>
+
+    <view class="between" style="margin-top:16rpx">
+      <text class="t1">现场照片*</text>
+      <text class="t3">最多 9 张</text>
+    </view>
     <view class="upload">
-      <view class="up" bindtap="chooseImage">＋</view>
-      <image class="up-img" wx:for="{{images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
-      <view class="up" bindtap="chooseVideo">{{video ? '视' : '▶'}}</view>
+      <view class="up" data-idx="{{lineIdx}}" bindtap="chooseImage">＋</view>
+      <image class="up-img" wx:for="{{item.mode === 'external' ? item.external.images : item.images}}"
+             wx:for-item="img" wx:key="*this" src="{{img}}" mode="aspectFill" />
     </view>
   </view>
 
-  <view class="card">
+  <view class="btn ghost block" bindtap="addLine">＋ 再加一台设备</view>
+
+  <view class="card" style="margin-top:24rpx">
     <picker mode="date" value="{{date}}" start="{{minDate}}" bindchange="onDate">
       <view class="field">
         <text class="field-k">期望上门日期</text>
@@ -50,20 +87,14 @@
               style="margin:0">下午</text>
       </view>
     </view>
-    <view class="field" bindtap="chooseTech">
-      <text class="field-k">维修师傅</text>
-      <text class="field-v">{{tech ? tech.name : '系统推荐（可自选）'}}<text class="arrow">›</text></text>
-    </view>
   </view>
 
-  <view class="card tint" wx:if="{{asset.warrantyStatus === 'OUT'}}">
-    <view class="t2" style="color:#96061F">已过保：上门后先检测再报价，超过 300 元需要你确认才会维修。检测费标准以师傅报价单为准。</view>
-  </view>
+  <view class="tint-box" style="margin:0 0 24rpx">维修费一期线下转账；保外由管理员报价后确认。外购设备须填品牌/型号/故障描述/现场照片。</view>
 
   <view class="bar">
     <view class="bar-price">
       <view class="t3">报修设备</view>
-      <view class="t1">{{asset.model || '未选择'}}</view>
+      <view class="t1">{{lines.length}} 台</view>
     </view>
     <view class="btn {{submitting ? 'disabled' : ''}}" bindtap="submit">{{submitting ? '提交中…' : '提交报修'}}</view>
   </view>

@@ -37,7 +37,8 @@ Page({
     const url = e.currentTarget.dataset.url;
     if (!url) return;
     const tab = url.split('?')[0];
-    if (tab === '/pages/order/list' || tab === '/pages/product/list' || tab === '/pages/index/index' || tab === '/pages/mine/mine') {
+    if (tab === '/pages/order/list' || tab === '/pages/product/list' || tab === '/pages/index/index'
+      || tab === '/pages/mine/mine' || tab === '/pages/cart/index') {
       wx.switchTab({ url: tab });
       return;
     }

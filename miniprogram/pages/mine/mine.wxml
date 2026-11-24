@@ -20,8 +20,9 @@
   </view>
 
   <view class="menu">
+    <view class="menu-item" data-url="/pages/cart/index" bindtap="go"><text>购物车</text><text class="t3">整机+零件 ›</text></view>
     <view class="menu-item" data-url="/pages/order/list" bindtap="go"><text>我的订单</text><text class="t3">全部 ›</text></view>
-    <view class="menu-item" data-url="/pages/repair/create" bindtap="go"><text>一键报修</text><text class="t3">保修判定 ›</text></view>
+    <view class="menu-item" data-url="/pages/repair/create" bindtap="go"><text>一键报修</text><text class="t3">多台/外购 ›</text></view>
     <view class="menu-item" data-url="/pages/asset/list" bindtap="go"><text>我的设备</text><text class="t3">保修卡 ›</text></view>
     <view class="menu-item" data-url="/pages/mine/address" bindtap="go"><text>收货地址</text><text class="t3">管理 ›</text></view>
     <view class="menu-item" data-url="/pages/mine/invoice" bindtap="go"><text>发票抬头</text><text class="t3">下单带上 ›</text></view>

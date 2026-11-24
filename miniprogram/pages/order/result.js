@@ -5,8 +5,8 @@ const config = require('../../config');
 Page({
   data: {
     orderId: 0,
-    type: 'DEPOSIT',
-    typeText: '定金',
+    type: 'OFFLINE',
+    title: '已提交线下转账意向',
     amountText: '0',
     amountCents: 0,
     orderNo: '',
@@ -17,7 +17,7 @@ Page({
   onLoad(q) {
     this.setData({
       orderId: Number(q.orderId || q.id || 0),
-      type: q.type || 'DEPOSIT'
+      type: q.type || 'OFFLINE'
     });
     this.load();
   },
@@ -28,30 +28,23 @@ Page({
       return api.getRepair(this.data.orderId).then((w) => {
         this.setData({
           loading: false,
-          typeText: '维修费',
-          amountCents: w.actualAmount || w.quoteAmount || 0,
-          amountText: fmt.yuan(w.actualAmount || w.quoteAmount),
-          orderNo: w.workNo,
-          nextText: '支付结果以微信支付回调为准。可在报修详情查看进度。'
+          title: '维修费 · 线下转账',
+          amountCents: w.payableAmount || w.quoteAmount || 0,
+          amountText: fmt.yuan(w.payableAmount || w.quoteAmount),
+          orderNo: w.ticketNo || w.workNo,
+          nextText: '请联系管理员转账。入账后由管理员登记，页面状态会更新。'
         });
       }).catch(() => this.setData({ loading: false }));
     }
     return api.getOrder(this.data.orderId).then((o) => {
-      const isDeposit = type !== 'BALANCE';
-      let amount = isDeposit ? o.depositAmount : 0;
-      if (!isDeposit) {
-        const hit = (o.payments || []).filter((p) => p.type === 'BALANCE');
-        amount = hit.length ? hit[hit.length - 1].amount : o.totalAmount - o.depositAmount;
-      }
+      const wait = (o.waitPayments || []).reduce((s, p) => s + p.amount, 0);
       this.setData({
         loading: false,
-        typeText: isDeposit ? '定金' : '尾款',
-        amountCents: amount,
-        amountText: fmt.yuan(amount),
+        title: '订单 · 线下转账',
+        amountCents: wait || o.payableAmount || 0,
+        amountText: fmt.yuan(wait || o.payableAmount || 0),
         orderNo: o.orderNo,
-        nextText: isDeposit
-          ? '师傅会按预约时间上门。安装完成、您确认验收之后，再支付尾款。'
-          : '尾款已结清，订单完成。欢迎对本次安装进行评价。'
+        nextText: '一期不调起微信支付。请按待付款笔次转账，管理员确认后订单变为已付款。'
       });
     }).catch(() => this.setData({ loading: false }));
   },

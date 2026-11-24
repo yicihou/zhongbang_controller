@@ -1,13 +1,18 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
-const { pay } = require('../../utils/pay');
+const { payOfflineIntent } = require('../../utils/pay');
+const { FAULTS, PAYMENT_TYPE_TEXT, PAYMENT_STATUS_TEXT } = require('../../utils/constants');
+
+const FAULT_MAP = {};
+FAULTS.forEach((f) => { FAULT_MAP[f.code] = f.label; });
 
 Page({
   data: {
-    w: { timeline: [], quoteItems: [] },
+    w: { timeline: [], quoteItems: [], lines: [], payments: [] },
+    contact: null,
     needConfirm: false,
-    canPay: false,
-    techInitial: ''
+    canOffline: false,
+    intenting: false
   },
 
   onLoad(q) {
@@ -19,15 +24,34 @@ Page({
   },
 
   load() {
-    return api.getRepair(this.id).then((w) => {
+    return Promise.all([
+      api.getRepair(this.id),
+      api.getAdminContact().catch(() => null)
+    ]).then(([w, contact]) => {
       const items = (w.quoteItems || []).map((it) => Object.assign({}, it, { amountText: fmt.yuan(it.amount) }));
-      const needConfirm = w.type !== 'INSTALL' && w.quoteAmount > 0 && !w.quoteConfirmed && w.status !== 'CLOSED' && w.status !== 'DONE';
-      const canPay = !w.inWarranty && w.quoteConfirmed && !w.paid && w.quoteAmount > 0 && w.status !== 'CLOSED';
+      const lines = (w.lines || []).map((L) => Object.assign({}, L, {
+        faultText: FAULT_MAP[L.faultType] || L.faultType,
+        sourceText: L.source === 'EXTERNAL' ? '外购' : '本店',
+        quoteText: fmt.yuan(L.lineQuoteAmount || 0)
+      }));
+      const payments = (w.payments || []).map((p) => Object.assign({}, p, {
+        amountText: fmt.yuan(p.amount),
+        typeText: p.typeText || PAYMENT_TYPE_TEXT[p.type] || p.type,
+        statusText: p.statusText || PAYMENT_STATUS_TEXT[p.status] || p.status
+      }));
+      const needConfirm = w.status === 'QUOTED' && (w.quoteAmount || 0) > 0;
+      const canOffline = w.status === 'PENDING_PAYMENT' || payments.some((p) => p.status === 'WAIT');
       this.setData({
-        w: Object.assign({}, w, { quoteItems: items, quoteText: fmt.yuan(w.quoteAmount) }),
+        w: Object.assign({}, w, {
+          quoteItems: items,
+          lines,
+          payments,
+          quoteText: fmt.yuan(w.quoteAmount || 0),
+          workNo: w.ticketNo || w.workNo
+        }),
+        contact,
         needConfirm,
-        canPay,
-        techInitial: w.technician ? (w.technician.name || '师').slice(0, 1) : ''
+        canOffline
       });
     });
   },
@@ -36,18 +60,24 @@ Page({
     wx.navigateTo({ url: '/pages/repair/quote?id=' + this.id });
   },
 
-  payFee() {
-    pay(Number(this.id), 'REPAIR').then(() => {
-      wx.navigateTo({ url: '/pages/order/result?orderId=' + this.id + '&type=REPAIR' });
-    }).catch((e) => {
-      if (e && e.msg && !e.code) wx.showToast({ title: e.msg, icon: 'none' });
-    });
+  offlineIntent() {
+    if (this.data.intenting) return;
+    this.setData({ intenting: true });
+    payOfflineIntent('REPAIR', this.id, null, '维修费将线下转账').then((res) => {
+      this.setData({ intenting: false });
+      wx.showToast({ title: (res && res.tip) || '已通知管理员', icon: 'none' });
+      this.load();
+    }).catch(() => this.setData({ intenting: false }));
   },
 
-  callTech() {
-    const t = this.data.w.technician;
-    if (!t || !t.mobile) return;
-    wx.makePhoneCall({ phoneNumber: t.mobile });
+  copyWechat() {
+    const w = this.data.contact && this.data.contact.wechat;
+    if (w) wx.setClipboardData({ data: String(w) });
+  },
+
+  callAdmin() {
+    const p = this.data.contact && this.data.contact.phone;
+    if (p) wx.makePhoneCall({ phoneNumber: String(p) });
   },
 
   goEvaluate() {

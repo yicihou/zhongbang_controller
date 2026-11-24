@@ -1,5 +1,6 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
+const { DeliveryMethod } = require('../../utils/constants');
 
 Page({
   data: {
@@ -8,8 +9,8 @@ Page({
     selected: {},
     activeSku: {},
     priceText: '0',
-    depositText: '0',
-    balanceText: '0'
+    quantity: 1,
+    adding: false
   },
 
   onLoad(options) {
@@ -26,7 +27,6 @@ Page({
     });
   },
 
-  /** 把 SKU 的 specs 拆成「台板 / 电机」这类维度，价格差相对默认可售配置 */
   buildGroups(skus) {
     const dims = [];
     skus.forEach((s) => {
@@ -53,11 +53,7 @@ Page({
             const diff = alt.price - base.price;
             extra = (diff > 0 ? ' +' : ' ') + fmt.yuan(diff);
           }
-          return {
-            value,
-            label: value + extra,
-            out: !!(alt && alt.stock === 0)
-          };
+          return { value, label: value + extra, out: !!(alt && alt.stock === 0) };
         })
       };
     });
@@ -78,13 +74,7 @@ Page({
 
   calc() {
     const sku = this.data.activeSku || {};
-    const price = sku.price || 0;
-    const deposit = Math.floor(price * ((this.data.p && this.data.p.depositRate) || 30) / 100);
-    this.setData({
-      priceText: fmt.yuan(price),
-      depositText: fmt.yuan(deposit),
-      balanceText: fmt.yuan(price - deposit)
-    });
+    this.setData({ priceText: fmt.yuan(sku.price || 0) });
   },
 
   onOpt(e) {
@@ -113,21 +103,70 @@ Page({
     if (sku.stock === 0) wx.showToast({ title: '该配置暂时缺货', icon: 'none' });
   },
 
+  changeQty(e) {
+    const step = Number(e.currentTarget.dataset.step);
+    const quantity = Math.max(1, Math.min(99, this.data.quantity + step));
+    this.setData({ quantity });
+  },
+
   notify() {
     wx.showToast({ title: '已登记，到货后将用订阅消息通知', icon: 'none' });
   },
 
-  goConfirm() {
+  defaultDelivery() {
+    return (this.data.p && this.data.p.kind === 'PART')
+      ? DeliveryMethod.EXPRESS
+      : DeliveryMethod.ON_SITE_INSTALL;
+  },
+
+  ensureSku() {
     const sku = this.data.activeSku || {};
-    if (!sku.id) return wx.showToast({ title: '请先选择配置', icon: 'none' });
-    if (sku.stock === 0) return this.notify();
-    const q = [
-      'skuId=' + sku.id,
-      'skuName=' + encodeURIComponent(sku.name),
-      'price=' + sku.price,
-      'depositRate=' + (this.data.p.depositRate || 30),
-      'productName=' + encodeURIComponent(this.data.p.name)
-    ].join('&');
-    wx.navigateTo({ url: '/pages/order/confirm?' + q });
+    if (!sku.id) {
+      wx.showToast({ title: '请先选择配置', icon: 'none' });
+      return null;
+    }
+    if (sku.stock === 0) {
+      this.notify();
+      return null;
+    }
+    return sku;
+  },
+
+  addCart() {
+    const sku = this.ensureSku();
+    if (!sku || this.data.adding) return;
+    this.setData({ adding: true });
+    api.addCartItem({
+      skuId: sku.id,
+      quantity: this.data.quantity,
+      deliveryMethod: this.defaultDelivery()
+    }).then(() => {
+      this.setData({ adding: false });
+      wx.showToast({ title: '已加入购物车', icon: 'success' });
+    }).catch(() => this.setData({ adding: false }));
+  },
+
+  buyNow() {
+    const sku = this.ensureSku();
+    if (!sku) return;
+    const method = this.defaultDelivery();
+    wx.setStorageSync('checkoutDraft', {
+      from: 'buy',
+      items: [{
+        skuId: sku.id,
+        quantity: this.data.quantity,
+        deliveryMethod: method,
+        name: this.data.p.name,
+        skuName: sku.name,
+        price: sku.price,
+        productId: this.data.p.id,
+        kind: this.data.p.kind
+      }]
+    });
+    wx.navigateTo({ url: '/pages/order/confirm?from=buy' });
+  },
+
+  goCart() {
+    wx.switchTab({ url: '/pages/cart/index' });
   }
 });
