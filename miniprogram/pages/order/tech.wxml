@@ -1,0 +1,35 @@
+<view class="page with-bar">
+  <view class="between" style="margin:0 4rpx 20rpx">
+    <text class="t2">期望上门：{{dateText}}</text>
+    <text class="tag">按推荐排序</text>
+  </view>
+
+  <view class="tech {{selectedId === item.id ? 'on' : ''}}" wx:for="{{list}}" wx:key="id"
+        data-id="{{item.id}}" bindtap="onPick">
+    <view class="pick">{{selectedId === item.id ? '✓' : ''}}</view>
+    <view class="avatar">{{item.initial}}</view>
+    <view class="col">
+      <view class="row">
+        <text class="t1">{{item.name}}</text>
+        <text class="tag" wx:if="{{item.recommended}}" style="margin-left:10rpx">推荐</text>
+      </view>
+      <view class="t3" style="margin-top:6rpx">★ {{item.rating}} · 已完成 {{item.orderCount}} 单 · 距您 {{item.distanceKm}} km</view>
+      <view class="t3">擅长：{{item.skillText}}</view>
+      <view class="slots">
+        <text class="slot free" wx:for="{{item.freeSlots}}" wx:for-item="s" wx:key="text">{{s.text}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card tint" style="margin-top:8rpx">
+    <text class="t2" style="color:#96061F">不选也可以：系统按距离、技能与评分自动派单，30 分钟未接单自动改派。</text>
+  </view>
+
+  <view class="bar">
+    <view class="bar-price">
+      <view class="t3">已选师傅</view>
+      <view class="t1">{{selectedName || '不指定'}}</view>
+    </view>
+    <view class="btn" bindtap="confirm">确认</view>
+  </view>
+</view>

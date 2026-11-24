@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>缝纫机经销商小程序 · 红白配色视觉稿</title>
+<style>
+  :root{
+    --red:#C8102E; --red-d:#96061F; --tint:#FFF5F6; --edge:#F0BEC6;
+    --ink:#1A1E24; --ink2:#6C7480; --line:#E5E8ED; --bg:#F7F8FA;
+    --ok:#0F7B57; --warn:#B45309;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:#EFF1F4;color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  header{max-width:1680px;margin:0 auto;padding:38px 32px 8px}
+  h1{margin:0 0 8px;font-size:26px;letter-spacing:.5px}
+  h1 span{color:var(--red)}
+  .sub{color:var(--ink2);font-size:14px;line-height:1.7;max-width:900px}
+  .chips{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 0}
+  .chip{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);
+        border-radius:999px;padding:6px 14px 6px 8px;font-size:12px;color:var(--ink2)}
+  .dot{width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+  .wrap{max-width:1680px;margin:0 auto;padding:26px 32px 60px;
+        display:grid;grid-template-columns:repeat(auto-fill,minmax(375px,1fr));gap:34px 28px;justify-items:center}
+  .item{width:375px}
+  .cap{margin:12px 2px 0;font-size:13px;color:var(--ink2);display:flex;gap:8px;align-items:baseline}
+  .cap b{color:var(--ink);font-size:13.5px;font-weight:600}
+  .cap i{font-style:normal;color:var(--edge);font-weight:700}
+  /* 手机外壳 */
+  .phone{width:375px;height:812px;background:#fff;border-radius:38px;position:relative;
+         box-shadow:0 24px 60px rgba(20,25,35,.16),0 0 0 10px #16181d,0 0 0 11px #2b2f36;
+         overflow:hidden}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:150px;height:26px;
+         background:#16181d;border-radius:0 0 18px 18px;z-index:9}
+  .status{height:40px;display:flex;align-items:flex-end;justify-content:space-between;
+          padding:0 22px 4px;font-size:11px;color:#fff;background:var(--red)}
+  .status.light{background:var(--bg);color:var(--ink)}
+  .screen{height:calc(100% - 40px);overflow:hidden;position:relative;background:var(--bg);display:flex;flex-direction:column}
+  .nav{height:44px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;
+       background:var(--red);color:#fff;position:relative;flex:none}
+  .nav.white{background:#fff;color:var(--ink);border-bottom:1px solid var(--line)}
+  .nav .back{position:absolute;left:16px;font-size:18px;font-weight:400}
+  .body{flex:1;overflow:hidden;padding:12px 14px 0}
+  .body.gray{background:var(--bg)}
+  /* 通用组件 */
+  .card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;
+        box-shadow:0 2px 10px rgba(17,24,39,.04)}
+  .row{display:flex;align-items:center;gap:10px}
+  .between{display:flex;align-items:center;justify-content:space-between}
+  .t1{font-size:15px;font-weight:600;line-height:1.4}
+  .t2{font-size:12.5px;color:var(--ink2);line-height:1.6}
+  .price{color:var(--red);font-weight:700}
+  .price small{font-size:11px;font-weight:600}
+  .tag{display:inline-block;background:var(--tint);color:var(--red);border:1px solid var(--edge);
+       border-radius:6px;padding:2px 7px;font-size:11px;line-height:1.5}
+  .tag.grey{background:#F2F4F7;color:var(--ink2);border-color:#E8EBF0}
+  .btn{background:var(--red);color:#fff;border:none;border-radius:10px;height:46px;width:100%;
+       font-size:15px;font-weight:600;letter-spacing:.3px}
+  .btn.ghost{background:#fff;color:var(--red);border:1px solid var(--red)}
+  .btn.sm{height:34px;width:auto;padding:0 16px;font-size:12.5px;border-radius:999px}
+  /* 首页 */
+  .banner{margin:2px 0 14px;height:150px;border-radius:16px;padding:20px;color:#fff;position:relative;
+          background:linear-gradient(135deg,#C8102E 0%,#96061F 100%);overflow:hidden}
+  .banner:after{content:"";position:absolute;right:-40px;bottom:-60px;width:190px;height:190px;
+          border-radius:50%;background:rgba(255,255,255,.09)}
+  .banner:before{content:"";position:absolute;right:26px;bottom:-90px;width:130px;height:130px;
+          border-radius:50%;background:rgba(255,255,255,.07)}
+  .banner h3{margin:0 0 6px;font-size:19px;letter-spacing:.5px}
+  .banner p{margin:0;font-size:12px;opacity:.85;line-height:1.7}
+  .banner .go{margin-top:14px;display:inline-block;background:#fff;color:var(--red);
+          border-radius:999px;padding:7px 15px;font-size:12px;font-weight:600}
+  .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:#fff;
+          border-radius:14px;padding:14px 6px;margin-bottom:14px;box-shadow:0 2px 10px rgba(17,24,39,.04)}
+  .quick div{text-align:center;font-size:11.5px;color:var(--ink2)}
+  .ico{width:42px;height:42px;border-radius:13px;background:var(--tint);border:1px solid var(--edge);
+       color:var(--red);display:flex;align-items:center;justify-content:center;
+       font-size:16px;font-weight:700;margin:0 auto 7px}
+  .sec{display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 10px}
+  .sec h4{margin:0;font-size:15px}
+  .sec span{font-size:11.5px;color:var(--ink2)}
+  .goods{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .good{background:#fff;border-radius:13px;overflow:hidden;box-shadow:0 2px 10px rgba(17,24,39,.04)}
+  .thumb{height:96px;background:linear-gradient(150deg,#F4F5F7,#E9EBEF);position:relative;
+         display:flex;align-items:center;justify-content:center;color:#B9BFC9;font-size:11px}
+  .thumb:after{content:"";position:absolute;left:14px;right:14px;bottom:16px;height:26px;
+         border:2px solid #CDD2DA;border-radius:4px;border-top:none}
+  .good .in{padding:9px 10px 11px}
+  .good .n{font-size:12.5px;line-height:1.4;font-weight:600;margin-bottom:4px}
+  .good .p{font-size:14px}
+  /* 详情 */
+  .hero{height:212px;margin:-12px -14px 0;background:linear-gradient(150deg,#F2F3F5,#E6E8EC);
+        display:flex;align-items:center;justify-content:center;color:#B9BFC9;font-size:12px;position:relative}
+  .hero:after{content:"";position:absolute;left:60px;right:60px;bottom:52px;height:52px;
+        border:2.5px solid #CDD2DA;border-radius:6px;border-top:none}
+  .spec{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
+  .sku{display:flex;gap:9px;flex-wrap:wrap;margin-top:9px}
+  .sku span{border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:12px;color:var(--ink)}
+  .sku span.on{border-color:var(--red);background:var(--tint);color:var(--red);font-weight:600}
+  .bar{position:absolute;left:0;right:0;bottom:0;height:74px;background:#fff;border-top:1px solid var(--line);
+       display:flex;align-items:center;gap:12px;padding:0 14px;box-shadow:0 -4px 16px rgba(17,24,39,.05)}
+  .bar .col{flex:1}
+  /* 师傅卡片 */
+  .tech{display:flex;gap:11px;background:#fff;border:1px solid var(--line);border-radius:14px;
+        padding:12px;margin-bottom:10px;position:relative}
+  .tech.on{border-color:var(--red);background:var(--tint)}
+  .avatar{width:46px;height:46px;border-radius:50%;background:#F1F3F6;color:#8A919C;
+          display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;flex:none}
+  .tech.on .avatar{background:var(--red);color:#fff}
+  .stars{color:var(--red);font-size:11px;letter-spacing:1px}
+  .pick{width:20px;height:20px;border-radius:50%;border:1.5px solid #D3D8E0;position:absolute;
+        right:12px;top:12px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
+  .tech.on .pick{background:var(--red);border-color:var(--red)}
+  .slots{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .slots span{font-size:10.5px;border:1px solid var(--line);border-radius:6px;padding:3px 7px;color:var(--ink2)}
+  .slots span.free{color:var(--red);border-color:var(--edge);background:#fff}
+  .slots span.no{color:#C2C7CF;text-decoration:line-through}
+  /* 表单 */
+  .field{display:flex;align-items:center;justify-content:space-between;padding:13px 0;
+         border-bottom:1px solid var(--line);font-size:13px}
+  .field:last-child{border-bottom:none}
+  .field b{font-weight:600;font-size:13px}
+  .field span{color:var(--ink2);font-size:12.5px}
+  .cats{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .cats span{border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:12px;color:var(--ink2)}
+  .cats span.on{background:var(--tint);border-color:var(--red);color:var(--red);font-weight:600}
+  .upload{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:11px}
+  .up{height:66px;border-radius:10px;border:1px dashed #CBD1DA;display:flex;align-items:center;
+      justify-content:center;color:#AEB5C0;font-size:20px;background:#FBFCFD}
+  /* 订单 */
+  .tabs{display:flex;gap:18px;padding:0 2px 10px;font-size:13px;color:var(--ink2);border-bottom:1px solid var(--line);
+        margin-bottom:12px;overflow:hidden}
+  .tabs b{color:var(--red);position:relative;font-weight:600}
+  .tabs b:after{content:"";position:absolute;left:0;right:0;bottom:-11px;height:2px;background:var(--red)}
+  .ohead{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--ink2);margin-bottom:9px}
+  .ost{color:var(--red);font-weight:600;font-size:12px}
+  .ost.done{color:var(--ok)}
+  .oline{display:flex;gap:10px;padding:10px 0;border-top:1px solid #F1F3F6}
+  .oline:first-of-type{border-top:none}
+  .mini{width:54px;height:54px;border-radius:9px;background:linear-gradient(150deg,#F2F3F5,#E6E8EC);flex:none}
+  .money{background:var(--tint);border:1px solid var(--edge);border-radius:10px;padding:9px 11px;
+         display:flex;justify-content:space-between;font-size:12px;margin-top:8px}
+  .timeline{margin-top:6px;padding-left:4px}
+  .tl{display:flex;gap:10px;position:relative;padding-bottom:14px}
+  .tl:before{content:"";position:absolute;left:4.5px;top:12px;bottom:0;width:1px;background:var(--line)}
+  .tl:last-child:before{display:none}
+  .tl i{width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid #D3D8E0;margin-top:3px;flex:none}
+  .tl.on i{border-color:var(--red);background:var(--red)}
+  .tl div{flex:1;font-size:11.5px;color:var(--ink2);line-height:1.6}
+  .tl.on div{color:var(--ink)}
+  /* 后台 */
+  .adm{background:#F5F6F8}
+  .stat{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}
+  .stat div{background:#fff;border-radius:12px;padding:11px 10px;text-align:center;
+            box-shadow:0 2px 10px rgba(17,24,39,.04)}
+  .stat b{display:block;font-size:16px;color:var(--red);letter-spacing:-.3px}
+  .stat span{font-size:10.5px;color:var(--ink2)}
+  .stat .g{color:var(--ok)}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px dashed #EDF0F4}
+  .kv:last-child{border:none}
+  .kv span:first-child{color:var(--ink2)}
+  .tl2{font-size:12px;display:flex;gap:10px;padding:9px 0;border-bottom:1px dashed #EDF0F4}
+  .tl2:last-child{border:none}
+  .date{color:var(--ink2);font-size:11px;width:44px;flex:none;padding-top:2px}
+  .tabbar{flex:none;height:62px;background:#fff;border-top:1px solid var(--line);
+          display:grid;grid-template-columns:repeat(4,1fr);align-items:center;text-align:center;
+          font-size:10.5px;color:#9AA1AB;padding-bottom:6px}
+  .tabbar div.on{color:var(--red);font-weight:600}
+  .tabbar em{display:block;font-size:16px;font-style:normal;margin-bottom:2px}
+  .note{font-size:11px;color:var(--ink2);margin-top:10px;line-height:1.7}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>缝纫机经销商小程序 · <span>红白配色</span>视觉稿</h1>
+  <p class="sub">按需求文档 §9 的规范绘制：白底承担 60% 面积保证清爽，浅灰承担信息分层，品牌红只用于行动点与强调（按钮、价格、选中态、进度节点）。六屏覆盖「买—装—修—管」主链路，可直接作为前端还原基线。</p>
+  <div class="chips">
+    <span class="chip"><i class="dot" style="background:#C8102E"></i>主色 #C8102E</span>
+    <span class="chip"><i class="dot" style="background:#96061F"></i>深红 #96061F</span>
+    <span class="chip"><i class="dot" style="background:#FFF5F6;border:1px solid #F0BEC6"></i>浅红底 #FFF5F6</span>
+    <span class="chip"><i class="dot" style="background:#1A1E24"></i>主文字 #1A1E24</span>
+    <span class="chip"><i class="dot" style="background:#6C7480"></i>次要 #6C7480</span>
+    <span class="chip"><i class="dot" style="background:#F7F8FA;border:1px solid #E5E8ED"></i>页面底 #F7F8FA</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 1 首页 -->
+  <div class="item">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="status"><span>9:41</span><span>5G ▮▮▮ 82%</span></div>
+      <div class="screen">
+        <div class="nav">缝纫机 · 到家服务</div>
+        <div class="body">
+          <div class="banner">
+            <h3>新机到家，师傅上门</h3>
+            <p>下单可选安装师傅 · 安装验收后再付尾款<br>整机保修 12 个月，电机电控 24 个月</p>
+            <span class="go">看新款机型 →</span>
+          </div>
+          <div class="quick">
+            <div><div class="ico">机</div>买机器</div>
+            <div><div class="ico">修</div>一键报修</div>
+            <div><div class="ico">档</div>我的设备</div>
+            <div><div class="ico">票</div>发票/对账</div>
+          </div>
+          <div class="sec"><h4>热销机型</h4><span>全部 32 款 ›</span></div>
+          <div class="goods">
+            <div class="good">
+              <div class="thumb">产品图</div>
+              <div class="in">
+                <div class="n">电脑平缝机 A5<br>直驱 · 自动剪线</div>
+                <div class="p price"><small>¥</small>3,280 <span class="t2" style="text-decoration:line-through">3,680</span></div>
+                <div class="tag" style="margin-top:6px">定金 ¥984 起</div>
+              </div>
+            </div>
+            <div class="good">
+              <div class="thumb">产品图</div>
+              <div class="in">
+                <div class="n">家用多功能机 M3<br>锁边 · 绣花</div>
+                <div class="p price"><small>¥</small>1,580</div>
+                <div class="tag" style="margin-top:6px">含上门教学</div>
+              </div>
+            </div>
+            <div class="good">
+              <div class="thumb">产品图</div>
+              <div class="in">
+                <div class="n">四线包缝机 E4<br>超高速 · 低噪</div>
+                <div class="p price"><small>¥</small>6,900</div>
+                <div class="tag grey" style="margin-top:6px">现货 3 台</div>
+              </div>
+            </div>
+            <div class="good">
+              <div class="thumb">产品图</div>
+              <div class="in">
+                <div class="n">电脑绣花机 12 头<br>适用帽子/成衣</div>
+                <div class="p price"><small>¥</small>68,000</div>
+                <div class="tag" style="margin-top:6px">可分期</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="on"><em>⌂</em>首页</div>
+          <div><em>▤</em>机型</div>
+          <div><em>☰</em>订单</div>
+          <div><em>◎</em>我的</div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><i>01</i><b>首页</b>品牌红只出现在 banner、价格与选中的 Tab，其余交给留白</div>
+  </div>
+
+  <!-- 2 商品详情 -->
+  <div class="item">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="status light"><span>9:41</span><span>5G ▮▮▮ 82%</span></div>
+      <div class="screen">
+        <div class="nav white"><span class="back">‹</span>机型详情</div>
+        <div class="body">
+          <div class="hero">主图 / 视频</div>
+          <div class="card" style="margin-top:12px">
+            <div class="t1" style="font-size:16px">电脑平缝机 A5 · 直驱自动剪线</div>
+            <div class="t2" style="margin-top:5px">适用：服装厂流水线 / 加工坊 · 最高 5000 针/分</div>
+            <div class="between" style="margin-top:10px">
+              <div class="price" style="font-size:22px"><small>¥</small>3,280</div>
+              <div class="tag grey">现货 12 台</div>
+            </div>
+            <div class="spec">
+              <span class="tag grey">含上门安装</span>
+              <span class="tag grey">整机保修 12 个月</span>
+              <span class="tag grey">可开专票</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="between"><div class="t1">选择配置</div><span class="t2">已选：标准台板 + 伺服电机</span></div>
+            <div class="sku">
+              <span class="on">标准台板</span>
+              <span>加厚台板 +80</span>
+              <span class="on">伺服电机</span>
+              <span>直驱电机 +260</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="between" style="margin-bottom:6px"><div class="t1">付款方式</div><span class="tag">定金 30%</span></div>
+            <div class="kv"><span>定金（下单支付）</span><span class="price">¥ 984</span></div>
+            <div class="kv"><span>尾款（验收后支付）</span><span class="price">¥ 2,296</span></div>
+          </div>
+          <div class="bar">
+            <div class="col"><div class="t2">合计</div><div class="price" style="font-size:19px"><small>¥</small>3,280</div></div>
+            <button class="btn" style="width:190px">选择安装师傅</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><i>02</i><b>机型详情</b>定金/尾款拆开展示，把"什么时候付多少钱"提前说清</div>
+  </div>
+
+  <!-- 3 选师傅 -->
+  <div class="item">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="status light"><span>9:41</span><span>5G ▮▮▮ 82%</span></div>
+      <div class="screen">
+        <div class="nav white"><span class="back">‹</span>选择安装师傅</div>
+        <div class="body gray">
+          <div class="between" style="margin:2px 2px 10px">
+            <span class="t2">期望上门：11-28 上午</span>
+            <span class="tag">按距离排序 ▾</span>
+          </div>
+          <div class="tech on">
+            <div class="pick">✓</div>
+            <div class="avatar">王</div>
+            <div style="flex:1;min-width:0">
+              <div class="between"><div class="t1">王师傅 <span class="tag" style="margin-left:4px">店长推荐</span></div></div>
+              <div class="stars">★★★★★ <span class="t2">4.9 · 完成 186 单</span></div>
+              <div class="t2" style="margin-top:3px">距您 2.4 km · 擅长平缝/包缝/电控调试</div>
+              <div class="slots"><span class="no">11-27</span><span class="free">11-28 上午</span><span class="free">11-28 下午</span><span class="no">11-29</span></div>
+            </div>
+          </div>
+          <div class="tech">
+            <div class="pick"></div>
+            <div class="avatar">李</div>
+            <div style="flex:1;min-width:0">
+              <div class="t1">李师傅</div>
+              <div class="stars">★★★★☆ <span class="t2">4.7 · 完成 243 单</span></div>
+              <div class="t2" style="margin-top:3px">距您 5.1 km · 擅长绣花机/特种机</div>
+              <div class="slots"><span class="free">11-27</span><span class="no">11-28 上午</span><span class="free">11-28 下午</span></div>
+            </div>
+          </div>
+          <div class="tech">
+            <div class="pick"></div>
+            <div class="avatar">赵</div>
+            <div style="flex:1;min-width:0">
+              <div class="t1">赵师傅</div>
+              <div class="stars">★★★★☆ <span class="t2">4.6 · 完成 97 单</span></div>
+              <div class="t2" style="margin-top:3px">距您 8.7 km · 擅长家用机安装教学</div>
+              <div class="slots"><span class="free">11-27</span><span class="free">11-28 上午</span><span class="free">11-29</span></div>
+            </div>
+          </div>
+          <div class="card" style="background:var(--tint);border:1px solid var(--edge);box-shadow:none">
+            <div class="t2" style="color:var(--red-d)">不选择也可以：系统会按距离、技能与评分自动派单，30 分钟内未接单自动改派。</div>
+          </div>
+          <div class="bar" style="height:76px">
+            <div class="col"><div class="t2">已选 王师傅</div><div class="price" style="font-size:17px">定金 ¥ 984</div></div>
+            <button class="btn" style="width:170px">确认并支付</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><i>03</i><b>选择安装师傅</b>评分、距离、擅长机型、档期四要素一屏可比</div>
+  </div>
+
+  <!-- 4 报修 -->
+  <div class="item">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="status light"><span>9:41</span><span>5G ▮▮▮ 82%</span></div>
+      <div class="screen">
+        <div class="nav white"><span class="back">‹</span>报修申请</div>
+        <div class="body">
+          <div class="card" style="background:var(--tint);border:1px solid var(--edge);box-shadow:none">
+            <div class="between">
+              <div>
+                <div class="t1">电脑平缝机 A5</div>
+                <div class="t2" style="margin-top:3px">机身码 A5-2024-008671 · 购机 2024-05-20</div>
+              </div>
+              <span class="tag" style="background:#fff">保内</span>
+            </div>
+            <div class="t2" style="margin-top:8px;color:var(--red-d)">保修至 2026-05-20，本次故障在保修范围内，免收上门与工时费</div>
+          </div>
+          <div class="card">
+            <div class="t1">故障类型</div>
+            <div class="cats">
+              <span class="on">断线 / 跳针</span><span>噪音异响</span><span>不上油</span>
+              <span>电控故障</span><span>送布异常</span><span>其他</span>
+            </div>
+            <div class="t1" style="margin-top:16px">故障描述</div>
+            <div class="t2" style="margin-top:6px;line-height:1.8">高速运转时断线，低速正常，已自行更换机针无效。</div>
+          </div>
+          <div class="card">
+            <div class="between"><div class="t1">照片 / 视频</div><span class="t2">最多 9 图 + 1 段视频</span></div>
+            <div class="upload">
+              <div class="up">＋</div>
+              <div class="up" style="background:linear-gradient(150deg,#F1F2F4,#E5E7EB);border-style:solid;border-color:#E5E7EB"></div>
+              <div class="up">＋</div>
+              <div class="up">＋</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="field"><b>期望上门时间</b><span>11-25 上午 ›</span></div>
+            <div class="field"><b>维修师傅</b><span>系统推荐（可自选）›</span></div>
+            <div class="field"><b>联系电话</b><span>138****8000</span></div>
+          </div>
+          <button class="btn" style="margin-bottom:14px">提交报修</button>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><i>04</i><b>报修申请</b>先判保修再填单，保内保外客户一眼看懂</div>
+  </div>
+
+  <!-- 5 订单 -->
+  <div class="item">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="status light"><span>9:41</span><span>5G ▮▮▮ 82%</span></div>
+      <div class="screen">
+        <div class="nav white">我的订单</div>
+        <div class="body gray">
+          <div class="tabs"><b>全部</b><span>待付款</span><span>待安装</span><span>待尾款</span><span>售后</span></div>
+          <div class="card">
+            <div class="ohead"><span>SO20251123000123</span><span class="ost">待付尾款</span></div>
+            <div class="oline">
+              <div class="mini"></div>
+              <div style="flex:1">
+                <div class="t1">电脑平缝机 A5 · 标准配置</div>
+                <div class="t2" style="margin-top:3px">安装师傅：王师傅 · 11-28 上午上门</div>
+                <div class="t2">安装完成 11-28 14:20，已验收</div>
+              </div>
+            </div>
+            <div class="money">
+              <span>订单总额 ¥3,280</span><span>已付定金 <b style="color:var(--red)">¥984</b></span>
+            </div>
+            <div class="between" style="margin-top:11px">
+              <div class="t2">待付尾款 <b class="price" style="font-size:16px">¥2,296</b></div>
+              <button class="btn sm">立即支付</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ohead"><span>WO20251123000045</span><span class="ost">维修中</span></div>
+            <div class="oline">
+              <div class="mini"></div>
+              <div style="flex:1">
+                <div class="t1">报修 · 断线 / 跳针</div>
+                <div class="t2" style="margin-top:3px">李师傅已接单 · 预计 11-25 上午上门</div>
+              </div>
+            </div>
+            <div class="timeline">
+              <div class="tl on"><i></i><div>11-23 20:14　提交报修，判定保内</div></div>
+              <div class="tl on"><i></i><div>11-23 20:31　已派单给李师傅</div></div>
+              <div class="tl on"><i></i><div>11-24 09:02　师傅接单，约定上门时间</div></div>
+              <div class="tl"><i></i><div>待上门检测、报价与维修</div></div>
+            </div>
+          </div>
+          <div class="card" style="opacity:.85">
+            <div class="ohead"><span>SO20250918000077</span><span class="ost done">已完成</span></div>
+            <div class="oline">
+              <div class="mini"></div>
+              <div style="flex:1">
+                <div class="t1">四线包缝机 E4</div>
+                <div class="t2" style="margin-top:3px">已付款 ¥6,900 · 待评价得 20 积分</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div><em>⌂</em>首页</div>
+          <div><em>▤</em>机型</div>
+          <div class="on"><em>☰</em>订单</div>
+          <div><em>◎</em>我的</div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><i>05</i><b>订单列表</b>状态、金额、师傅、时间轴四件事一眼看完</div>
+  </div>
+
+  <!-- 6 商家后台 -->
+  <div class="item">
+    <div class="phone" style="background:#F5F6F8">
+      <div class="notch"></div>
+      <div class="status light"><span>9:41</span><span>5G ▮▮▮ 82%</span></div>
+      <div class="screen adm">
+        <div class="nav white"><span class="back">‹</span>客户 360 · 张建国</div>
+        <div class="body">
+          <div class="card" style="margin-top:2px">
+            <div class="row">
+              <div class="avatar" style="background:var(--red);color:#fff">张</div>
+              <div style="flex:1">
+                <div class="t1">张建国 · 金卡客户</div>
+                <div class="t2">138****8000 · 杭州余杭 · 服装厂老板</div>
+              </div>
+              <button class="btn sm ghost">打电话</button>
+            </div>
+            <div class="spec" style="margin-top:10px">
+              <span class="tag">品牌偏好：A5 系列</span>
+              <span class="tag">付款爽快</span>
+              <span class="tag grey">转介绍 3 人</span>
+            </div>
+          </div>
+          <div class="stat">
+            <div><b>¥ 42.6万</b><span>累计成交</span></div>
+            <div><b>¥ 2,296</b><span>待付</span></div>
+            <div><b class="g">¥ 0</b><span>逾期</span></div>
+          </div>
+          <div class="card">
+            <div class="between" style="margin-bottom:4px">
+              <div class="t1">订单时间线</div><span class="t2">共 9 笔 ›</span>
+            </div>
+            <div class="tl2"><span class="date">11-23</span><div style="flex:1"><b>A5 平缝机 ×1</b> ¥3,280<br><span class="t2">待付尾款 ¥2,296 · 王师傅安装</span></div></div>
+            <div class="tl2"><span class="date">09-18</span><div style="flex:1"><b>E4 包缝机 ×2</b> ¥13,800<br><span class="t2">已结清 · 已开票</span></div></div>
+            <div class="tl2"><span class="date">05-20</span><div style="flex:1"><b>A5 平缝机 ×4</b> ¥13,120<br><span class="t2">已结清 · 分期 3 期</span></div></div>
+          </div>
+          <div class="card">
+            <div class="between"><div class="t1">设备档案</div><span class="t2">3 台 ›</span></div>
+            <div class="kv"><span>A5-2024-008671</span><span class="tag">保内至 2026-05</span></div>
+            <div class="kv"><span>E4-2023-002114</span><span class="tag grey">已过保</span></div>
+            <div class="kv"><span>A5-2022-000903</span><span class="tag grey">已过保</span></div>
+            <div class="note">近 12 个月复购 3 次，上次跟进：11-10 电话回访（满意）。建议 12 月推送"年检保养套餐"。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><i>06</i><b>商家后台 · 客户 360</b>累计成交、待付、逾期、设备、偏好与跟进合成一屏</div>
+  </div>
+
+</div>
+
+<script>
+  // 点击师傅卡片切换选中态，便于演示
+  document.querySelectorAll('.tech').forEach(function (el) {
+    el.addEventListener('click', function () {
+      document.querySelectorAll('.tech').forEach(function (o) {
+        o.classList.remove('on');
+        o.querySelector('.pick').textContent = '';
+      });
+      el.classList.add('on');
+      el.querySelector('.pick').textContent = '✓';
+    });
+  });
+</script>
+</body>
+</html>

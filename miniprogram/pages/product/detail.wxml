@@ -1,0 +1,74 @@
+<view class="page with-bar" style="padding-top:0">
+  <view class="thumb" style="height:460rpx;border-radius:0">主图 / 视频</view>
+
+  <view class="card" style="margin-top:-30rpx;position:relative;z-index:2">
+    <view class="t1" style="font-size:34rpx">{{p.name}}</view>
+    <view class="t2" style="margin-top:8rpx">{{p.subtitle}}</view>
+    <view class="between" style="margin-top:18rpx">
+      <view>
+        <text class="price price-lg"><text class="cny">¥</text>{{priceText}}</text>
+        <text class="t3" style="margin-left:12rpx">库存 {{p.stock}}</text>
+      </view>
+      <text class="tag grey">{{p.model}}</text>
+    </view>
+    <view class="row" style="flex-wrap:wrap;margin-top:16rpx">
+      <text class="tag" wx:for="{{p.services}}" wx:key="*this">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="t1" style="margin-bottom:12rpx">选择配置</view>
+    <view class="sku-list">
+      <view class="sku {{activeSku.id === item.id ? 'on' : ''}} {{item.stock === 0 ? 'out' : ''}}"
+            wx:for="{{p.skus}}" wx:key="id" data-id="{{item.id}}" bindtap="onSku">
+        <view class="sku-n">{{item.name}}</view>
+        <view class="sku-p">
+          <text wx:if="{{item.stock > 0}}">¥{{item.priceText}}</text>
+          <text wx:else>暂时缺货</text>
+        </view>
+      </view>
+    </view>
+    <view class="t3" style="margin-top:12rpx">已选：{{activeSku.name || '请选择配置'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="between">
+      <text class="t1">付款方式</text>
+      <text class="tag">定金 {{p.depositRate}}%</text>
+    </view>
+    <view class="between" style="margin-top:16rpx">
+      <text class="t2">定金（下单支付）</text>
+      <text class="price price-md">¥{{depositText}}</text>
+    </view>
+    <view class="between" style="margin-top:10rpx">
+      <text class="t2">尾款（安装验收后支付）</text>
+      <text class="price price-md">¥{{balanceText}}</text>
+    </view>
+    <view class="tint-box">
+      安装完成、客户确认验收后才生成尾款单，避免"装完就催钱"。
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="t1" style="margin-bottom:8rpx">核心参数</view>
+    <view class="field" wx:for="{{p.specs}}" wx:key="name">
+      <text class="t2">{{item.name}}</text>
+      <text class="field-v">{{item.value}}</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="t1" style="margin-bottom:8rpx">保修与保障</view>
+    <view class="t2">{{p.warranty.desc}}</view>
+    <view class="divider"></view>
+    <view class="t2" wx:for="{{p.services}}" wx:key="*this">· {{item}}</view>
+  </view>
+
+  <view class="bar">
+    <view class="bar-price">
+      <view class="t3">合计</view>
+      <view class="price price-md"><text class="cny">¥</text>{{priceText}}</view>
+    </view>
+    <view class="btn {{activeSku.stock === 0 ? 'disabled' : ''}}" bindtap="goConfirm">选择安装师傅</view>
+  </view>
+</view>

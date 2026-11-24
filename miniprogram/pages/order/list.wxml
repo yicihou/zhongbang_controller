@@ -1,0 +1,39 @@
+<view class="page">
+  <scroll-view scroll-x class="tabs">
+    <view class="tab {{status === item.value ? 'on' : ''}}" wx:for="{{tabs}}" wx:key="value"
+          data-value="{{item.value}}" bindtap="onTab">{{item.label}}</view>
+  </scroll-view>
+
+  <view class="empty" wx:if="{{!loading && list.length === 0}}">
+    <view class="e-ico">□</view>
+    <view>还没有相关订单</view>
+    <view class="t3" style="margin-top:12rpx">去机型页看看，支持指定安装师傅</view>
+  </view>
+
+  <view class="card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="goDetail">
+    <view class="order-h">
+      <text>{{item.orderNo}}</text>
+      <text class="order-st {{item.done ? 'done' : ''}}">{{item.statusText}}</text>
+    </view>
+    <view class="order-item" wx:for="{{item.items}}" wx:for-item="it" wx:key="skuId">
+      <view class="thumb mini-thumb">图</view>
+      <view class="col" style="margin-left:16rpx">
+        <view class="t1">{{it.name}}</view>
+        <view class="t3">{{it.skuName}}</view>
+      </view>
+      <view style="text-align:right">
+        <view class="price">¥{{it.priceText}}</view>
+        <view class="t3">x{{it.quantity}}</view>
+      </view>
+    </view>
+    <view class="money-bar">
+      <text>总额 ¥{{item.totalText}}</text>
+      <text>已付 <text class="price">¥{{item.paidText}}</text></text>
+    </view>
+    <view class="between" style="margin-top:16rpx">
+      <text class="t3">{{item.metaText}}</text>
+      <text class="t2" wx:if="{{item.balanceText !== '0'}}">待付 <text class="price">¥{{item.balanceText}}</text></text>
+      <text class="t3" wx:else>已结清</text>
+    </view>
+  </view>
+</view>

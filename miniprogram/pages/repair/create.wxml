@@ -1,0 +1,72 @@
+<view class="page with-bar">
+  <view class="card tint">
+    <view class="between">
+      <view>
+        <view class="t1">{{asset.model || '请选择设备'}}</view>
+        <view class="t3" wx:if="{{asset.id}}">{{asset.sn}} · 购机 {{asset.buyDate}}</view>
+      </view>
+      <text class="tag {{asset.warrantyStatus === 'IN' ? '' : 'grey'}}">
+        {{asset.warrantyStatus === 'IN' ? '保内' : '已过保'}}
+      </text>
+    </view>
+    <view class="t2" style="margin-top:10rpx;color:#96061F" wx:if="{{asset.warrantyText}}">{{asset.warrantyText}}</view>
+    <view class="t3" style="margin-top:8rpx" bindtap="chooseAsset">切换设备 ›</view>
+  </view>
+
+  <view class="card">
+    <view class="t1">故障类型</view>
+    <view class="cats">
+      <view class="cat {{activeFault === item.code ? 'on' : ''}}" wx:for="{{faults}}" wx:key="code"
+            data-code="{{item.code}}" bindtap="onFault">{{item.label}}</view>
+    </view>
+    <view class="t1" style="margin-top:20rpx">故障描述</view>
+    <textarea class="ta" placeholder="描述现象、出现时间、是否自行处理过" value="{{desc}}"
+              bindinput="onDesc" maxlength="300" />
+    <view class="t3" style="text-align:right">{{desc.length}}/300</view>
+  </view>
+
+  <view class="card">
+    <view class="between"><text class="t1">照片 / 视频</text><text class="t3">最多 9 张</text></view>
+    <view class="upload">
+      <view class="up" bindtap="chooseImage">＋</view>
+      <image class="up-img" wx:for="{{images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+    </view>
+  </view>
+
+  <view class="card">
+    <picker mode="date" value="{{date}}" start="{{minDate}}" bindchange="onDate">
+      <view class="field">
+        <text class="field-k">期望上门日期</text>
+        <text class="field-v">{{date}}<text class="arrow">›</text></text>
+      </view>
+    </picker>
+    <view class="field">
+      <text class="field-k">时段</text>
+      <view class="row">
+        <text class="cat {{slot === 'AM' ? 'on' : ''}}" data-slot="AM" bindtap="onSlot"
+              style="margin:0 12rpx 0 0">上午</text>
+        <text class="cat {{slot === 'PM' ? 'on' : ''}}" data-slot="PM" bindtap="onSlot"
+              style="margin:0">下午</text>
+      </view>
+    </view>
+    <view class="field">
+      <text class="field-k">维修师傅</text>
+      <text class="field-v">系统推荐<text class="arrow">›</text></text>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{result}}">
+    <view class="t1" style="color:#0F7B57">报修已受理</view>
+    <view class="t2" style="margin-top:8rpx">工单号 {{result.workNo}}</view>
+    <view class="t2">{{result.warrantyDesc}}</view>
+    <view class="btn ghost" style="margin-top:20rpx" bindtap="goOrders">查看我的工单</view>
+  </view>
+
+  <view class="bar">
+    <view class="bar-price">
+      <view class="t3">报修设备</view>
+      <view class="t1">{{asset.model || '未选择'}}</view>
+    </view>
+    <view class="btn {{submitting ? 'disabled' : ''}}" bindtap="submit">{{submitting ? '提交中…' : '提交报修'}}</view>
+  </view>
+</view>

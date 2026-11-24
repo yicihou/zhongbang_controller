@@ -1,0 +1,48 @@
+<view class="page">
+  <view class="search" bindtap="onSearchTap">{{keyword || '搜索机型 / 型号'}}</view>
+
+  <scroll-view scroll-x class="tabs" enable-flex>
+    <view class="tab {{activeCat === 0 ? 'on' : ''}}" data-id="0" bindtap="onCat">全部</view>
+    <view class="tab {{activeCat === item.id ? 'on' : ''}}" wx:for="{{cats}}" wx:key="id"
+          data-id="{{item.id}}" bindtap="onCat">{{item.name}}</view>
+  </scroll-view>
+
+  <view class="row" style="margin:8rpx 0 20rpx">
+    <view class="tab {{sort === 'default' ? 'on' : ''}}" data-sort="default" bindtap="onSort"
+          style="margin-right:32rpx">综合</view>
+    <view class="tab {{sort === 'price_asc' ? 'on' : ''}}" data-sort="price_asc" bindtap="onSort"
+          style="margin-right:32rpx">价格 ↑</view>
+    <view class="tab {{sort === 'price_desc' ? 'on' : ''}}" data-sort="price_desc" bindtap="onSort">价格 ↓</view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && list.length === 0}}">
+    <view class="e-ico">◻</view>
+    <view>没有符合条件的机型</view>
+    <view class="t3" style="margin-top:12rpx">换个分类或清除关键词试试</view>
+  </view>
+
+  <view class="card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="goDetail">
+    <view class="row">
+      <view class="thumb mini-thumb" style="width:180rpx;height:180rpx">产品图</view>
+      <view class="col" style="margin-left:20rpx">
+        <view class="t1">{{item.name}}</view>
+        <view class="t3" style="margin-top:4rpx">{{item.model}}</view>
+        <view class="row" style="margin:10rpx 0">
+          <text class="tag" wx:for="{{item.tagList}}" wx:for-item="t" wx:key="*this">{{t}}</text>
+        </view>
+        <view class="between">
+          <text class="price"><text class="cny">¥</text>{{item.priceText}}</text>
+          <text class="t3">库存 {{item.stock}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="between" style="margin-top:18rpx;padding-top:18rpx;border-top:1rpx solid #F1F3F6">
+      <text class="t3">定金 ¥{{item.depositText}} · 尾款验收后付</text>
+      <text class="btn mini">去下单</text>
+    </view>
+  </view>
+
+  <view class="t3" style="text-align:center;padding:20rpx 0" wx:if="{{list.length}}">
+    已加载 {{list.length}} / {{total}} 款
+  </view>
+</view>

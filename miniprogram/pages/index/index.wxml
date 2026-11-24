@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="search" bindtap="onSearch">搜索机型 / 型号，如 A5</view>
+
+  <view class="banner" wx:if="{{banner}}">
+    <view class="banner-t">{{banner.title}}</view>
+    <view class="banner-s">下单可选安装师傅 · 验收后再付尾款</view>
+    <view class="banner-go" bindtap="goList">看新款机型 →</view>
+  </view>
+
+  <view class="quick">
+    <view class="q" wx:for="{{entries}}" wx:key="code" data-code="{{item.code}}" bindtap="onQuick">
+      <view class="q-ico">{{item.icon}}</view>
+      <text>{{item.title}}</text>
+    </view>
+  </view>
+
+  <view class="sec">
+    <text class="sec-t">热销机型</text>
+    <text class="sec-more" bindtap="goList">全部 {{total}} 款 ›</text>
+  </view>
+
+  <view class="grid2">
+    <view class="good" wx:for="{{hot}}" wx:key="id" data-id="{{item.id}}" bindtap="goDetail">
+      <view class="thumb">产品图</view>
+      <view class="good-in">
+        <view class="good-n">{{item.name}}</view>
+        <view class="good-m">{{item.model}}</view>
+        <view class="row between">
+          <text class="price"><text class="cny">¥</text>{{item.priceText}}</text>
+          <text class="tag" wx:if="{{item.tag}}">{{item.tag}}</text>
+        </view>
+        <view class="t3" style="margin-top:8rpx">定金 ¥{{item.depositText}} 起</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="t3" style="text-align:center;padding:30rpx 0 10rpx">整机保修 12 个月 · 电机电控 24 个月</view>
+</view>

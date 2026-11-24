@@ -1,0 +1,1439 @@
+openapi: 3.0.3
+info:
+  title: 缝纫机经销商小程序 API
+  version: 1.0.0
+  description: |
+    客户端（微信小程序）、师傅端、商家后台共用的 HTTP 接口。
+
+    **通用约定**
+    - 统一响应体：`{code, msg, data, traceId}`，`code = 0` 表示成功。
+    - 金额一律为**整数，单位「分」**；前端负责除以 100 展示。
+    - 时间格式 `yyyy-MM-dd HH:mm:ss`（东八区）；日期 `yyyy-MM-dd`。
+    - 分页：请求 `page`（从 1 开始）、`size`（默认 20，最大 100），响应 `{list,total,page,size}`。
+    - 鉴权：`Authorization: Bearer <JWT>`，登录接口与商品公开接口除外。
+    - 幂等：下单等写接口需带 `requestId`（UUID），10 分钟内重复请求返回同一结果。
+  contact:
+    name: 缝纫机经销商小程序项目组
+servers:
+  - url: http://127.0.0.1:8080
+    description: 本地 Mock / 开发环境
+  - url: https://api.example.com
+    description: 生产环境
+tags:
+  - {name: 认证, description: 微信登录与手机号绑定}
+  - {name: 首页, description: 小程序首页聚合数据}
+  - {name: 商品, description: 机型、配置与分类}
+  - {name: 师傅, description: 可预约的安装/维修师傅}
+  - {name: 订单, description: 下单、查询、取消、验收}
+  - {name: 支付, description: 微信支付下单与回调}
+  - {name: 客户, description: 我的、地址簿}
+  - {name: 设备, description: 一机一码设备档案}
+  - {name: 报修, description: 报修申请、报价确认}
+  - {name: 评价, description: 安装/维修评价}
+  - {name: 文件, description: 对象存储直传签名}
+  - {name: 师傅端, description: 师傅工作台}
+  - {name: 后台, description: 商家管理后台}
+security:
+  - bearerAuth: []
+paths:
+
+  /api/auth/login:
+    post:
+      tags: [认证]
+      summary: 微信登录
+      description: 小程序 `wx.login` 拿到 code 后调用。后端用 code 换 openid，不存在则静默建档。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: {type: string, description: wx.login 返回的 code, example: "081Kq7Ga1x..."}
+            example: {code: "081Kq7Ga1xYzAbCd"}
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RLogin'}
+              example:
+                code: 0
+                msg: ok
+                traceId: 3f8a91c2
+                data:
+                  token: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMDAxIn0.xxx
+                  expiresIn: 2592000
+                  hasMobile: false
+                  customer: {id: 1001, nickname: "", avatar: "", mobile: "", level: 1, levelText: 普通客户}
+
+  /api/auth/phone:
+    post:
+      tags: [认证]
+      summary: 绑定手机号
+      description: 手机号快速验证组件拿到的 code。**手机号是客户唯一业务标识**，同号自动合并档案。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: {type: string, example: "e3f1..."}
+            example: {code: "e3f1a2b3c4"}
+      responses:
+        '200':
+          description: 绑定成功，返回新 token（含手机号信息）
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RLogin'}
+              example:
+                code: 0
+                msg: ok
+                traceId: 3f8a91c3
+                data:
+                  token: eyJhbGciOiJIUzI1NiJ9.xxx
+                  expiresIn: 2592000
+                  hasMobile: true
+                  customer: {id: 1001, nickname: "张建国", avatar: "", mobile: "138****8000", level: 3, levelText: 金卡客户}
+
+  /api/home:
+    get:
+      tags: [首页]
+      summary: 首页聚合数据
+      description: 一次返回 banner、快捷入口、分类与热销机型，避免首屏多次请求。
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RHome'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2c3
+                data:
+                  banners:
+                    - {id: 1, image: "", title: "新机到家，师傅上门", subtitle: "下单可选安装师傅 · 验收后再付尾款", linkType: PRODUCT_LIST, linkValue: "1"}
+                  quickEntries:
+                    - {code: BUY, title: 买机器, icon: 机, badge: ""}
+                    - {code: REPAIR, title: 一键报修, icon: 修, badge: ""}
+                    - {code: ASSET, title: 我的设备, icon: 档, badge: "3"}
+                    - {code: INVOICE, title: 发票/对账, icon: 票, badge: ""}
+                  categories:
+                    - {id: 1, name: 家用多功能, count: 12}
+                    - {id: 2, name: 工业平缝, count: 9}
+                    - {id: 3, name: 包缝绷缝, count: 6}
+                    - {id: 4, name: 特种机, count: 5}
+                  hotProducts:
+                    - {id: 101, name: "电脑平缝机 A5", model: "A5-5000", coverImage: "", price: 328000, depositAmount: 98400, stock: 12, tags: [含上门安装, 现货]}
+                    - {id: 102, name: "家用多功能机 M3", model: "M3", coverImage: "", price: 158000, depositAmount: 47400, stock: 20, tags: [含教学]}
+                    - {id: 103, name: "四线包缝机 E4", model: "E4-7000", coverImage: "", price: 690000, depositAmount: 207000, stock: 3, tags: [现货 3 台]}
+                    - {id: 104, name: "电脑绣花机 12 头", model: "EM-12", coverImage: "", price: 6800000, depositAmount: 2040000, stock: 2, tags: [可分期]}
+
+  /api/categories:
+    get:
+      tags: [商品]
+      summary: 机型分类
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: {type: integer}
+                  msg: {type: string}
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Category'}
+                  traceId: {type: string}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2c4
+                data:
+                  - {id: 1, name: 家用多功能, count: 12}
+                  - {id: 2, name: 工业平缝, count: 9}
+                  - {id: 3, name: 包缝绷缝, count: 6}
+                  - {id: 4, name: 特种机, count: 5}
+
+  /api/products:
+    get:
+      tags: [商品]
+      summary: 机型列表
+      security: []
+      parameters:
+        - {name: categoryId, in: query, schema: {type: integer}, description: 分类 ID，不传为全部}
+        - {name: keyword, in: query, schema: {type: string}, description: 名称/型号模糊搜索}
+        - {name: sort, in: query, schema: {type: string, enum: [default, price_asc, price_desc, sales_desc]}, description: 排序}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RPageProduct'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2c5
+                data:
+                  total: 32
+                  page: 1
+                  size: 20
+                  list:
+                    - {id: 101, name: "电脑平缝机 A5", model: "A5-5000", coverImage: "", price: 328000, depositAmount: 98400, stock: 12, tags: [含上门安装, 现货]}
+                    - {id: 102, name: "家用多功能机 M3", model: "M3", coverImage: "", price: 158000, depositAmount: 47400, stock: 20, tags: [含教学]}
+                    - {id: 103, name: "四线包缝机 E4", model: "E4-7000", coverImage: "", price: 690000, depositAmount: 207000, stock: 3, tags: [现货 3 台]}
+
+  /api/products/{id}:
+    get:
+      tags: [商品]
+      summary: 机型详情
+      description: 返回图文、参数、可选配置（SKU）、定金比例与保修说明。价格与库存为实时值。
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RProductDetail'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2c6
+                data:
+                  id: 101
+                  name: 电脑平缝机 A5
+                  model: A5-5000
+                  subtitle: 直驱 · 自动剪线 · 5000 针/分
+                  brand: 标准牌
+                  categoryId: 2
+                  images: []
+                  videoUrl: ""
+                  price: 328000
+                  depositRate: 30
+                  depositAmount: 98400
+                  stock: 12
+                  warranty: {months: 12, motorMonths: 24, desc: "整机 12 个月，电机电控 24 个月，以安装完成日起算"}
+                  services: [含上门安装调试, 含首次操作培训, 可开增值税专用发票]
+                  specs:
+                    - {name: 最高转速, value: "5000 针/分"}
+                    - {name: 适用场景, value: "服装厂流水线 / 加工坊"}
+                    - {name: 电压, value: "220V"}
+                    - {name: 整机重量, value: "32 kg"}
+                  skus:
+                    - {id: 1011, name: "标准台板 + 伺服电机", specs: 台板:标准, 电机:伺服, price: 328000, depositAmount: 98400, stock: 8}
+                    - {id: 1012, name: "加厚台板 + 伺服电机", specs: 台板:加厚, 电机:伺服, price: 336000, depositAmount: 100800, stock: 4}
+                    - {id: 1013, name: "标准台板 + 直驱电机", specs: 台板:标准, 电机:直驱, price: 354000, depositAmount: 106200, stock: 0}
+
+  /api/technicians/available:
+    get:
+      tags: [师傅]
+      summary: 可预约师傅
+      description: 按技能匹配、档期、距离、评分排序。客户不指定时由系统派单。
+      parameters:
+        - {name: date, in: query, schema: {type: string, format: date}, description: 期望上门日期，默认明天}
+        - {name: skuId, in: query, schema: {type: integer}, description: 用于技能匹配}
+        - {name: sort, in: query, schema: {type: string, enum: [recommend, distance, rating]}, description: 排序方式}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RTechnicianList'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2c7
+                data:
+                  - {id: 88, name: 王师傅, avatar: "", rating: 4.9, orderCount: 186, distanceKm: 2.4, skills: [平缝, 包缝, 电控调试], intro: "8 年安装经验，擅长流水线调试", recommended: true, freeSlots: [{date: "2025-11-28", slot: AM, text: "11-28 上午"}, {date: "2025-11-28", slot: PM, text: "11-28 下午"}]}
+                  - {id: 89, name: 李师傅, avatar: "", rating: 4.7, orderCount: 243, distanceKm: 5.1, skills: [绣花机, 特种机], intro: "擅长绣花机与特种机", recommended: false, freeSlots: [{date: "2025-11-27", slot: AM, text: "11-27 上午"}, {date: "2025-11-28", slot: PM, text: "11-28 下午"}]}
+
+  /api/orders:
+    post:
+      tags: [订单]
+      summary: 提交订单
+      description: |
+        金额由服务端按 SKU 与定金比例计算，前端传的金额仅做校验比对。
+        提交时校验库存与师傅档期；任一不满足返回 3001 / 3002。
+        接口幂等：同 `requestId` 10 分钟内重复提交返回同一订单。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateOrderReq'}
+            example:
+              requestId: 8f1c2e4a-6b7d-4c1e-9a2f-1d3e5b7c9a01
+              skuId: 1011
+              quantity: 1
+              addressId: 55801
+              installDate: "2025-11-28"
+              installSlot: AM
+              technicianId: 88
+              remark: 厂房在 3 楼，有货梯
+              invoice: {need: true, title: "杭州某某服饰有限公司", taxNo: "91330100MA2XXXXX"}
+      responses:
+        '200':
+          description: 下单成功，返回待支付订单
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RCreateOrder'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2d1
+                data:
+                  orderId: 910233001
+                  orderNo: SO20251123000123
+                  totalAmount: 328000
+                  depositAmount: 98400
+                  balanceAmount: 229600
+                  status: UNPAID
+                  expireAt: "2025-11-23 21:15:00"
+        '400':
+          description: 2001 参数错误 / 3001 库存不足 / 3002 档期冲突 / 4001 重复请求
+          content:
+            application/json:
+              example: {code: 3002, msg: "师傅 11-28 上午档期已满", traceId: a1b2d2, data: null}
+    get:
+      tags: [订单]
+      summary: 我的订单
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [ALL, UNPAID, DEPOSIT_PAID, INSTALLING, PENDING_BALANCE, COMPLETED, AFTER_SALE]}, description: 不传为全部}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RPageOrder'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2d3
+                data:
+                  total: 9
+                  page: 1
+                  size: 20
+                  list:
+                    - {id: 910233001, orderNo: SO20251123000123, status: PENDING_BALANCE, statusText: 待付尾款, totalAmount: 328000, paidAmount: 98400, balanceAmount: 229600, createdAt: "2025-11-23 20:14:00", installDate: "2025-11-28", technicianName: 王师傅, items: [{skuId: 1011, name: 电脑平缝机 A5, skuName: "标准台板 + 伺服电机", coverImage: "", price: 328000, quantity: 1}]}
+                    - {id: 910233002, orderNo: SO20251123000045, status: INSTALLING, statusText: 安装中, totalAmount: 690000, paidAmount: 207000, balanceAmount: 483000, createdAt: "2025-11-23 09:02:00", installDate: "2025-11-25", technicianName: 李师傅, items: [{skuId: 1031, name: 四线包缝机 E4, skuName: 标准配置, coverImage: "", price: 690000, quantity: 1}]}
+
+  /api/orders/{id}:
+    get:
+      tags: [订单]
+      summary: 订单详情
+      description: 含时间轴、收款记录、师傅信息与可执行动作（actions），前端据此渲染按钮。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ROrderDetail'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2d4
+                data:
+                  id: 910233001
+                  orderNo: SO20251123000123
+                  status: PENDING_BALANCE
+                  statusText: 待付尾款
+                  totalAmount: 328000
+                  paidAmount: 98400
+                  balanceAmount: 229600
+                  createdAt: "2025-11-23 20:14:00"
+                  installDate: "2025-11-28"
+                  installSlot: AM
+                  remark: 厂房在 3 楼，有货梯
+                  technician: {id: 88, name: 王师傅, mobile: 138****8000, rating: 4.9}
+                  address: {id: 55801, name: 张建国, mobile: 138****8000, province: 浙江省, city: 杭州市, district: 余杭区, detail: "某某街道 128 号 3 楼", isDefault: true}
+                  invoice: {need: true, title: "杭州某某服饰有限公司", taxNo: "91330100MA2XXXXX"}
+                  items: [{skuId: 1011, name: 电脑平缝机 A5, skuName: "标准台板 + 伺服电机", coverImage: "", price: 328000, quantity: 1}]
+                  payments:
+                    - {id: 501, type: DEPOSIT, typeText: 定金, amount: 98400, status: SUCCESS, paidAt: "2025-11-23 20:16:22"}
+                  timeline:
+                    - {status: UNPAID, title: 提交订单, desc: 等待支付定金, time: "2025-11-23 20:14:00", done: true, current: false}
+                    - {status: DEPOSIT_PAID, title: 已付定金, desc: "已派单给王师傅", time: "2025-11-23 20:16:22", done: true, current: false}
+                    - {status: PENDING_BALANCE, title: 安装完成待付尾款, desc: "客户已验收，尾款 ¥2,296", time: "2025-11-28 14:20:00", done: true, current: true}
+                    - {status: COMPLETED, title: 订单完成, desc: 支付尾款后自动完成, time: "", done: false, current: false}
+                  expireAt: ""
+                  actions: [PAY_BALANCE, CALL_TECHNICIAN, REPAIR]
+
+  /api/orders/{id}/cancel:
+    post:
+      tags: [订单]
+      summary: 取消订单
+      description: 仅 `UNPAID` 状态可自助取消；已付定金需走退款审批（REFUNDING）。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: string, example: 下错型号}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b2d5, data: true}
+
+  /api/orders/{id}/accept:
+    post:
+      tags: [订单]
+      summary: 客户确认验收
+      description: 验收通过后订单转 `PENDING_BALANCE` 并生成尾款单；验收不通过走返工。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pass: {type: boolean, example: true}
+                remark: {type: string, example: 试缝正常}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b2d6, data: {status: PENDING_BALANCE, balanceAmount: 229600}}
+
+  /api/pay/prepay:
+    post:
+      tags: [支付]
+      summary: 发起支付
+      description: |
+        服务端按订单与类型计算金额并调用微信 v3 JSAPI 下单，返回 `wx.requestPayment` 所需参数。
+        `type=BALANCE` 时校验订单是否为 `PENDING_BALANCE`。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, type]
+              properties:
+                orderId: {type: integer, example: 910233001}
+                type: {type: string, enum: [DEPOSIT, BALANCE, REPAIR], example: DEPOSIT}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RPayParams'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2d7
+                data:
+                  paymentId: 501
+                  outTradeNo: SO20251123000123-D
+                  amount: 98400
+                  payParams:
+                    timeStamp: "1732356200"
+                    nonceStr: 5K8264ILTKCH16CQ2502SI8ZNMTI6FJ
+                    package: prepay_id=wx2311xxxx
+                    signType: RSA
+                    paySign: oR9d8PuhnIc+YZ8cBHFCwfgpaK9gd7vaRvkYD7rthRAZ
+
+  /api/pay/notify:
+    post:
+      tags: [支付]
+      summary: 微信支付回调
+      description: |
+        微信服务端调用，**订单状态的唯一可信来源**。验签 → 解密 → 幂等（out_trade_no 唯一索引 + 状态 CAS）→ 推进订单。
+        必须返回 HTTP 200 且 `{"code":"SUCCESS"}`，否则微信会重试。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: {type: string}
+                event_type: {type: string, example: TRANSACTION.SUCCESS}
+                resource:
+                  type: object
+                  properties:
+                    ciphertext: {type: string}
+                    nonce: {type: string}
+                    associated_data: {type: string}
+      responses:
+        '200':
+          description: 处理成功
+          content:
+            application/json:
+              example: {code: SUCCESS, message: 成功}
+
+  /api/customer/profile:
+    get:
+      tags: [客户]
+      summary: 我的信息
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RCustomerProfile'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2e1
+                data:
+                  customer: {id: 1001, nickname: 张建国, avatar: "", mobile: 138****8000, level: 3, levelText: 金卡客户}
+                  orderCount: 9
+                  totalPaid: 4260000
+                  pendingAmount: 229600
+                  assetCount: 3
+                  couponCount: 2
+
+  /api/customer/addresses:
+    get:
+      tags: [客户]
+      summary: 地址列表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RAddressList'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2e2
+                data:
+                  - {id: 55801, name: 张建国, mobile: 138****8000, province: 浙江省, city: 杭州市, district: 余杭区, detail: "某某街道 128 号 3 楼", isDefault: true}
+                  - {id: 55802, name: 张建国, mobile: 138****8000, province: 浙江省, city: 杭州市, district: 萧山区, detail: "某某工业园 B 栋", isDefault: false}
+    post:
+      tags: [客户]
+      summary: 新增地址
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Address'}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b2e3, data: {id: 55803}}
+
+  /api/customer/addresses/{id}:
+    put:
+      tags: [客户]
+      summary: 修改地址
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Address'}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b2e4, data: true}
+    delete:
+      tags: [客户]
+      summary: 删除地址
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b2e5, data: true}
+
+  /api/assets:
+    get:
+      tags: [设备]
+      summary: 我的设备
+      description: 一机一码电子档案，含保修状态与最近服务时间。
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RAssetList'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b2f1
+                data:
+                  - {id: 7781, model: "电脑平缝机 A5", sn: A5-2024-008671, buyDate: "2024-05-20", warrantyEnd: "2026-05-20", warrantyStatus: IN, warrantyText: "保内，至 2026-05-20", lastServiceAt: "2025-11-23"}
+                  - {id: 7782, model: "四线包缝机 E4", sn: E4-2023-002114, buyDate: "2023-03-11", warrantyEnd: "2024-03-11", warrantyStatus: OUT, warrantyText: "已过保", lastServiceAt: ""}
+
+  /api/assets/bind:
+    post:
+      tags: [设备]
+      summary: 扫码绑定设备
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sn]
+              properties:
+                sn: {type: string, example: A5-2024-008671}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b2f2, data: {id: 7781, model: "电脑平缝机 A5", sn: A5-2024-008671, warrantyStatus: IN}}
+
+  /api/repairs:
+    post:
+      tags: [报修]
+      summary: 提交报修
+      description: 系统按购机日期与保修政策自动判定保内/保外，结果随响应返回，前端直接展示。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateRepairReq'}
+            example:
+              assetId: 7781
+              faultType: THREAD_BREAK
+              faultDesc: 高速运转时断线，低速正常，已换过机针
+              images: []
+              video: ""
+              expectDate: "2025-11-25"
+              expectSlot: AM
+              technicianId: null
+      responses:
+        '200':
+          description: 报修已受理
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RCreateRepair'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b300
+                data:
+                  workOrderId: 660012
+                  workNo: WO20251123000045
+                  inWarranty: true
+                  warrantyDesc: "整机保修至 2026-05-20，本次故障在保修范围内"
+                  status: PENDING
+                  statusText: 待派单
+
+  /api/repairs/{id}:
+    get:
+      tags: [报修]
+      summary: 报修详情
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RWorkOrder'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b301
+                data:
+                  id: 660012
+                  workNo: WO20251123000045
+                  type: REPAIR
+                  typeText: 维修
+                  status: ACCEPTED
+                  statusText: 已接单
+                  faultType: THREAD_BREAK
+                  faultText: 断线 / 跳针
+                  faultDesc: 高速运转时断线，低速正常
+                  inWarranty: true
+                  warrantyDesc: "保内，免上门与工时费"
+                  quoteAmount: 0
+                  actualAmount: 0
+                  appointmentAt: "2025-11-25 09:30:00"
+                  createdAt: "2025-11-23 20:14:00"
+                  technician: {id: 89, name: 李师傅, mobile: 138****8000, rating: 4.7}
+                  images: []
+                  timeline:
+                    - {status: PENDING, title: 提交报修, desc: 已判定保内，等待派单, time: "2025-11-23 20:14:00", done: true, current: false}
+                    - {status: ACCEPTED, title: 师傅已接单, desc: 约定 11-25 上午上门, time: "2025-11-24 09:02:00", done: true, current: true}
+                    - {status: DONE, title: 维修完成, desc: "", time: "", done: false, current: false}
+
+  /api/repairs/{id}/quote/confirm:
+    post:
+      tags: [报修]
+      summary: 确认报价
+      description: 保外维修金额 > 300 元时必须客户确认后才能进入施工；拒绝则工单关闭。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accept]
+              properties:
+                accept: {type: boolean, example: true}
+                remark: {type: string}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b302, data: {status: ACCEPTED}}
+
+  /api/evaluations:
+    post:
+      tags: [评价]
+      summary: 提交评价
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Evaluation'}
+            example:
+              workOrderId: 660012
+              orderId: 910233001
+              score: 5
+              tags: [准时上门, 讲解清楚]
+              content: 师傅很专业，调完机器试缝很顺
+              images: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b400, data: true}
+
+  /api/upload/policy:
+    get:
+      tags: [文件]
+      summary: 获取直传签名
+      description: 小程序用返回的 policy 直接 `wx.uploadFile` 到对象存储，后端不中转文件。
+      parameters:
+        - {name: bizType, in: query, required: true, schema: {type: string, enum: [WORKORDER_PHOTO, REPAIR_VIDEO, SIGN_IMAGE]}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RUploadPolicy'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b500
+                data:
+                  host: "https://oss.example.com"
+                  dir: "sewing/workorder/2025/11/23/"
+                  expireAt: 1732356800
+                  policy: eyJleHBpcmF0aW9uIjoiMjAy...
+                  signature: 5K8264ILTKCH16CQ2502SI8ZNMTI6FJ
+                  accessKeyId: STS.NTxxxx
+
+  /api/tech/workorders:
+    get:
+      tags: [师傅端]
+      summary: 师傅工单列表
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [PENDING, ACCEPTED, ON_SITE, DONE]}}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RPageWorkOrder'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b600
+                data:
+                  total: 4
+                  page: 1
+                  size: 20
+                  list:
+                    - {id: 660012, workNo: WO20251123000045, type: REPAIR, typeText: 维修, status: PENDING, statusText: 待接单, faultText: 断线 / 跳针, inWarranty: true, appointmentAt: "2025-11-25 09:30:00", customerName: 张建国, address: "余杭区某某街道 128 号 3 楼", distanceKm: 2.4}
+
+  /api/tech/workorders/{id}/accept:
+    post:
+      tags: [师傅端]
+      summary: 接单
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b601, data: {status: ACCEPTED}}
+
+  /api/tech/workorders/{id}/checkin:
+    post:
+      tags: [师傅端]
+      summary: 到场打卡
+      description: 需距离客户地址 500 米内，否则返回 3005。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                longitude: {type: number, example: 120.123456}
+                latitude: {type: number, example: 30.123456}
+                address: {type: string}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b602, data: {status: ON_SITE, checkinAt: "2025-11-25 09:28:11"}}
+
+  /api/tech/workorders/{id}/finish:
+    post:
+      tags: [师傅端]
+      summary: 提交完工
+      description: 安装单需机身码 + 至少 3 张照片 + 客户签字；维修单需处理措施与换件清单。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                images: {type: array, items: {type: string}}
+                signImage: {type: string}
+                sn: {type: string, example: A5-2024-008671}
+                parts: {type: array, items: {type: object, properties: {skuId: {type: integer}, name: {type: string}, qty: {type: integer}, price: {type: integer}}}}
+                oldPartHandling: {type: string, enum: [CUSTOMER, RECYCLE], example: CUSTOMER}
+                remark: {type: string}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b603, data: {status: DONE, finishAt: "2025-11-25 10:42:00"}}
+
+  /api/admin/customers/{id}:
+    get:
+      tags: [后台]
+      summary: 客户 360
+      description: 客户详情页聚合：基本信息、交易汇总、订单时间线、设备档案、偏好标签、跟进记录。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RCustomer360'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b700
+                data:
+                  customer: {id: 1001, nickname: 张建国, avatar: "", mobile: 138****8000, level: 3, levelText: 金卡客户}
+                  stat: {orderCount: 9, totalPaid: 4260000, pendingAmount: 229600, overdueAmount: 0, lastDealAt: "2025-11-23"}
+                  tags: [品牌偏好 A5, 付款爽快, 转介绍 3 人]
+                  orders:
+                    - {id: 910233001, orderNo: SO20251123000123, statusText: 待付尾款, totalAmount: 328000, paidAmount: 98400, createdAt: "2025-11-23 20:14:00"}
+                  assets:
+                    - {id: 7781, model: "电脑平缝机 A5", sn: A5-2024-008671, warrantyText: "保内至 2026-05-20"}
+                  followUps:
+                    - {id: 1, type: PHONE, content: "11-10 电话回访，满意", operator: 客服小周, createdAt: "2025-11-10 15:02:00"}
+
+  /api/admin/orders:
+    get:
+      tags: [后台]
+      summary: 订单看板
+      parameters:
+        - {name: status, in: query, schema: {type: string}}
+        - {name: keyword, in: query, schema: {type: string}, description: 订单号 / 客户手机号}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RPageOrder'}
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b701
+                data:
+                  total: 128
+                  page: 1
+                  size: 20
+                  list:
+                    - {id: 910233001, orderNo: SO20251123000123, status: PENDING_BALANCE, statusText: 待付尾款, totalAmount: 328000, paidAmount: 98400, balanceAmount: 229600, createdAt: "2025-11-23 20:14:00", installDate: "2025-11-28", technicianName: 王师傅, customerName: 张建国, items: []}
+
+  /api/admin/orders/{id}/assign:
+    post:
+      tags: [后台]
+      summary: 改派师傅
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [technicianId]
+              properties:
+                technicianId: {type: integer, example: 89}
+                reason: {type: string, example: 原师傅临时请假}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: {code: 0, msg: ok, traceId: a1b702, data: true}
+
+  /api/admin/receivables:
+    get:
+      tags: [后台]
+      summary: 应收账款
+      parameters:
+        - {name: aging, in: query, schema: {type: string, enum: [ALL, D30, D60, D90, D90P]}, description: 账龄区间}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example:
+                code: 0
+                msg: ok
+                traceId: a1b703
+                data:
+                  total: 23
+                  page: 1
+                  size: 20
+                  summary: {totalPending: 1864000, overdue: 320000, overdueCount: 4}
+                  list:
+                    - {orderId: 910233001, orderNo: SO20251123000123, customerName: 张建国, mobile: 138****8000, balanceAmount: 229600, dueDate: "2025-12-05", overdueDays: 0}
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PathId:
+      name: id
+      in: path
+      required: true
+      schema: {type: integer}
+      description: 资源 ID
+    Page:
+      name: page
+      in: query
+      schema: {type: integer, default: 1, minimum: 1}
+      description: 页码
+    Size:
+      name: size
+      in: query
+      schema: {type: integer, default: 20, maximum: 100}
+      description: 每页条数
+
+  schemas:
+    Result:
+      type: object
+      properties:
+        code: {type: integer, description: 0 成功，非 0 见错误码}
+        msg: {type: string}
+        data: {}
+        traceId: {type: string}
+
+    Page:
+      type: object
+      properties:
+        total: {type: integer}
+        page: {type: integer}
+        size: {type: integer}
+        list: {type: array, items: {}}
+
+    Customer:
+      type: object
+      properties:
+        id: {type: integer}
+        nickname: {type: string}
+        avatar: {type: string}
+        mobile: {type: string, description: 脱敏返回}
+        level: {type: integer, description: 1 普通 2 银卡 3 金卡}
+        levelText: {type: string}
+
+    RLogin:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                token: {type: string}
+                expiresIn: {type: integer, description: 秒}
+                hasMobile: {type: boolean}
+                customer: {$ref: '#/components/schemas/Customer'}
+
+    Category:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        count: {type: integer, description: 在售机型数}
+
+    ProductBrief:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        model: {type: string}
+        coverImage: {type: string}
+        price: {type: integer, description: 分}
+        depositAmount: {type: integer}
+        stock: {type: integer}
+        tags: {type: array, items: {type: string}}
+
+    Sku:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        specs: {type: object, additionalProperties: {type: string}}
+        price: {type: integer}
+        depositAmount: {type: integer}
+        stock: {type: integer}
+
+    ProductDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProductBrief'
+        - type: object
+          properties:
+            subtitle: {type: string}
+            brand: {type: string}
+            categoryId: {type: integer}
+            images: {type: array, items: {type: string}}
+            videoUrl: {type: string}
+            depositRate: {type: integer, description: 百分比，如 30}
+            warranty:
+              type: object
+              properties:
+                months: {type: integer}
+                motorMonths: {type: integer}
+                desc: {type: string}
+            services: {type: array, items: {type: string}}
+            specs:
+              type: array
+              items:
+                type: object
+                properties:
+                  name: {type: string}
+                  value: {type: string}
+            skus: {type: array, items: {$ref: '#/components/schemas/Sku'}}
+
+    Technician:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        avatar: {type: string}
+        rating: {type: number, format: float}
+        orderCount: {type: integer}
+        distanceKm: {type: number}
+        skills: {type: array, items: {type: string}}
+        intro: {type: string}
+        recommended: {type: boolean}
+        freeSlots:
+          type: array
+          items:
+            type: object
+            properties:
+              date: {type: string, format: date}
+              slot: {type: string, enum: [AM, PM]}
+              text: {type: string}
+
+    Address:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        mobile: {type: string}
+        province: {type: string}
+        city: {type: string}
+        district: {type: string}
+        detail: {type: string}
+        isDefault: {type: boolean}
+
+    OrderItem:
+      type: object
+      properties:
+        skuId: {type: integer}
+        name: {type: string}
+        skuName: {type: string}
+        coverImage: {type: string}
+        price: {type: integer}
+        quantity: {type: integer}
+
+    OrderBrief:
+      type: object
+      properties:
+        id: {type: integer}
+        orderNo: {type: string}
+        status: {type: string, enum: [UNPAID, DEPOSIT_PAID, INSTALLING, PENDING_BALANCE, COMPLETED, CANCELLED, REFUNDING, REFUNDED]}
+        statusText: {type: string}
+        totalAmount: {type: integer}
+        depositAmount: {type: integer, description: 应约定金}
+        paidAmount: {type: integer}
+        balanceAmount: {type: integer}
+        createdAt: {type: string}
+        installDate: {type: string, format: date}
+        technicianName: {type: string}
+        items: {type: array, items: {$ref: '#/components/schemas/OrderItem'}}
+
+    TimelineNode:
+      type: object
+      properties:
+        status: {type: string}
+        title: {type: string}
+        desc: {type: string}
+        time: {type: string}
+        done: {type: boolean}
+        current: {type: boolean}
+
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/OrderBrief'
+        - type: object
+          properties:
+            installSlot: {type: string, enum: [AM, PM]}
+            remark: {type: string}
+            expireAt: {type: string}
+            technician: {type: object, properties: {id: {type: integer}, name: {type: string}, mobile: {type: string}, rating: {type: number}}}
+            address: {$ref: '#/components/schemas/Address'}
+            invoice: {type: object, properties: {need: {type: boolean}, title: {type: string}, taxNo: {type: string}}}
+            payments:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: {type: integer}
+                  type: {type: string}
+                  typeText: {type: string}
+                  amount: {type: integer}
+                  status: {type: string}
+                  paidAt: {type: string}
+            timeline: {type: array, items: {$ref: '#/components/schemas/TimelineNode'}}
+            actions:
+              type: array
+              items: {type: string, enum: [PAY_DEPOSIT, PAY_BALANCE, CANCEL, ACCEPT, CALL_TECHNICIAN, REPAIR, EVALUATE]}
+
+    Asset:
+      type: object
+      properties:
+        id: {type: integer}
+        model: {type: string}
+        sn: {type: string}
+        buyDate: {type: string, format: date}
+        warrantyEnd: {type: string, format: date}
+        warrantyStatus: {type: string, enum: [IN, OUT, UNKNOWN]}
+        warrantyText: {type: string}
+        lastServiceAt: {type: string}
+
+    WorkOrder:
+      type: object
+      properties:
+        id: {type: integer}
+        workNo: {type: string}
+        type: {type: string, enum: [INSTALL, REPAIR]}
+        typeText: {type: string}
+        status: {type: string, enum: [PENDING, ACCEPTED, ON_SITE, DONE, CLOSED]}
+        statusText: {type: string}
+        faultType: {type: string}
+        faultText: {type: string}
+        faultDesc: {type: string}
+        inWarranty: {type: boolean}
+        warrantyDesc: {type: string}
+        quoteAmount: {type: integer}
+        actualAmount: {type: integer}
+        appointmentAt: {type: string}
+        createdAt: {type: string}
+        customerName: {type: string}
+        address: {type: string}
+        distanceKm: {type: number}
+        technician: {type: object, properties: {id: {type: integer}, name: {type: string}, mobile: {type: string}, rating: {type: number}}}
+        images: {type: array, items: {type: string}}
+        timeline: {type: array, items: {$ref: '#/components/schemas/TimelineNode'}}
+
+    Evaluation:
+      type: object
+      properties:
+        workOrderId: {type: integer}
+        orderId: {type: integer}
+        score: {type: integer, minimum: 1, maximum: 5}
+        tags: {type: array, items: {type: string}}
+        content: {type: string}
+        images: {type: array, items: {type: string}}
+
+    CreateOrderReq:
+      type: object
+      required: [requestId, skuId, quantity, addressId, installDate, installSlot]
+      properties:
+        requestId: {type: string, description: 幂等键}
+        skuId: {type: integer}
+        quantity: {type: integer, default: 1}
+        addressId: {type: integer}
+        installDate: {type: string, format: date}
+        installSlot: {type: string, enum: [AM, PM]}
+        technicianId: {type: integer, nullable: true, description: 不传则系统派单}
+        remark: {type: string}
+        invoice: {type: object, properties: {need: {type: boolean}, title: {type: string}, taxNo: {type: string}}}
+
+    CreateRepairReq:
+      type: object
+      required: [assetId, faultType, faultDesc]
+      properties:
+        assetId: {type: integer}
+        faultType: {type: string, enum: [THREAD_BREAK, NOISE, OIL, ELECTRIC, FEED, OTHER]}
+        faultDesc: {type: string}
+        images: {type: array, items: {type: string}}
+        video: {type: string}
+        expectDate: {type: string, format: date}
+        expectSlot: {type: string, enum: [AM, PM]}
+        technicianId: {type: integer, nullable: true}
+
+    RHome:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                banners: {type: array, items: {type: object, properties: {id: {type: integer}, image: {type: string}, title: {type: string}, subtitle: {type: string}, linkType: {type: string}, linkValue: {type: string}}}}
+                quickEntries: {type: array, items: {type: object, properties: {code: {type: string}, title: {type: string}, icon: {type: string}, badge: {type: string}}}}
+                categories: {type: array, items: {$ref: '#/components/schemas/Category'}}
+                hotProducts: {type: array, items: {$ref: '#/components/schemas/ProductBrief'}}
+
+    RPageProduct:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/Page'
+                - type: object
+                  properties:
+                    list: {type: array, items: {$ref: '#/components/schemas/ProductBrief'}}
+
+    RProductDetail:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/ProductDetail'}
+
+    RTechnicianList:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data: {type: array, items: {$ref: '#/components/schemas/Technician'}}
+
+    RCreateOrder:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                orderId: {type: integer}
+                orderNo: {type: string}
+                totalAmount: {type: integer}
+                depositAmount: {type: integer}
+                balanceAmount: {type: integer}
+                status: {type: string}
+                expireAt: {type: string}
+
+    RPageOrder:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/Page'
+                - type: object
+                  properties:
+                    list: {type: array, items: {$ref: '#/components/schemas/OrderBrief'}}
+
+    ROrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/OrderDetail'}
+
+    RPayParams:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                paymentId: {type: integer}
+                outTradeNo: {type: string}
+                amount: {type: integer}
+                payParams:
+                  type: object
+                  description: 直接透传给 wx.requestPayment
+                  properties:
+                    timeStamp: {type: string}
+                    nonceStr: {type: string}
+                    package: {type: string}
+                    signType: {type: string}
+                    paySign: {type: string}
+
+    RAddressList:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data: {type: array, items: {$ref: '#/components/schemas/Address'}}
+
+    RAssetList:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data: {type: array, items: {$ref: '#/components/schemas/Asset'}}
+
+    RCreateRepair:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                workOrderId: {type: integer}
+                workNo: {type: string}
+                inWarranty: {type: boolean}
+                warrantyDesc: {type: string}
+                status: {type: string}
+                statusText: {type: string}
+
+    RWorkOrder:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/WorkOrder'}
+
+    RPageWorkOrder:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/Page'
+                - type: object
+                  properties:
+                    list: {type: array, items: {$ref: '#/components/schemas/WorkOrder'}}
+
+    RCustomerProfile:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                customer: {$ref: '#/components/schemas/Customer'}
+                orderCount: {type: integer}
+                totalPaid: {type: integer}
+                pendingAmount: {type: integer}
+                assetCount: {type: integer}
+                couponCount: {type: integer}
+
+    RCustomer360:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                customer: {$ref: '#/components/schemas/Customer'}
+                stat:
+                  type: object
+                  properties:
+                    orderCount: {type: integer}
+                    totalPaid: {type: integer}
+                    pendingAmount: {type: integer}
+                    overdueAmount: {type: integer}
+                    lastDealAt: {type: string, format: date}
+                tags: {type: array, items: {type: string}}
+                orders: {type: array, items: {$ref: '#/components/schemas/OrderBrief'}}
+                assets: {type: array, items: {$ref: '#/components/schemas/Asset'}}
+                followUps:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id: {type: integer}
+                      type: {type: string}
+                      content: {type: string}
+                      operator: {type: string}
+                      createdAt: {type: string}
+
+    RUploadPolicy:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                host: {type: string}
+                dir: {type: string}
+                expireAt: {type: integer}
+                policy: {type: string}
+                signature: {type: string}
+                accessKeyId: {type: string}

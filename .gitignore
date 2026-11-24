@@ -1,0 +1,29 @@
+# ---------- macOS ----------
+.DS_Store
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+.pyvendor/
+.venv/
+venv/
+
+# ---------- Node ----------
+node_modules/
+npm-debug.log*
+
+# ---------- 微信开发者工具 ----------
+# 个人本地设置（含 appid、编译模式等），每个开发者各自生成
+miniprogram/project.private.config.json
+
+# ---------- 文档渲染 / 截图等临时产物 ----------
+preview-*/
+.shot/
+.chrome/
+*.tmp
+*.log
+
+# ---------- 编辑器 ----------
+.idea/
+.vscode/
+*.swp

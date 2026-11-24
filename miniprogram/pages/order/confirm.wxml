@@ -1,0 +1,73 @@
+<view class="page with-bar">
+  <view class="card" bindtap="chooseAddress">
+    <view class="row">
+      <view class="col">
+        <view class="t1">{{address.name || '请选择收货地址'}} {{address.mobile}}</view>
+        <view class="t2" style="margin-top:6rpx" wx:if="{{address.id}}">
+          {{address.province}}{{address.city}}{{address.district}}{{address.detail}}
+        </view>
+        <view class="t2" style="margin-top:6rpx" wx:else>点击选择安装地址，师傅按此导航上门</view>
+      </view>
+      <text class="arrow">›</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <view class="thumb mini-thumb" style="width:160rpx;height:160rpx">产品图</view>
+      <view class="col" style="margin-left:18rpx">
+        <view class="t1">{{productName}}</view>
+        <view class="t2" style="margin-top:6rpx">{{skuName}}</view>
+        <view class="between" style="margin-top:12rpx">
+          <text class="price"><text class="cny">¥</text>{{priceText}}</text>
+          <text class="t3">x1</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <picker mode="date" value="{{installDate}}" start="{{minDate}}" bindchange="onDate">
+      <view class="field">
+        <text class="field-k">期望安装日期</text>
+        <text class="field-v">{{installDate}}<text class="arrow">›</text></text>
+      </view>
+    </picker>
+    <view class="field">
+      <text class="field-k">时段</text>
+      <view class="row">
+        <text class="cat {{slot === 'AM' ? 'on' : ''}}" data-slot="AM" bindtap="onSlot"
+              style="margin:0 12rpx 0 0">上午</text>
+        <text class="cat {{slot === 'PM' ? 'on' : ''}}" data-slot="PM" bindtap="onSlot"
+              style="margin:0">下午</text>
+      </view>
+    </view>
+    <view class="field" bindtap="chooseTech">
+      <text class="field-k">安装师傅</text>
+      <text class="field-v">{{tech ? tech.name : '系统派单'}}<text class="arrow">›</text></text>
+    </view>
+    <view class="field">
+      <text class="field-k">备注</text>
+      <input class="remark" placeholder="楼层、货梯、进厂要求" value="{{remark}}" bindinput="onRemark" />
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="between"><text class="t2">商品总额</text><text>¥{{priceText}}</text></view>
+    <view class="between" style="margin-top:12rpx">
+      <text class="t2">定金（{{depositRate}}%）</text><text class="price">¥{{depositText}}</text>
+    </view>
+    <view class="between" style="margin-top:12rpx">
+      <text class="t2">尾款（验收后支付）</text><text class="price">¥{{balanceText}}</text>
+    </view>
+    <view class="tint-box">提交后 30 分钟内未支付，订单自动关闭并释放库存与师傅档期。</view>
+  </view>
+
+  <view class="bar">
+    <view class="bar-price">
+      <view class="t3">应付定金</view>
+      <view class="price price-md"><text class="cny">¥</text>{{depositText}}</view>
+    </view>
+    <view class="btn {{submitting ? 'disabled' : ''}}" bindtap="submit">{{submitting ? '提交中…' : '提交并支付'}}</view>
+  </view>
+</view>
