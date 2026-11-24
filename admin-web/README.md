@@ -116,7 +116,7 @@ SSE 事件：`ORDER_CREATED` / `REPAIR_CREATED` / `PAYMENT_OFFLINE_PENDING`。`d
 }
 ```
 
-浏览器的 `EventSource` 不能带 `Authorization`。真实模式下用 `fetch` 读同一路径，并带上 Bearer。Mock 里订单列表有「模拟新订单」，顶栏可以「模拟断线」看轮询状态。新订单会响一声、顶栏出通知、侧栏订单出现角标。
+浏览器的 `EventSource` 不能带 `Authorization`。真实模式下用 `fetch` 读同一路径，并带上 Bearer。Mock 不会定时自动生成订单，只有点订单列表右上角「模拟新订单」才生成一笔；顶栏可以「模拟断线」看轮询状态。新订单会响一声、顶栏出通知、侧栏订单出现角标。
 
 订单状态用 §3.1：`PENDING_PAYMENT`、`PARTIALLY_PAID`、`PAID`、`FULFILLING`、`COMPLETED`、`CANCELLED`。报修用 §3.2。
 
