@@ -77,7 +77,8 @@ export interface OrderItem {
   unitPrice: number
   lineAmount: number
   deliveryMethod: DeliveryMethod
-  installFee: number
+  /** null：上门安装行尚未由管理员定价（D3）；0 表示明确免安装费。 */
+  installFee: number | null
   installDate?: string
   installSlot?: string
   technicianId?: number
@@ -117,7 +118,8 @@ export interface PriceLog {
   scope: 'ORDER' | 'LINE'
   orderItemId?: number
   field: 'unitPrice' | 'installFee' | 'adjustAmount' | 'freightAmount'
-  beforeAmount: number
+  /** null：改价前该项未设定（如首次设定安装费）。 */
+  beforeAmount: number | null
   afterAmount: number
   reason: string
   operatorName: string

@@ -81,7 +81,7 @@ VITE_API_BASE=
 | 上门安装派师傅、定时间 | `POST /api/admin/orders/{id}/assign` | `{ orderItemId, technicianId, installDate, installSlot, reason? }` |
 | 取消（无成功付款） | `POST /api/admin/orders/{id}/cancel` | `{ reason }` |
 
-发货凭证按行上的方式校验：快递要承运商和快递单号；物流要公司，以及物流单号或车牌；上门送货要送货人和电话；到店自提可生成自提码。安装费只能加在 `ON_SITE_INSTALL` 行上（D4）。
+发货凭证按行上的方式校验：快递要承运商和快递单号；物流要公司，以及物流单号或车牌；上门送货要送货人和电话；到店自提可生成自提码。安装费只能加在 `ON_SITE_INSTALL` 行上（D4）。上门安装行的 `installFee` 为 `null` 表示管理员还没定价（D3），页面显示「待定」；`0` 表示明确免安装费。改价请求里不带 `installFee` 时保持原值。
 
 报修：
 

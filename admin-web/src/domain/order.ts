@@ -41,9 +41,22 @@ export function recalcOrder(order: AdminOrder): void {
   order.goodsAmount = order.items.reduce((sum, item) => sum + item.lineAmount, 0)
   order.installAmount = order.items.reduce((sum, item) => {
     if (item.deliveryMethod !== 'ON_SITE_INSTALL') return sum
-    return sum + item.installFee
+    return sum + (item.installFee ?? 0)
   }, 0)
   order.payableAmount = order.goodsAmount + order.installAmount + order.freightAmount + order.adjustAmount
+}
+
+export type InstallFeeState =
+  | { kind: 'none' }
+  | { kind: 'pending'; amount: number }
+  | { kind: 'set'; amount: number }
+
+/** 订单级安装费展示：无上门安装行为 none；任一安装行未定价为 pending。 */
+export function installFeeState(order: Pick<AdminOrder, 'items' | 'installAmount'>): InstallFeeState {
+  const installs = order.items.filter((item) => item.deliveryMethod === 'ON_SITE_INSTALL')
+  if (installs.length === 0) return { kind: 'none' }
+  if (installs.some((item) => item.installFee == null)) return { kind: 'pending', amount: order.installAmount }
+  return { kind: 'set', amount: order.installAmount }
 }
 
 export function syncOrderStatus(order: AdminOrder): void {

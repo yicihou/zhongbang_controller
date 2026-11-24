@@ -50,7 +50,7 @@ export function simulateIncomingOrder(): AdminNotice {
         unitPrice: install ? 328000 : 498000,
         lineAmount: install ? 328000 : 498000,
         deliveryMethod: install ? 'ON_SITE_INSTALL' : 'EXPRESS',
-        installFee: 0,
+        installFee: install ? null : 0,
         installDate: install ? todayShanghai() : undefined,
         installSlot: install ? '下午' : undefined,
       },

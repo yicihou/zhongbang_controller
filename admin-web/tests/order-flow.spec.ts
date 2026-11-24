@@ -7,6 +7,7 @@ import {
   assignInstall,
   cancelOrder,
   createPayments,
+  installFeeState,
   offlineConfirmOrder,
   setFreight,
   type IdSource,
@@ -45,7 +46,7 @@ function order(): AdminOrder {
         unitPrice: 328000,
         lineAmount: 328000,
         deliveryMethod: 'ON_SITE_INSTALL',
-        installFee: 0,
+        installFee: null,
       },
       {
         id: 12,
@@ -111,6 +112,31 @@ describe('order admin flow', () => {
     expect(() =>
       adjustPrice(order(), { reason: '不行', lines: [{ orderItemId: 12, installFee: 100 }] }, '李敏', now, ids()),
     ).toThrow(ApiError)
+  })
+
+  it('tells an unset install fee apart from an explicit zero', () => {
+    const pending = order()
+    expect(installFeeState(pending)).toEqual({ kind: 'pending', amount: 0 })
+
+    const zero = adjustPrice(
+      pending,
+      { reason: '老客户免安装费', lines: [{ orderItemId: 11, installFee: 0 }] },
+      '李敏',
+      now,
+      ids(),
+    )
+    expect(zero.items[0]?.installFee).toBe(0)
+    expect(installFeeState(zero)).toEqual({ kind: 'set', amount: 0 })
+    expect(zero.priceLogs[0]).toMatchObject({ field: 'installFee', beforeAmount: null, afterAmount: 0 })
+    expect(zero.payableAmount).toBe(pending.payableAmount)
+
+    const untouched = adjustPrice(pending, { reason: '只改单价', lines: [{ orderItemId: 12, unitPrice: 4000 }] }, '李敏', now, ids())
+    expect(untouched.items[0]?.installFee).toBeNull()
+    expect(installFeeState(untouched).kind).toBe('pending')
+
+    const noInstall = order()
+    noInstall.items = noInstall.items.filter((item) => item.deliveryMethod !== 'ON_SITE_INSTALL')
+    expect(installFeeState(noInstall)).toEqual({ kind: 'none' })
   })
 
   it('adds freight into the open full payment, then splits deposit and balance', () => {

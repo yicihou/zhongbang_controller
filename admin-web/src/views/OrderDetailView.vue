@@ -7,7 +7,7 @@
       </div>
       <div class="actions" v-if="order">
         <el-tag :type="orderTagType(order.status)" size="large" effect="light">{{ ORDER_STATUS_LABEL[order.status] }}</el-tag>
-        <el-button @click="openAdjust" :disabled="closed">改价</el-button>
+        <el-button @click="openAdjust(false)" :disabled="closed">改价</el-button>
         <el-button @click="openFreight" :disabled="closed">运费</el-button>
         <el-button @click="openSplit" :disabled="!fullWait">拆定金/尾款</el-button>
         <el-button @click="openAppend" :disabled="closed">追加应付</el-button>
@@ -18,7 +18,15 @@
     <template v-if="order">
       <div class="metrics">
         <div><span>商品</span><b>¥{{ formatYuan(order.goodsAmount) }}</b></div>
-        <div><span>安装费</span><b>¥{{ formatYuan(order.installAmount) }}</b></div>
+        <div data-testid="install-fee-card">
+          <span>安装费</span>
+          <b v-if="feeState.kind === 'none'">—</b>
+          <template v-else-if="feeState.kind === 'pending'">
+            <b class="pending">待定</b>
+            <el-button link type="primary" size="small" :disabled="closed" @click="openAdjust(true)">设定安装费</el-button>
+          </template>
+          <b v-else>¥{{ formatYuan(feeState.amount) }}</b>
+        </div>
         <div><span>运费</span><b>¥{{ formatYuan(order.freightAmount) }}</b></div>
         <div><span>调整</span><b>¥{{ formatYuan(order.adjustAmount) }}</b></div>
         <div><span>应付</span><b class="money">¥{{ formatYuan(order.payableAmount) }}</b></div>
@@ -49,7 +57,11 @@
             <el-table-column label="安装 / 凭证" min-width="220">
               <template #default="{ row }">
                 <div v-if="row.deliveryMethod === 'ON_SITE_INSTALL'">
-                  安装费 ¥{{ formatYuan(row.installFee) }}
+                  <template v-if="row.installFee == null">
+                    安装费 <span class="pending">待定</span>
+                    <el-button link type="primary" size="small" :disabled="closed" @click="openAdjust(true)">设定安装费</el-button>
+                  </template>
+                  <template v-else>安装费 ¥{{ formatYuan(row.installFee) }}</template>
                   <div class="muted">
                     {{ row.installDate || '未定日期' }} {{ row.installSlot || '' }}
                     {{ row.technicianName ? `· ${row.technicianName}` : '· 未派师傅' }}
@@ -118,7 +130,7 @@
         <el-timeline v-else>
           <el-timeline-item v-for="log in order.priceLogs" :key="log.id" :timestamp="log.createdAt">
             {{ log.operatorName }} 将{{ PRICE_FIELD_LABEL[log.field] || log.field }}
-            从 ¥{{ formatYuan(log.beforeAmount) }} 调整为 ¥{{ formatYuan(log.afterAmount) }}
+            从 {{ log.beforeAmount == null ? '未设定' : `¥${formatYuan(log.beforeAmount)}` }} 调整为 ¥{{ formatYuan(log.afterAmount) }}
             · {{ log.reason }}
           </el-timeline-item>
         </el-timeline>
@@ -136,7 +148,15 @@
         </el-table-column>
         <el-table-column label="安装费（元）" width="160">
           <template #default="{ row }">
-            <el-input-number v-model="row.installYuan" :min="0" :precision="2" :step="10" :disabled="row.delivery !== 'ON_SITE_INSTALL'" />
+            <el-input-number
+              v-model="row.installYuan"
+              :min="0"
+              :precision="2"
+              :step="10"
+              :value-on-clear="null"
+              :placeholder="row.delivery === 'ON_SITE_INSTALL' ? '待定' : ''"
+              :disabled="row.delivery !== 'ON_SITE_INSTALL'"
+            />
           </template>
         </el-table-column>
       </el-table>
@@ -322,6 +342,7 @@ import {
 } from '@/api/admin'
 import type { AdminOrder, OrderItem, Payment, PaymentType, Technician } from '@/api/types'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
+import { installFeeState } from '@/domain/order'
 import {
   DELIVERY_LABEL,
   ORDER_STATUS_LABEL,
@@ -349,7 +370,10 @@ const splitSumFen = computed(() => yuanToFen(depositYuan.value || 0) + yuanToFen
 const adjustVisible = ref(false)
 const adjustReason = ref('')
 const adjustYuan = ref(0)
-const lineDrafts = ref<{ id: number; name: string; unitYuan: number; installYuan: number; delivery: OrderItem['deliveryMethod'] }[]>([])
+const lineDrafts = ref<
+  { id: number; name: string; unitYuan: number; installYuan: number | null; delivery: OrderItem['deliveryMethod'] }[]
+>([])
+const feeState = computed(() => (order.value ? installFeeState(order.value) : ({ kind: 'none' } as const)))
 const freightVisible = ref(false)
 const freightYuan = ref(0)
 const splitVisible = ref(false)
@@ -413,15 +437,15 @@ async function load() {
   loading.value = false
 }
 
-function openAdjust() {
+function openAdjust(forInstallFee = false) {
   if (!order.value) return
-  adjustReason.value = ''
+  adjustReason.value = forInstallFee ? '设定上门安装费' : ''
   adjustYuan.value = fenToYuanNumber(order.value.adjustAmount)
   lineDrafts.value = order.value.items.map((item) => ({
     id: item.id,
     name: `${item.productName} ${item.skuName}`,
     unitYuan: fenToYuanNumber(item.unitPrice),
-    installYuan: fenToYuanNumber(item.installFee),
+    installYuan: item.installFee == null ? null : fenToYuanNumber(item.installFee),
     delivery: item.deliveryMethod,
   }))
   adjustVisible.value = true
@@ -506,7 +530,8 @@ async function submitAdjust() {
       lines: lineDrafts.value.map((line) => ({
         orderItemId: line.id,
         unitPrice: yuanToFen(line.unitYuan || 0),
-        installFee: yuanToFen(line.installYuan || 0),
+        installFee:
+          line.delivery === 'ON_SITE_INSTALL' && line.installYuan != null ? yuanToFen(line.installYuan) : undefined,
       })),
     })
   }, '已改价')
@@ -660,6 +685,9 @@ h3 {
   color: var(--zb-muted);
   font-size: 12px;
   line-height: 1.6;
+}
+.pending {
+  color: #b45309;
 }
 .remark {
   white-space: pre-wrap;
