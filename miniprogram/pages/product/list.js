@@ -7,9 +7,21 @@ Page({
     cats: [],
     activeCat: 0,
     sort: 'default',
+    bands: [
+      { label: '全部价格', value: 'all' },
+      { label: '5千以下', value: 'lt' },
+      { label: '5千-1万', value: 'mid' },
+      { label: '1万以上', value: 'gt' }
+    ],
+    band: 'all',
+    raw: [],
     list: [],
     total: 0,
     loading: false
+  },
+
+  onPullDownRefresh() {
+    this.load().then(() => wx.stopPullDownRefresh());
   },
 
   onLoad(options) {
@@ -30,16 +42,26 @@ Page({
     if (this.data.activeCat) params.categoryId = this.data.activeCat;
     if (this.data.keyword) params.keyword = this.data.keyword;
     return api.getProducts(params).then((d) => {
-      this.setData({
-        list: (d.list || []).map((p) => Object.assign({}, p, {
-          priceText: fmt.yuan(p.price),
-          depositText: fmt.yuan(p.depositAmount),
-          tagList: (p.tags || []).slice(0, 2)
-        })),
-        total: d.total || 0,
-        loading: false
-      });
+      const raw = (d.list || []).map((p) => Object.assign({}, p, {
+        priceText: fmt.yuan(p.price),
+        depositText: fmt.yuan(p.depositAmount),
+        tagList: (p.tags || []).slice(0, 2)
+      }));
+      this.setData({ raw, total: d.total || 0, loading: false }, () => this.applyBand());
     }).catch(() => this.setData({ loading: false }));
+  },
+
+  applyBand() {
+    const band = this.data.band;
+    let list = this.data.raw || [];
+    if (band === 'lt') list = list.filter((p) => p.price < 500000);
+    else if (band === 'mid') list = list.filter((p) => p.price >= 500000 && p.price < 1000000);
+    else if (band === 'gt') list = list.filter((p) => p.price >= 1000000);
+    this.setData({ list });
+  },
+
+  onBand(e) {
+    this.setData({ band: e.currentTarget.dataset.band }, () => this.applyBand());
   },
 
   onCat(e) {

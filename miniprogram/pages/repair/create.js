@@ -21,11 +21,14 @@ Page({
     date: '',
     minDate: '',
     slot: 'AM',
+    tech: null,
+    video: '',
     result: null,
     submitting: false
   },
 
-  onLoad() {
+  onLoad(q) {
+    this.presetAssetId = Number(q.assetId || 0);
     this.setData({
       date: fmt.dateAfter(2),
       minDate: fmt.dateAfter(1)
@@ -36,7 +39,8 @@ Page({
   loadAssets() {
     return api.getAssets().then((list) => {
       const assets = list || [];
-      this.setData({ assets, asset: assets[0] || {} });
+      const preset = assets.filter((a) => a.id === this.presetAssetId)[0];
+      this.setData({ assets, asset: preset || assets[0] || {} });
     });
   },
 
@@ -57,13 +61,23 @@ Page({
   },
 
   chooseImage() {
-    wx.chooseMedia({
-      count: 9 - this.data.images.length,
-      mediaType: ['image'],
-      sizeType: ['compressed'],
-      success: (res) => {
-        const paths = res.tempFiles.map((f) => f.tempFilePath);
-        this.setData({ images: this.data.images.concat(paths) });
+    const upload = require('../../utils/upload');
+    upload.chooseImages(this.data.images, 9).then((images) => this.setData({ images }));
+  },
+
+  chooseVideo() {
+    const upload = require('../../utils/upload');
+    upload.chooseVideo().then((video) => {
+      if (video) this.setData({ video });
+    });
+  },
+
+  chooseTech() {
+    const warranty = (this.data.asset.warrantyStatus === 'IN') ? 'IN' : 'OUT';
+    wx.navigateTo({
+      url: '/pages/repair/tech?date=' + this.data.date + '&warranty=' + warranty,
+      events: {
+        selectTech: (t) => this.setData({ tech: t })
       }
     });
   },
@@ -89,10 +103,11 @@ Page({
       images: this.data.images,
       expectDate: this.data.date,
       expectSlot: this.data.slot,
-      technicianId: null
+      technicianId: this.data.tech ? this.data.tech.id : null,
+      video: this.data.video
     }).then((res) => {
-      this.setData({ result: res, submitting: false });
-      wx.showToast({ title: '已提交，等待派单', icon: 'success' });
+      this.setData({ submitting: false });
+      wx.redirectTo({ url: '/pages/repair/detail?id=' + res.workOrderId });
     }).catch(() => this.setData({ submitting: false }));
   },
 

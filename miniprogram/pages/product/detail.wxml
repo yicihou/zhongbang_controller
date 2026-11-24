@@ -17,8 +17,21 @@
   </view>
 
   <view class="card">
-    <view class="t1" style="margin-bottom:12rpx">选择配置</view>
-    <view class="sku-list">
+    <view class="between">
+      <text class="t1">选择配置</text>
+      <text class="t2">已选：{{activeSku.name || '请选择'}}</text>
+    </view>
+    <block wx:if="{{groups.length}}">
+      <view wx:for="{{groups}}" wx:for-item="g" wx:key="name" style="margin-top:16rpx">
+        <view class="t3">{{g.name}}</view>
+        <view class="sku" style="display:flex;flex-wrap:wrap;width:auto;padding:0;border:none;background:transparent">
+          <text class="cat {{opt.on ? 'on' : ''}} {{opt.out ? 'out' : ''}}"
+                wx:for="{{g.options}}" wx:for-item="opt" wx:key="value"
+                data-dim="{{g.name}}" data-value="{{opt.value}}" bindtap="onOpt">{{opt.label}}</text>
+        </view>
+      </view>
+    </block>
+    <view class="sku-list" wx:else>
       <view class="sku {{activeSku.id === item.id ? 'on' : ''}} {{item.stock === 0 ? 'out' : ''}}"
             wx:for="{{p.skus}}" wx:key="id" data-id="{{item.id}}" bindtap="onSku">
         <view class="sku-n">{{item.name}}</view>
@@ -28,7 +41,7 @@
         </view>
       </view>
     </view>
-    <view class="t3" style="margin-top:12rpx">已选：{{activeSku.name || '请选择配置'}}</view>
+    <view class="t3" style="margin-top:8rpx" wx:if="{{activeSku.stock === 0}}" bindtap="notify">该配置缺货，点此登记到货通知</view>
   </view>
 
   <view class="card">
@@ -69,6 +82,6 @@
       <view class="t3">合计</view>
       <view class="price price-md"><text class="cny">¥</text>{{priceText}}</view>
     </view>
-    <view class="btn {{activeSku.stock === 0 ? 'disabled' : ''}}" bindtap="goConfirm">选择安装师傅</view>
+    <view class="btn" bindtap="goConfirm">{{activeSku.stock === 0 ? '到货通知' : '选择安装师傅'}}</view>
   </view>
 </view>

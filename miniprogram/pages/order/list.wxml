@@ -4,10 +4,10 @@
           data-value="{{item.value}}" bindtap="onTab">{{item.label}}</view>
   </scroll-view>
 
-  <view class="empty" wx:if="{{!loading && list.length === 0}}">
+  <view class="empty" wx:if="{{!loading && list.length === 0 && repairs.length === 0}}">
     <view class="e-ico">□</view>
     <view>还没有相关订单</view>
-    <view class="t3" style="margin-top:12rpx">去机型页看看，支持指定安装师傅</view>
+    <view class="t3" style="margin-top:12rpx">去机型页看看，下单时可以指定安装师傅</view>
   </view>
 
   <view class="card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="goDetail">
@@ -20,20 +20,35 @@
       <view class="col" style="margin-left:16rpx">
         <view class="t1">{{it.name}}</view>
         <view class="t3">{{it.skuName}}</view>
-      </view>
-      <view style="text-align:right">
-        <view class="price">¥{{it.priceText}}</view>
-        <view class="t3">x{{it.quantity}}</view>
+        <view class="t3">{{item.metaText}}</view>
       </view>
     </view>
     <view class="money-bar">
-      <text>总额 ¥{{item.totalText}}</text>
-      <text>已付 <text class="price">¥{{item.paidText}}</text></text>
+      <text>订单总额 ¥{{item.totalText}}</text>
+      <text>已付定金 <text class="price">¥{{item.paidText}}</text></text>
     </view>
     <view class="between" style="margin-top:16rpx">
-      <text class="t3">{{item.metaText}}</text>
       <text class="t2" wx:if="{{item.balanceText !== '0'}}">待付 <text class="price">¥{{item.balanceText}}</text></text>
       <text class="t3" wx:else>已结清</text>
+      <text class="btn mini" wx:if="{{item.status === 'UNPAID'}}" data-id="{{item.id}}" data-type="DEPOSIT" catchtap="pay">支付定金</text>
+      <text class="btn mini" wx:elif="{{item.status === 'PENDING_BALANCE'}}" data-id="{{item.id}}" data-type="BALANCE" catchtap="pay">立即支付</text>
+    </view>
+  </view>
+
+  <view class="card" wx:for="{{repairs}}" wx:key="id" data-id="{{item.id}}" bindtap="goRepair">
+    <view class="order-h">
+      <text>{{item.workNo}}</text>
+      <text class="order-st {{item.status === 'DONE' ? 'done' : ''}}">{{item.statusText}}</text>
+    </view>
+    <view class="t1">报修 · {{item.faultText}}</view>
+    <view class="t2" style="margin-top:6rpx">{{item.techName}} · {{item.appointmentAt || '时间待定'}}</view>
+    <view class="timeline">
+      <view class="tl {{node.done ? 'on' : ''}}" wx:for="{{item.timeline}}" wx:for-item="node" wx:key="title">
+        <view class="tl-dot"></view>
+        <view class="tl-body">
+          <view class="tl-t">{{node.time}}　{{node.title}}</view>
+        </view>
+      </view>
     </view>
   </view>
 </view>

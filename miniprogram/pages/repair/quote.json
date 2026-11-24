@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "确认报价",
+  "navigationBarBackgroundColor": "#FFFFFF",
+  "navigationBarTextStyle": "black",
+  "usingComponents": { "price": "/components/price/index" }
+}

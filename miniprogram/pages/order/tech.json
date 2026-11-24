@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "选择安装师傅",
+  "navigationBarBackgroundColor": "#FFFFFF",
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "tech-card": "/components/tech-card/index",
+    "price": "/components/price/index"
+  }
+}

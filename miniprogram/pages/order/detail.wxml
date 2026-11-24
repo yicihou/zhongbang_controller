@@ -69,6 +69,7 @@
     <view class="btn ghost" wx:if="{{canCall}}" bindtap="callTech" style="flex:1">联系师傅</view>
     <view class="btn" wx:if="{{canAccept}}" bindtap="accept" style="flex:1">确认验收</view>
     <view class="btn" wx:if="{{payType}}" bindtap="pay" style="flex:1">{{payText}}</view>
+    <view class="btn ghost" wx:if="{{canEvaluate}}" bindtap="goEvaluate" style="flex:1">评价</view>
     <view class="btn" wx:if="{{canRepair}}" bindtap="goRepair" style="flex:1">申请报修</view>
   </view>
 </view>

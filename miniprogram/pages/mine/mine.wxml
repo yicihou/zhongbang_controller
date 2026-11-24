@@ -1,44 +1,52 @@
 <view class="page">
   <view class="card">
-    <view class="row">
+    <view class="row" data-url="/pages/mine/login" bindtap="go">
       <view class="avatar" style="background:#C8102E;color:#fff">{{initial}}</view>
       <view class="col" style="margin-left:20rpx">
         <view class="row">
           <text class="t1">{{profile.customer.nickname || '微信用户'}}</text>
           <text class="tag" wx:if="{{profile.customer.level > 1}}" style="margin-left:10rpx">{{profile.customer.levelText}}</text>
         </view>
-        <view class="t3" style="margin-top:6rpx">{{profile.customer.mobile || '未绑定手机号'}}</view>
+        <view class="t3" style="margin-top:6rpx">{{profile.customer.mobile || '点击绑定手机号'}}</view>
       </view>
+      <text class="arrow">›</text>
     </view>
     <view class="divider"></view>
     <view class="row center">
-      <view class="flex1"><view class="t1">{{profile.orderCount}}</view><view class="t3">订单</view></view>
+      <view class="flex1" data-url="/pages/order/list" bindtap="go"><view class="t1">{{profile.orderCount}}</view><view class="t3">订单</view></view>
       <view class="flex1"><view class="t1 price">¥{{pendingText}}</view><view class="t3">待付</view></view>
-      <view class="flex1"><view class="t1">{{profile.assetCount}}</view><view class="t3">设备</view></view>
+      <view class="flex1" data-url="/pages/asset/list" bindtap="go"><view class="t1">{{profile.assetCount}}</view><view class="t3">设备</view></view>
     </view>
   </view>
 
   <view class="menu">
-    <view class="menu-item" bindtap="goOrders"><text>我的订单</text><text class="t3">全部 ›</text></view>
-    <view class="menu-item" bindtap="goRepair"><text>报修申请</text><text class="t3">一键报修 ›</text></view>
-    <view class="menu-item" bindtap="goTech"><text>师傅工作台</text><text class="tag grey">演示入口</text></view>
-    <view class="menu-item" bindtap="contact"><text>联系客服</text><text class="t3">400-000-0000 ›</text></view>
+    <view class="menu-item" data-url="/pages/order/list" bindtap="go"><text>我的订单</text><text class="t3">全部 ›</text></view>
+    <view class="menu-item" data-url="/pages/repair/create" bindtap="go"><text>一键报修</text><text class="t3">保修判定 ›</text></view>
+    <view class="menu-item" data-url="/pages/asset/list" bindtap="go"><text>我的设备</text><text class="t3">保修卡 ›</text></view>
+    <view class="menu-item" data-url="/pages/mine/address" bindtap="go"><text>收货地址</text><text class="t3">管理 ›</text></view>
+    <view class="menu-item" data-url="/pages/mine/invoice" bindtap="go"><text>发票抬头</text><text class="t3">下单带上 ›</text></view>
+    <view class="menu-item" data-url="/pages/mine/service" bindtap="go"><text>联系客服</text><text class="t3">电话 / 微信 ›</text></view>
+    <view class="menu-item" data-url="/pages/mine/privacy" bindtap="go"><text>隐私说明</text><text class="t3">›</text></view>
+  </view>
+
+  <view class="menu">
+    <view class="menu-item" data-url="/pages/tech/worklist" bindtap="go"><text>师傅工作台</text><text class="tag grey">接单 / 打卡</text></view>
+    <view class="menu-item" data-url="/pages/tech/income" bindtap="go"><text>收入与结算</text><text class="tag grey">演示</text></view>
   </view>
 
   <view class="sec">
-    <text class="sec-t">我的设备</text>
-    <text class="sec-more">{{assets.length}} 台 · 一机一码</text>
+    <text class="sec-t">设备档案</text>
+    <text class="sec-more" data-url="/pages/asset/list" bindtap="go">全部 ›</text>
   </view>
-
-  <view class="card" wx:for="{{assets}}" wx:key="id">
+  <view class="card" wx:for="{{assets}}" wx:key="id" data-id="{{item.id}}" bindtap="openAsset">
     <view class="between">
       <view class="col">
         <view class="t1">{{item.model}}</view>
-        <view class="t3" style="margin-top:4rpx">{{item.sn}} · 购机 {{item.buyDate}}</view>
+        <view class="t3" style="margin-top:4rpx">{{item.sn}}</view>
       </view>
       <text class="tag {{item.warrantyStatus === 'IN' ? '' : 'grey'}}">{{item.warrantyText}}</text>
     </view>
   </view>
 
-  <view class="t3 center" style="padding:30rpx 0">红白配色 · v{{version}}</view>
+  <view class="t3 center" style="padding:20rpx 0">{{mock ? '当前为 Mock 数据' : '已连接后端'}} · v{{version}}</view>
 </view>

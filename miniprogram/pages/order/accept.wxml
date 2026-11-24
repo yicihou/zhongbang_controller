@@ -1,0 +1,38 @@
+<view class="page with-bar">
+  <view class="card">
+    <view class="t1">{{o.items[0].name || '安装验收'}}</view>
+    <view class="t2" style="margin-top:8rpx">{{o.items[0].skuName}} · {{o.installDate}} {{o.slotText}}</view>
+    <view class="t2" wx:if="{{o.technician}}">安装师傅 {{o.technician.name}}</view>
+  </view>
+
+  <view class="card">
+    <view class="t1">请核对</view>
+    <view class="check on"><view class="box">✓</view>机器型号与订单一致</view>
+    <view class="check on"><view class="box">✓</view>已完成组装、调平</view>
+    <view class="check on"><view class="box">✓</view>已试缝，走线正常</view>
+    <view class="t3" style="margin-top:8rpx">现场照片与签字在师傅提交的安装单里，验收通过后才会生成尾款。</view>
+  </view>
+
+  <view class="card">
+    <view class="t1">验收结果</view>
+    <view class="cats">
+      <view class="cat {{pass ? 'on' : ''}}" data-pass="1" bindtap="choose">通过，可以付尾款</view>
+      <view class="cat {{pass ? '' : 'on'}}" data-pass="0" bindtap="choose">不通过，需要返工</view>
+    </view>
+    <textarea class="ta" placeholder="{{pass ? '可选：试缝情况、还想让师傅交代的事' : '请说明哪里不行，方便返工'}}"
+              value="{{remark}}" bindinput="onRemark" maxlength="200" />
+  </view>
+
+  <view class="card tint" wx:if="{{pass}}">
+    <view class="between">
+      <text class="t2">验收通过后待付尾款</text>
+      <text class="price price-md">¥{{o.balanceText}}</text>
+    </view>
+  </view>
+
+  <view class="bar">
+    <view class="btn {{submitting ? 'disabled' : ''}}" style="flex:1" bindtap="submit">
+      {{submitting ? '提交中…' : (pass ? '确认验收' : '提交返工')}}
+    </view>
+  </view>
+</view>

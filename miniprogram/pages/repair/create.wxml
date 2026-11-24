@@ -26,10 +26,11 @@
   </view>
 
   <view class="card">
-    <view class="between"><text class="t1">照片 / 视频</text><text class="t3">最多 9 张</text></view>
+    <view class="between"><text class="t1">照片 / 视频</text><text class="t3">最多 9 图 + 1 段 30 秒视频</text></view>
     <view class="upload">
       <view class="up" bindtap="chooseImage">＋</view>
       <image class="up-img" wx:for="{{images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+      <view class="up" bindtap="chooseVideo">{{video ? '视' : '▶'}}</view>
     </view>
   </view>
 
@@ -49,17 +50,14 @@
               style="margin:0">下午</text>
       </view>
     </view>
-    <view class="field">
+    <view class="field" bindtap="chooseTech">
       <text class="field-k">维修师傅</text>
-      <text class="field-v">系统推荐<text class="arrow">›</text></text>
+      <text class="field-v">{{tech ? tech.name : '系统推荐（可自选）'}}<text class="arrow">›</text></text>
     </view>
   </view>
 
-  <view class="card" wx:if="{{result}}">
-    <view class="t1" style="color:#0F7B57">报修已受理</view>
-    <view class="t2" style="margin-top:8rpx">工单号 {{result.workNo}}</view>
-    <view class="t2">{{result.warrantyDesc}}</view>
-    <view class="btn ghost" style="margin-top:20rpx" bindtap="goOrders">查看我的工单</view>
+  <view class="card tint" wx:if="{{asset.warrantyStatus === 'OUT'}}">
+    <view class="t2" style="color:#96061F">已过保：上门后先检测再报价，超过 300 元需要你确认才会维修。检测费标准以师傅报价单为准。</view>
   </view>
 
   <view class="bar">

@@ -28,8 +28,11 @@
     "miniprogram": {
       "list": [
         { "name": "首页", "pathName": "pages/index/index", "query": "" },
+        { "name": "机型详情", "pathName": "pages/product/detail", "query": "id=101" },
         { "name": "订单详情", "pathName": "pages/order/detail", "query": "id=910233001" },
-        { "name": "报修", "pathName": "pages/repair/create", "query": "" }
+        { "name": "报修", "pathName": "pages/repair/create", "query": "" },
+        { "name": "报价确认", "pathName": "pages/repair/quote", "query": "id=660099" },
+        { "name": "师傅工作台", "pathName": "pages/tech/worklist", "query": "" }
       ]
     }
   }

@@ -1,0 +1,6 @@
+<view class="empty" wx:if="{{show}}">
+  <view class="e-ico">{{icon}}</view>
+  <view>{{title}}</view>
+  <view class="t3" wx:if="{{desc}}" style="margin-top:12rpx">{{desc}}</view>
+  <view class="btn" wx:if="{{action}}" style="width:320rpx;margin:36rpx auto 0" bindtap="onAction">{{action}}</view>
+</view>

@@ -1,0 +1,30 @@
+<view class="page" style="padding-bottom:200rpx">
+  <view class="empty" wx:if="{{list.length === 0}}">
+    <view class="e-ico">址</view>
+    <view>还没有地址</view>
+    <view class="t3" style="margin-top:12rpx">安装师傅按这个地址导航上门</view>
+  </view>
+
+  <view class="card {{item.isDefault ? 'tint' : ''}}" wx:for="{{list}}" wx:key="id"
+        data-id="{{item.id}}" bindtap="pick">
+    <view class="between">
+      <view class="t1">{{item.name}} {{item.mobileMask}}</view>
+      <text class="tag" wx:if="{{item.isDefault}}">默认</text>
+    </view>
+    <view class="t2" style="margin-top:8rpx">{{item.province}}{{item.city}}{{item.district}}{{item.detail}}</view>
+    <view class="between" style="margin-top:16rpx">
+      <text class="t3" wx:if="{{selectMode}}">点此使用该地址</text>
+      <text class="t3" wx:else></text>
+      <view class="row">
+        <text class="t3" style="margin-right:24rpx" data-id="{{item.id}}" catchtap="setDefault" wx:if="{{!item.isDefault}}">设为默认</text>
+        <text class="t3" style="margin-right:24rpx" data-id="{{item.id}}" catchtap="edit">编辑</text>
+        <text class="t3" data-id="{{item.id}}" catchtap="remove">删除</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="bar" style="flex-direction:column;align-items:stretch">
+    <view class="btn" bindtap="add">新增地址</view>
+    <view class="btn ghost" style="margin-top:16rpx" bindtap="importWechat">从微信导入</view>
+  </view>
+</view>

@@ -2,7 +2,7 @@
   <view class="card" bindtap="chooseAddress">
     <view class="row">
       <view class="col">
-        <view class="t1">{{address.name || '请选择收货地址'}} {{address.mobile}}</view>
+        <view class="t1">{{address.name || '请选择收货地址'}} {{address.mobileMask}}</view>
         <view class="t2" style="margin-top:6rpx" wx:if="{{address.id}}">
           {{address.province}}{{address.city}}{{address.district}}{{address.detail}}
         </view>
@@ -20,7 +20,11 @@
         <view class="t2" style="margin-top:6rpx">{{skuName}}</view>
         <view class="between" style="margin-top:12rpx">
           <text class="price"><text class="cny">¥</text>{{priceText}}</text>
-          <text class="t3">x1</text>
+          <view class="stepper">
+            <text data-step="-1" catchtap="changeQty">－</text>
+            <text class="num">{{quantity}}</text>
+            <text data-step="1" catchtap="changeQty">＋</text>
+          </view>
         </view>
       </view>
     </view>
@@ -44,7 +48,11 @@
     </view>
     <view class="field" bindtap="chooseTech">
       <text class="field-k">安装师傅</text>
-      <text class="field-v">{{tech ? tech.name : '系统派单'}}<text class="arrow">›</text></text>
+      <text class="field-v">{{tech ? tech.name : '系统派单（可自选）'}}<text class="arrow">›</text></text>
+    </view>
+    <view class="field" bindtap="editInvoice">
+      <text class="field-k">发票</text>
+      <text class="field-v">{{invoice.need ? invoice.title : '不开发票'}}<text class="arrow">›</text></text>
     </view>
     <view class="field">
       <text class="field-k">备注</text>

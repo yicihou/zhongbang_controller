@@ -1,4 +1,5 @@
 /* ============ 全局样式：红白设计系统 ============ */
+@import "styles/theme.wxss";
 page {
   background: #F7F8FA;
   color: #1A1E24;
@@ -278,6 +279,23 @@ page {
   margin: 0 10rpx 8rpx 0;
 }
 .slot.free { color: #C8102E; border-color: #F0BEC6; background: #fff; }
+.slot.no { color: #C2C7CF; text-decoration: line-through; }
+.stars { color: #C8102E; font-size: 22rpx; letter-spacing: 2rpx; }
+
+.kv { display: flex; justify-content: space-between; font-size: 26rpx; padding: 14rpx 0; border-bottom: 1rpx dashed #EDF0F4; }
+.kv:last-child { border-bottom: none; }
+
+.stepper { display: flex; align-items: center; }
+.stepper text { width: 52rpx; height: 52rpx; line-height: 48rpx; text-align: center; border: 1rpx solid #E5E8ED; border-radius: 8rpx; color: #C8102E; font-size: 32rpx; }
+.stepper .num { width: 64rpx; border: none; color: #1A1E24; font-size: 28rpx; }
+
+.check { display: flex; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid #F1F3F6; font-size: 26rpx; }
+.check .box { width: 36rpx; height: 36rpx; border-radius: 8rpx; border: 2rpx solid #D3D8E0; margin-right: 16rpx; text-align: center; line-height: 32rpx; color: #fff; font-size: 22rpx; }
+.check.on .box { background: #C8102E; border-color: #C8102E; }
+
+.sign-pad { width: 100%; height: 280rpx; background: #FAFBFC; border: 1rpx dashed #CBD1DA; border-radius: 16rpx; }
+.star-pick { font-size: 52rpx; color: #E5E8ED; letter-spacing: 8rpx; }
+.star-pick .on { color: #C8102E; }
 
 /* 表单行 */
 .field {
@@ -303,6 +321,7 @@ page {
   margin: 0 14rpx 14rpx 0;
 }
 .cat.on { background: #FFF5F6; border-color: #C8102E; color: #C8102E; font-weight: 600; }
+.cat.out { opacity: 0.45; }
 
 /* 上传 */
 .upload { display: flex; flex-wrap: wrap; margin-top: 16rpx; }

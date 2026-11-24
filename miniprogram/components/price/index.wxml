@@ -1,0 +1,1 @@
+<text class="price {{size ? 'price-' + size : ''}}"><text class="cny">¥</text>{{text}}</text>

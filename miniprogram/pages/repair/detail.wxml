@@ -1,0 +1,65 @@
+<view class="page {{needConfirm || canPay ? 'with-bar' : ''}}">
+  <view class="card tint">
+    <view class="between">
+      <view>
+        <view class="t1">{{w.assetModel || w.faultText || '报修'}}</view>
+        <view class="t3" style="margin-top:6rpx">{{w.workNo}}</view>
+      </view>
+      <text class="tag {{w.inWarranty ? '' : 'grey'}}">{{w.inWarranty ? '保内' : '保外'}}</text>
+    </view>
+    <view class="t2" style="margin-top:12rpx;color:#96061F">{{w.warrantyDesc}}</view>
+  </view>
+
+  <view class="card">
+    <view class="between"><text class="t2">状态</text><text class="order-st">{{w.statusText}}</text></view>
+    <view class="between" style="margin-top:12rpx"><text class="t2">故障</text><text>{{w.faultText}}</text></view>
+    <view class="t2" style="margin-top:12rpx">{{w.faultDesc}}</view>
+    <view class="between" style="margin-top:12rpx" wx:if="{{w.appointmentAt}}">
+      <text class="t2">预约</text><text>{{w.appointmentAt}}</text>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{w.technician}}">
+    <view class="t1" style="margin-bottom:16rpx">维修师傅</view>
+    <view class="row">
+      <view class="avatar">{{techInitial}}</view>
+      <view class="col" style="margin-left:18rpx">
+        <view class="t1">{{w.technician.name}}</view>
+        <view class="t3">★ {{w.technician.rating}} · {{w.technician.mobile}}</view>
+      </view>
+      <text class="btn mini ghost" bindtap="callTech">联系</text>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{w.quoteAmount > 0}}">
+    <view class="between">
+      <text class="t1">报价</text>
+      <price cents="{{w.quoteAmount}}" size="md" />
+    </view>
+    <view class="kv" wx:for="{{w.quoteItems}}" wx:key="name">
+      <text>{{item.name}}</text><text>¥{{item.amountText}}</text>
+    </view>
+    <view class="t3" style="margin-top:8rpx" wx:if="{{w.quoteAmount > 30000}}">超过 300 元，需您确认后才能施工</view>
+  </view>
+
+  <view class="card">
+    <view class="t1" style="margin-bottom:16rpx">进度</view>
+    <view class="timeline">
+      <view class="tl {{item.done ? 'on' : ''}}" wx:for="{{w.timeline}}" wx:key="status">
+        <view class="tl-dot"></view>
+        <view class="tl-body">
+          <view class="tl-t">{{item.title}}</view>
+          <view class="t3" wx:if="{{item.desc}}">{{item.desc}}</view>
+          <view class="t3" wx:if="{{item.time}}">{{item.time}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="btn ghost block" wx:if="{{w.status === 'DONE'}}" bindtap="goEvaluate">评价这次维修</view>
+
+  <view class="bar" wx:if="{{needConfirm || canPay}}">
+    <view class="btn" wx:if="{{needConfirm}}" style="flex:1" bindtap="goQuote">确认报价</view>
+    <view class="btn" wx:if="{{canPay}}" style="flex:1" bindtap="payFee">支付维修费</view>
+  </view>
+</view>

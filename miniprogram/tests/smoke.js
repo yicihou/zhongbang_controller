@@ -115,6 +115,48 @@ function ok(cond, label, extra) {
   const tw2 = await api.getTechWorkorders({ status: 'ACCEPTED' });
   ok(tw2.list.length >= 1, '接单后进入进行中');
 
+  console.log('— 地址 / 报价 / 安装工单');
+  const added = await api.addAddress({
+    name: '李四', mobile: '13900001111', province: '浙江省', city: '杭州市',
+    district: '西湖区', detail: '测试路 1 号', isDefault: false
+  });
+  ok(added && added.id > 0, '新增地址', added);
+  await api.updateAddress(added.id, {
+    name: '李四', mobile: '13900001111', province: '浙江省', city: '杭州市',
+    district: '西湖区', detail: '测试路 2 号', isDefault: true
+  });
+  const addrs = await api.getAddresses();
+  const hit = addrs.filter((a) => a.id === added.id)[0];
+  ok(hit && hit.isDefault && hit.detail === '测试路 2 号', '修改地址并设为默认');
+  await api.deleteAddress(added.id);
+
+  const quote = await api.getRepair(660099);
+  ok(quote.quoteAmount === 45000 && quote.statusText === '待确认报价', '保外报价待确认', quote.statusText);
+  await api.confirmQuote(660099, false, '先不修');
+  const closed = await api.getRepair(660099);
+  ok(closed.status === 'CLOSED', '拒绝报价后工单关闭');
+
+  const allWo = await api.getTechWorkorders({});
+  const install = (allWo.list || []).filter((w) => w.type === 'INSTALL')[0];
+  ok(!!install, '付定金后生成安装工单', install && install.id);
+  await api.acceptWorkorder(install.id, { appointmentAt: '2026-11-28 09:30:00' });
+  let farCode = 0;
+  try {
+    await api.checkinWorkorder(install.id, { latitude: 31.23, longitude: 121.47, address: '过远' });
+  } catch (e) { farCode = e.code; }
+  ok(farCode === 3005, '超过 500 米拒绝打卡', farCode);
+  const near = await api.checkinWorkorder(install.id, { latitude: 30.2742, longitude: 120.1552, address: '已到场' });
+  ok(near.status === 'ON_SITE', '到场打卡成功');
+  let miss = 0;
+  try {
+    await api.finishWorkorder(install.id, { images: ['a'], signImage: '', sn: '' });
+  } catch (e) { miss = e.code; }
+  ok(miss === 1001, '安装单缺照片/签字/机身码会被拦住', miss);
+  const done = await api.finishWorkorder(install.id, {
+    sn: 'A5-TEST-0001', images: ['1', '2', '3'], signImage: 'sign', remark: '试缝正常'
+  });
+  ok(done.status === 'DONE', '资料齐了可以完工');
+
   console.log('\n结果:', failed === 0 ? 'PASS' : 'FAIL ' + failed);
   process.exit(failed === 0 ? 0 : 1);
 })().catch((e) => { console.error('异常', e); process.exit(1); });

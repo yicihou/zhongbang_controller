@@ -1,0 +1,13 @@
+<view class="page with-bar">
+  <view class="card">
+    <view class="t1">缝纫机到家服务隐私说明</view>
+    <view class="t2" style="margin-top:8rpx">本说明对应需求里的最小必要采集。正式上线前需在微信公众平台配置《用户隐私保护指引》。</view>
+  </view>
+  <view class="card" wx:for="{{sections}}" wx:key="title">
+    <view class="t1">{{item.title}}</view>
+    <view class="t2" style="margin-top:10rpx">{{item.body}}</view>
+  </view>
+  <view class="bar">
+    <view class="btn" style="flex:1" bindtap="agree">我已了解</view>
+  </view>
+</view>

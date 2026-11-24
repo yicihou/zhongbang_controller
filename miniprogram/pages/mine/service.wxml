@@ -1,0 +1,23 @@
+<view class="page">
+  <view class="card">
+    <view class="t1">营业时间内电话更快</view>
+    <view class="t2" style="margin-top:8rpx">周一至周六 8:30–18:00，周日休息。急修请直接打电话。</view>
+  </view>
+  <view class="menu">
+    <view class="menu-item" bindtap="call">
+      <text>客服电话</text>
+      <text class="t3">{{phoneText}} ›</text>
+    </view>
+    <view class="menu-item" bindtap="copyWx">
+      <text>客服微信</text>
+      <text class="t3">{{wechat}} 复制 ›</text>
+    </view>
+  </view>
+  <view class="card">
+    <view class="t1">常见问题</view>
+    <view class="kv"><text>什么时候付尾款？</text><text>验收之后</text></view>
+    <view class="kv"><text>可以指定师傅吗？</text><text>下单时可选</text></view>
+    <view class="kv"><text>保修怎么算？</text><text>安装完成日起</text></view>
+    <view class="kv"><text>保外怎么收费？</text><text>先报价再施工</text></view>
+  </view>
+</view>
