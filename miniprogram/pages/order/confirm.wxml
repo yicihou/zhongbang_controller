@@ -1,5 +1,42 @@
 <view class="page with-bar">
-  <view class="card" bindtap="chooseAddress">
+  <block wx:if="{{realMode}}">
+    <view class="card">
+      <view class="field">
+        <text class="field-k">收货人</text>
+        <input class="remark" placeholder="姓名" value="{{contactName}}" bindinput="onName" />
+      </view>
+      <view class="field">
+        <text class="field-k">手机</text>
+        <input class="remark" placeholder="手机号" value="{{contactMobile}}" bindinput="onMobile" />
+      </view>
+      <view class="field">
+        <text class="field-k">地址</text>
+        <input class="remark" placeholder="省市区和详细地址" value="{{addressText}}" bindinput="onAddress" />
+      </view>
+    </view>
+    <view class="card" wx:for="{{lines}}" wx:key="skuId">
+      <view class="t1">{{item.productName}}</view>
+      <view class="t2" style="margin-top:6rpx">{{item.skuName}}</view>
+      <view class="between" style="margin-top:12rpx">
+        <text class="price">¥{{item.priceText}}</text>
+        <text class="t3">x{{item.quantity}}</text>
+      </view>
+    </view>
+    <view class="card" wx:if="{{lines.length === 0}}">
+      <view class="t2">购物车是空的，请先在机型页加入商品。</view>
+    </view>
+    <view class="card">
+      <view class="field">
+        <text class="field-k">收货方式</text>
+        <view class="row">
+          <text class="cat {{deliveryMethod === 'EXPRESS' ? 'on' : ''}}" data-method="EXPRESS" bindtap="onDelivery" style="margin:0 12rpx 0 0">快递</text>
+          <text class="cat {{deliveryMethod === 'ON_SITE_INSTALL' ? 'on' : ''}}" data-method="ON_SITE_INSTALL" bindtap="onDelivery" style="margin:0">上门安装</text>
+        </view>
+      </view>
+      <view class="tint-box">上门安装的安装费先记为待定，由门店确认后再收款。提交后不会拉起微信支付。</view>
+    </view>
+  </block>
+  <view class="card" wx:else bindtap="chooseAddress">
     <view class="row">
       <view class="col">
         <view class="t1">{{address.name || '请选择收货地址'}} {{address.mobile}}</view>
@@ -12,7 +49,7 @@
     </view>
   </view>
 
-  <view class="card">
+  <view class="card" wx:if="{{!realMode}}">
     <view class="row">
       <view class="thumb mini-thumb" style="width:160rpx;height:160rpx">产品图</view>
       <view class="col" style="margin-left:18rpx">
@@ -52,7 +89,7 @@
     </view>
   </view>
 
-  <view class="card">
+  <view class="card" wx:if="{{!realMode}}">
     <view class="between"><text class="t2">商品总额</text><text>¥{{priceText}}</text></view>
     <view class="between" style="margin-top:12rpx">
       <text class="t2">定金（{{depositRate}}%）</text><text class="price">¥{{depositText}}</text>
@@ -63,7 +100,14 @@
     <view class="tint-box">提交后 30 分钟内未支付，订单自动关闭并释放库存与师傅档期。</view>
   </view>
 
-  <view class="bar">
+  <view class="bar" wx:if="{{realMode}}">
+    <view class="bar-price">
+      <view class="t3">商品合计</view>
+      <view class="price price-md"><text class="cny">¥</text>{{totalText}}</view>
+    </view>
+    <view class="btn {{submitting ? 'disabled' : ''}}" bindtap="submit">{{submitting ? '提交中…' : '提交订单'}}</view>
+  </view>
+  <view class="bar" wx:else>
     <view class="bar-price">
       <view class="t3">应付定金</view>
       <view class="price price-md"><text class="cny">¥</text>{{depositText}}</view>

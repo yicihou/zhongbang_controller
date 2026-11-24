@@ -1,7 +1,8 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
+const config = require('../../config');
 
-const TABS = [
+const MOCK_TABS = [
   { label: '全部', value: 'ALL' },
   { label: '待付款', value: 'UNPAID' },
   { label: '待安装', value: 'DEPOSIT_PAID' },
@@ -10,9 +11,18 @@ const TABS = [
   { label: '售后', value: 'AFTER_SALE' }
 ];
 
+const REAL_TABS = [
+  { label: '全部', value: 'ALL' },
+  { label: '待付款', value: 'PENDING_PAYMENT' },
+  { label: '部分付款', value: 'PARTIALLY_PAID' },
+  { label: '履约中', value: 'FULFILLING' },
+  { label: '已完成', value: 'COMPLETED' },
+  { label: '已取消', value: 'CANCELLED' }
+];
+
 Page({
   data: {
-    tabs: TABS,
+    tabs: config.USE_MOCK ? MOCK_TABS : REAL_TABS,
     status: 'ALL',
     list: [],
     loading: true

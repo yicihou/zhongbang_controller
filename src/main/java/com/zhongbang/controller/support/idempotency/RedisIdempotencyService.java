@@ -34,4 +34,9 @@ public class RedisIdempotencyService implements IdempotencyService {
     public void complete(String requestId, String resultMarker, Duration ttl) {
         redisTemplate.opsForValue().set(PREFIX + requestId, resultMarker, ttl);
     }
+
+    @Override
+    public void forget(String requestId) {
+        redisTemplate.delete(PREFIX + requestId);
+    }
 }

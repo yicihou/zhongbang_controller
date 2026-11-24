@@ -10,7 +10,11 @@ const DESC = {
   COMPLETED: '订单已完成，感谢使用',
   CANCELLED: '订单已取消',
   REFUNDING: '退款处理中',
-  REFUNDED: '退款已完成'
+  REFUNDED: '退款已完成',
+  PENDING_PAYMENT: '订单已提交。安装费如显示待定，由门店确认后再收款。请按商家指引线下付款。',
+  PARTIALLY_PAID: '已收到一部分货款，剩余金额请继续线下支付。',
+  PAID: '货款已结清，等待发货或安装。',
+  FULFILLING: '商家已发货或已派安装师傅。'
 };
 
 Page({
@@ -64,7 +68,8 @@ Page({
         canCall: actions.indexOf('CALL_TECHNICIAN') >= 0,
         canAccept: o.status === 'INSTALLING',
         canRepair: actions.indexOf('REPAIR') >= 0,
-        hasAction: actions.length > 0 || o.status === 'INSTALLING'
+        hasAction: actions.length > 0 || o.status === 'INSTALLING',
+        offlineHint: !config.USE_MOCK && o.balanceAmount > 0 && o.status !== 'CANCELLED'
       });
     });
   },

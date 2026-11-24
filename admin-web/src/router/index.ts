@@ -15,6 +15,7 @@ import RepairListView from '@/views/RepairListView.vue'
 import RepairDetailView from '@/views/RepairDetailView.vue'
 import TechnicianView from '@/views/TechnicianView.vue'
 import ReceivableView from '@/views/ReceivableView.vue'
+import ProductView from '@/views/ProductView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -25,6 +26,7 @@ export const router = createRouter({
       component: AdminLayout,
       children: [
         { path: '', name: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
+        { path: 'products', name: 'products', component: ProductView, meta: { title: '商品' } },
         { path: 'orders', name: 'orders', component: OrderListView, meta: { title: '订单' } },
         { path: 'orders/:id', name: 'order-detail', component: OrderDetailView, meta: { title: '订单详情' } },
         { path: 'repairs', name: 'repairs', component: RepairListView, meta: { title: '报修' } },

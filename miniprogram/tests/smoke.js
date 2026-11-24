@@ -2,6 +2,8 @@
 // 桩掉 wx / getApp，用 mock 数据层跑一遍 下单→支付→验收→尾款→报修→接单
 
 const BASE = require('path').join(__dirname, '..');
+// config.js 默认连真实后端。冒烟测试只验证 Mock 数据层，这里强制打开 Mock。
+require(BASE + '/config').USE_MOCK = true;
 
 global.wx = {
   getStorageSync: () => 'mock-token',

@@ -1,10 +1,7 @@
 /**
- * 订单的 HTTP 入口占位，目前没有 Controller。
- * 以后的接口放在本包，只接收请求并调用同名 Service。
- *
- * <p>表 {@code orders} 已建好（旧的单头模型：总额、定金、尾款、整单安装时间）。
- * 管理端订单页的改价、发货、派工都在 {@code admin-web} 的 Mock 里，请求不会进入这些包。
- * 同一业务在四层各有一个同名子包，目前都只有说明文件：
- * {@code controller.order}、{@code service.order}、{@code mapper.order}、{@code pojo.order}。
+ * 订单的 HTTP 入口。
+ * {@code OrderController} 给小程序：多行下单、我的订单、未发货时取消。
+ * {@code AdminOrderController} 给管理端：列表、详情、改价、运费、发货、派师傅、取消。
+ * 金额和状态的判断不写在这里，而在 {@code service.order}。
  */
 package com.zhongbang.controller.controller.order;

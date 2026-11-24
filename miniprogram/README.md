@@ -6,10 +6,8 @@
 
 1. 打开微信开发者工具 → 导入项目 → 选择本目录；
 2. AppID 选「测试号」或填自己的（`project.config.json` 里是 `touristappid`）；
-3. 直接预览：默认 `USE_MOCK = true`，不需要后端、不需要域名。
-
-真机预览时把 `config.js` 的 `USE_MOCK` 改成 `false`，`baseUrl` 指向 Mock 服务或 Java 后端，
-并在开发者工具「详情 → 本地设置」勾选 **不校验合法域名**。
+3. 和后端联调：`config.js` 里 `USE_MOCK` 默认 `false`，`baseUrl` 是 `http://127.0.0.1:8080`。先在仓库根目录 `mvn spring-boot:run`。开发者工具「详情 → 本地设置」勾选 **不校验合法域名、web-view、TLS 版本以及 HTTPS 证书**。
+4. 只看页面、不连 Java：把 `USE_MOCK` 改成 `true`。商品、下单、我的订单就改走 `mock/index.js`。
 
 ```bash
 # 起 Mock 服务（Python 3，零依赖）

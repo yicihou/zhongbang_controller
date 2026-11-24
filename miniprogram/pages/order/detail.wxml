@@ -33,8 +33,9 @@
       <view class="between"><text class="t2">订单总额</text><text>¥{{o.totalText}}</text></view>
       <view class="between" style="margin-top:12rpx"><text class="t2">已付</text><text class="price">¥{{o.paidText}}</text></view>
       <view class="between" style="margin-top:12rpx">
-        <text class="t2">待付尾款</text><text class="price price-md">¥{{o.balanceText}}</text>
+        <text class="t2">待付</text><text class="price price-md">¥{{o.balanceText}}</text>
       </view>
+      <view class="tint-box" wx:if="{{offlineHint}}">请联系商家线下付款。安装费未定时，门店确认后才会算进应付。</view>
     </view>
 
     <view class="card" wx:if="{{o.technician}}">

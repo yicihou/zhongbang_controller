@@ -30,6 +30,11 @@ public class InMemoryIdempotencyService implements IdempotencyService {
         store.put(requestId, new Entry(resultMarker, Instant.now().plus(ttl)));
     }
 
+    @Override
+    public void forget(String requestId) {
+        store.remove(requestId);
+    }
+
     private void purgeExpired() {
         Instant now = Instant.now();
         store.entrySet().removeIf(e -> e.getValue().expireAt().isBefore(now));

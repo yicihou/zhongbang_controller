@@ -27,7 +27,7 @@
             登录
           </el-button>
         </el-form>
-        <p v-if="mockMode" class="demo">Mock 账号 admin / admin123，客服 clerk / clerk123</p>
+        <p class="demo">初始管理员 admin / admin123。{{ mockMode ? '当前是 Mock，另有 clerk / clerk123。' : '当前连接真实后端。' }}</p>
         <el-collapse class="token-box">
           <el-collapse-item title="已有 STAFF Token" name="token">
             <el-input v-model="pasted" type="textarea" :rows="3" placeholder="粘贴后端签发的 JWT" />
@@ -42,7 +42,7 @@
 <script setup lang="ts">
 /**
  * 员工登录。提交走 session.login → POST /api/auth/staff/login。
- * 默认 Mock：admin/admin123、clerk/clerk123。后端没有这个接口。
+ * 默认打真实后端：admin/admin123。VITE_USE_MOCK=true 时改走 Mock，另有 clerk/clerk123。
  * 也可以粘贴一枚已有 JWT，但必须能解出 STAFF 且未过期。客户小程序的令牌会被拒绝。
  */
 import { ref } from 'vue'

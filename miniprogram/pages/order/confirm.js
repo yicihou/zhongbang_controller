@@ -1,6 +1,7 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
 const config = require('../../config');
+const cart = require('../../utils/cart');
 
 Page({
   data: {
@@ -17,12 +18,34 @@ Page({
     slot: 'AM',
     tech: null,
     remark: '',
-    submitting: false
+    submitting: false,
+    realMode: !config.USE_MOCK,
+    lines: [],
+    contactName: '',
+    contactMobile: '',
+    addressText: '',
+    deliveryMethod: 'EXPRESS',
+    totalText: '0'
   },
 
   onLoad(options) {
     const price = Number(options.price || 0);
     const deposit = Math.floor(price * 0.3);
+    let lines = [];
+    this.fromCart = options.from === 'cart';
+    if (!config.USE_MOCK && options.from === 'cart') {
+      lines = cart.read();
+    } else if (!config.USE_MOCK && options.skuId) {
+      lines = [{
+        skuId: Number(options.skuId),
+        skuName: decodeURIComponent(options.skuName || ''),
+        productName: decodeURIComponent(options.productName || ''),
+        price: price,
+        quantity: 1,
+        deliveryMethod: 'EXPRESS'
+      }];
+    }
+    const goods = lines.reduce((sum, row) => sum + Number(row.price || 0) * Number(row.quantity || 1), 0);
     this.setData({
       skuId: Number(options.skuId),
       skuName: decodeURIComponent(options.skuName || ''),
@@ -31,11 +54,18 @@ Page({
       depositText: fmt.yuan(deposit),
       balanceText: fmt.yuan(price - deposit),
       installDate: fmt.dateAfter(3),
-      minDate: fmt.dateAfter(1)
+      minDate: fmt.dateAfter(1),
+      lines: lines.map((row) => Object.assign({}, row, { priceText: fmt.yuan(row.price) })),
+      totalText: fmt.yuan(goods)
     });
     this.price = price;
-    this.loadAddress();
+    if (config.USE_MOCK) this.loadAddress();
   },
+
+  onName(e) { this.setData({ contactName: e.detail.value }); },
+  onMobile(e) { this.setData({ contactMobile: e.detail.value }); },
+  onAddress(e) { this.setData({ addressText: e.detail.value }); },
+  onDelivery(e) { this.setData({ deliveryMethod: e.currentTarget.dataset.method }); },
 
   loadAddress() {
     api.getAddresses().then((list) => {
@@ -72,6 +102,7 @@ Page({
 
   submit() {
     if (this.data.submitting) return;
+    if (!config.USE_MOCK) return this.submitReal();
     if (!this.data.address.id) return wx.showToast({ title: '请先选择收货地址', icon: 'none' });
     this.setData({ submitting: true });
 
@@ -92,6 +123,37 @@ Page({
       }).catch(() => {
         wx.redirectTo({ url: '/pages/order/detail?id=' + res.orderId });
       });
+    }).catch(() => {
+      this.setData({ submitting: false });
+    });
+  },
+
+  submitReal() {
+    const lines = this.data.lines || [];
+    if (!lines.length) return wx.showToast({ title: '请先选择商品', icon: 'none' });
+    if (!this.data.contactName || !this.data.contactMobile || !this.data.addressText) {
+      return wx.showToast({ title: '请填写收货人和地址', icon: 'none' });
+    }
+    this.setData({ submitting: true });
+    const method = this.data.deliveryMethod;
+    const payload = {
+      requestId: 'r' + Date.now() + Math.floor(Math.random() * 1000),
+      contactName: this.data.contactName,
+      contactMobile: this.data.contactMobile,
+      addressText: this.data.addressText,
+      remark: this.data.remark,
+      items: lines.map((row) => ({
+        skuId: row.skuId,
+        quantity: Number(row.quantity || 1),
+        deliveryMethod: method,
+        installDate: method === 'ON_SITE_INSTALL' ? this.data.installDate : '',
+        installSlot: method === 'ON_SITE_INSTALL' ? this.data.slot : '',
+        technicianId: method === 'ON_SITE_INSTALL' && this.data.tech ? this.data.tech.id : null
+      }))
+    };
+    api.createOrder(payload).then((res) => {
+      if (this.fromCart) cart.clear();
+      wx.redirectTo({ url: '/pages/order/detail?id=' + res.orderId });
     }).catch(() => {
       this.setData({ submitting: false });
     });

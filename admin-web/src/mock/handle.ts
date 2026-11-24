@@ -5,6 +5,7 @@
  * 订单和报修的规则在 domain/order.ts、domain/repair.ts，这里只负责查找、保存和套上响应壳。
  */
 import type {
+  AdminProduct,
   AdjustPriceRequest,
   ApiResponse,
   AssignOrderRequest,
@@ -209,10 +210,126 @@ function listSchedules(query: Record<string, string>) {
     .sort((a, b) => a.serviceDate.localeCompare(b.serviceDate) || a.timeSlot.localeCompare(b.timeSlot, 'zh'))
 }
 
+function summarizeProduct(product: AdminProduct): AdminProduct {
+  const price = product.skus.reduce((min, sku) => Math.min(min, sku.price), product.skus[0]?.price ?? 0)
+  const stock = product.skus.reduce((sum, sku) => sum + sku.stock, 0)
+  return { ...product, price, stock }
+}
+
+/** Mock 里的商品管理。规则很短：至少一条规格，价格和库存不能为负，下架只改 status。 */
+function handleProduct(method: string, path: string, query: Record<string, string>, body: unknown): unknown | undefined {
+  if (path !== '/api/admin/products' && !path.startsWith('/api/admin/products/')) return undefined
+  const now = formatDateTime()
+  if (method === 'GET' && path === '/api/admin/products') {
+    const keyword = query.keyword?.trim()
+    const status = query.status?.trim()
+    const rows = db.products.filter((item) => {
+      if (status && item.status !== status) return false
+      if (!keyword) return true
+      return item.name.includes(keyword) || (item.model ?? '').includes(keyword)
+    })
+    return paginate(rows.map(summarizeProduct), num(query.page, 1) ?? 1, num(query.size, 20) ?? 20)
+  }
+  const matched = path.match(/^\/api\/admin\/products\/(\d+)(?:\/([a-z-]+))?$/)
+  if (!matched && method === 'POST' && path === '/api/admin/products') {
+    return saveProduct(undefined, asRecord(body), now)
+  }
+  if (!matched) return undefined
+  const id = Number(matched[1])
+  const action = matched[2]
+  const index = db.products.findIndex((item) => item.id === id)
+  if (index < 0) throw new ApiError(4040, '商品不存在')
+  const current = db.products[index]
+  if (!current) throw new ApiError(4040, '商品不存在')
+  if (!action && method === 'GET') return summarizeProduct(current)
+  if (!action && method === 'PUT') return saveProduct(id, asRecord(body), now)
+  if (!action && method === 'DELETE') {
+    db.products.splice(index, 1)
+    return null
+  }
+  if (action === 'on-shelf' && method === 'POST') {
+    current.status = 'ON'
+    current.updatedAt = now
+    return summarizeProduct(current)
+  }
+  if (action === 'off-shelf' && method === 'POST') {
+    current.status = 'OFF'
+    current.updatedAt = now
+    return summarizeProduct(current)
+  }
+  if (action === 'price' && method === 'POST') {
+    const record = asRecord(body)
+    const price = Number(record.price)
+    if (!Number.isInteger(price) || price < 0) throw new ApiError(1001, '价格不能为负')
+    const skuId = record.skuId == null ? current.skus[0]?.id : Number(record.skuId)
+    const sku = current.skus.find((item) => item.id === skuId)
+    if (!sku) throw new ApiError(4040, '商品规格不存在')
+    sku.price = price
+    current.updatedAt = now
+    return summarizeProduct(current)
+  }
+  return undefined
+}
+
+function saveProduct(id: number | undefined, record: Record<string, unknown>, now: string): AdminProduct {
+  const name = String(record.name ?? '').trim()
+  if (!name) throw new ApiError(1001, '请填写商品名称')
+  const rawSkus = Array.isArray(record.skus) ? record.skus : []
+  if (id == null && rawSkus.length === 0) throw new ApiError(1001, '请至少填写一条规格')
+  const skus = rawSkus.map((item) => {
+    const row = asRecord(item)
+    const title = String(row.title ?? '').trim()
+    const price = Number(row.price)
+    const stock = Number(row.stock)
+    if (!title) throw new ApiError(1001, '请填写规格名称')
+    if (!Number.isInteger(price) || price < 0) throw new ApiError(1001, '价格不能为负')
+    if (!Number.isInteger(stock) || stock < 0) throw new ApiError(1001, '库存不能为负')
+    return { id: Number(row.id) || ids().next(), title, price, stock }
+  })
+  const status = record.status === 'OFF' ? 'OFF' : 'ON'
+  if (id == null) {
+    const created = summarizeProduct({
+      id: ids().next(),
+      name,
+      brand: String(record.brand ?? ''),
+      category: String(record.category ?? ''),
+      categoryId: record.categoryId == null ? undefined : Number(record.categoryId),
+      model: String(record.model ?? ''),
+      subtitle: String(record.subtitle ?? ''),
+      coverImage: String(record.coverImage ?? ''),
+      tags: String(record.tags ?? ''),
+      status,
+      price: 0,
+      stock: 0,
+      createdAt: now,
+      updatedAt: now,
+      skus,
+    })
+    db.products.unshift(created)
+    return created
+  }
+  const current = db.products.find((item) => item.id === id)
+  if (!current) throw new ApiError(4040, '商品不存在')
+  current.name = name
+  current.brand = String(record.brand ?? '')
+  current.category = String(record.category ?? current.category ?? '')
+  current.categoryId = record.categoryId == null ? current.categoryId : Number(record.categoryId)
+  current.model = String(record.model ?? '')
+  current.subtitle = String(record.subtitle ?? '')
+  current.coverImage = String(record.coverImage ?? '')
+  current.tags = String(record.tags ?? '')
+  current.status = status
+  if (skus.length) current.skus = skus
+  current.updatedAt = now
+  return summarizeProduct(current)
+}
+
 function dispatch(method: string, path: string, query: Record<string, string>, body: unknown, token: string): unknown {
   if (method === 'POST' && path === '/api/auth/staff/login') return login(body)
 
   const operator = requireStaff(token)
+  const productHit = handleProduct(method, path, query, body)
+  if (productHit !== undefined) return productHit
   const now = formatDateTime()
 
   if (method === 'GET' && path === '/api/admin/orders') return listOrders(query)

@@ -28,6 +28,9 @@ import type {
   StaffLoginResponse,
   Technician,
   TechnicianSchedule,
+  AdminProduct,
+  ChangeProductPriceRequest,
+  SaveProductRequest,
 } from './types'
 import { paths } from './paths'
 import { request } from './http'
@@ -109,4 +112,28 @@ export function listTechnicians(): Promise<Technician[]> {
 
 export function listSchedules(query: ScheduleQuery = {}): Promise<TechnicianSchedule[]> {
   return request('GET', paths.schedules, { query })
+}
+
+export function listProducts(query: { keyword?: string; status?: string; page?: number; size?: number } = {}): Promise<PageResult<AdminProduct>> {
+  return request('GET', paths.products, { query })
+}
+
+export function createProduct(body: SaveProductRequest): Promise<AdminProduct> {
+  return request('POST', paths.products, { body })
+}
+
+export function updateProduct(id: number, body: SaveProductRequest): Promise<AdminProduct> {
+  return request('PUT', paths.product(id), { body })
+}
+
+export function deleteProduct(id: number): Promise<void> {
+  return request('DELETE', paths.product(id))
+}
+
+export function shelveProduct(id: number, on: boolean): Promise<AdminProduct> {
+  return request('POST', on ? paths.productOn(id) : paths.productOff(id))
+}
+
+export function changeProductPrice(id: number, body: ChangeProductPriceRequest): Promise<AdminProduct> {
+  return request('POST', paths.productPrice(id), { body })
 }

@@ -1,5 +1,7 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
+const config = require('../../config');
+const cart = require('../../utils/cart');
 
 Page({
   data: {
@@ -7,7 +9,8 @@ Page({
     activeSku: {},
     priceText: '0',
     depositText: '0',
-    balanceText: '0'
+    balanceText: '0',
+    realMode: !config.USE_MOCK
   },
 
   onLoad(options) {
@@ -46,16 +49,47 @@ Page({
     this.setData({ activeSku: sku }, () => this.calc());
   },
 
-  goConfirm() {
+  currentSku() {
     const sku = this.data.activeSku || {};
-    if (!sku.id) return wx.showToast({ title: '请先选择配置', icon: 'none' });
-    if (sku.stock === 0) return wx.showToast({ title: '该配置暂时缺货', icon: 'none' });
+    if (!sku.id) {
+      wx.showToast({ title: '请先选择配置', icon: 'none' });
+      return null;
+    }
+    if (sku.stock === 0) {
+      wx.showToast({ title: '该配置暂时缺货', icon: 'none' });
+      return null;
+    }
+    return sku;
+  },
+
+  addCart() {
+    const sku = this.currentSku();
+    if (!sku) return;
+    cart.add({
+      skuId: sku.id,
+      skuName: sku.name,
+      productName: this.data.p.name,
+      price: sku.price,
+      coverImage: this.data.p.coverImage || '',
+      quantity: 1,
+      deliveryMethod: 'EXPRESS'
+    });
+    wx.showToast({ title: '已加入购物车', icon: 'success' });
+  },
+
+  goConfirm() {
+    const sku = this.currentSku();
+    if (!sku) return;
     const q = [
       'skuId=' + sku.id,
-      'skuName=' + encodeURIComponent(sku.name),
+      'skuName=' + encodeURIComponent(sku.name || ''),
       'price=' + sku.price,
-      'productName=' + encodeURIComponent(this.data.p.name)
+      'productName=' + encodeURIComponent(this.data.p.name || '')
     ].join('&');
     wx.navigateTo({ url: '/pages/order/confirm?' + q });
+  },
+
+  goCart() {
+    wx.navigateTo({ url: '/pages/order/confirm?from=cart' });
   }
 });

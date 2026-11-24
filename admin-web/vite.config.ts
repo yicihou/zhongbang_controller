@@ -28,5 +28,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.spec.ts'],
+    // 单测覆盖的是 Mock 规则。开发服务器默认连真实后端，不从这里读。
+    env: {
+      VITE_USE_MOCK: 'true',
+    },
   },
 })

@@ -1,10 +1,13 @@
 /**
  * 数据从哪来。
- * 没写 VITE_USE_MOCK，或写成除 false 以外的任何值，都走浏览器里的 Mock，不访问 Java。
- * 只有 VITE_USE_MOCK=false 才请求后端。改完需要重启 Vite。
- * 小程序的开关在 miniprogram/config.js，两边互不影响。
+ * 默认请求真实后端。只有把 VITE_USE_MOCK 写成 true，才走浏览器里的 Mock。
+ * 改完需要重启 Vite。小程序的开关在 miniprogram/config.js，两边互不影响。
  */
-export const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? 'true') !== 'false'
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
-/** 为空时请求相对路径，开发服务器把 /api 代理到 Spring Boot。 */
-export const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '')
+/**
+ * 接口根地址。没写时是 http://127.0.0.1:8080。
+ * 写成空字符串则请求相对路径，开发服务器把 /api 代理到 8080，可以避开跨域。
+ */
+const rawBase = import.meta.env.VITE_API_BASE
+export const API_BASE = (rawBase == null ? 'http://127.0.0.1:8080' : rawBase).replace(/\/$/, '')

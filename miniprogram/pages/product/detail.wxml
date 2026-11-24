@@ -64,7 +64,12 @@
     <view class="t2" wx:for="{{p.services}}" wx:key="*this">· {{item}}</view>
   </view>
 
-  <view class="bar">
+  <view class="bar" wx:if="{{realMode}}">
+    <view class="btn ghost" style="flex:1" bindtap="addCart">加入购物车</view>
+    <view class="btn" style="flex:1" bindtap="goConfirm">立即下单</view>
+    <view class="btn ghost" style="flex:1" bindtap="goCart">去结算</view>
+  </view>
+  <view class="bar" wx:else>
     <view class="bar-price">
       <view class="t3">合计</view>
       <view class="price price-md"><text class="cny">¥</text>{{priceText}}</view>

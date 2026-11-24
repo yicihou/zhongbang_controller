@@ -2,13 +2,20 @@ package com.zhongbang.controller.service.auth;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zhongbang.controller.adapter.wx.WxAuthAdapter;
+import com.zhongbang.controller.common.exception.BusinessException;
+import com.zhongbang.controller.common.exception.ErrorCode;
+import com.zhongbang.controller.mapper.auth.SysUserMapper;
 import com.zhongbang.controller.pojo.auth.dto.LoginRequest;
 import com.zhongbang.controller.pojo.auth.dto.LoginResponse;
+import com.zhongbang.controller.pojo.auth.dto.StaffLoginRequest;
+import com.zhongbang.controller.pojo.auth.dto.StaffLoginResponse;
+import com.zhongbang.controller.pojo.auth.entity.SysUser;
 import com.zhongbang.controller.pojo.customer.entity.Customer;
 import com.zhongbang.controller.mapper.customer.CustomerMapper;
 import com.zhongbang.controller.security.JwtService;
 import com.zhongbang.controller.security.LoginUser;
 import com.zhongbang.controller.security.UserType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,12 +32,22 @@ public class AuthService {
 
     private final WxAuthAdapter wxAuthAdapter;
     private final CustomerMapper customerMapper;
+    private final SysUserMapper sysUserMapper;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthService(WxAuthAdapter wxAuthAdapter, CustomerMapper customerMapper, JwtService jwtService) {
+    public AuthService(
+            WxAuthAdapter wxAuthAdapter,
+            CustomerMapper customerMapper,
+            SysUserMapper sysUserMapper,
+            JwtService jwtService,
+            PasswordEncoder passwordEncoder
+    ) {
         this.wxAuthAdapter = wxAuthAdapter;
         this.customerMapper = customerMapper;
+        this.sysUserMapper = sysUserMapper;
         this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /**
@@ -73,6 +90,31 @@ public class AuthService {
                         customer.getLevel() == null ? 1 : customer.getLevel(),
                         levelText(customer.getLevel())
                 )
+        );
+    }
+
+    /**
+     * 管理端账号登录。按用户名找未删除的员工，用 BCrypt 对密码。
+     * 初始管理员是 Flyway 写入的 admin / admin123。
+     * 令牌类型固定 STAFF，这样 {@code /api/admin/**} 的角色检查能通过；role 声明带上表里的 ADMIN 或 STAFF。
+     */
+    public StaffLoginResponse staffLogin(StaffLoginRequest request) {
+        SysUser staff = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, request.username().trim())
+                .eq(SysUser::getDeleted, 0)
+                .last("LIMIT 1"));
+        if (staff == null || staff.getPassword() == null || !passwordEncoder.matches(request.password(), staff.getPassword())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "账号或密码错误");
+        }
+        String name = staff.getName() == null || staff.getName().isBlank() ? staff.getUsername() : staff.getName();
+        String roleName = staff.getRole() == null || staff.getRole().isBlank() ? "STAFF" : staff.getRole().trim();
+        String role = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName;
+        LoginUser user = new LoginUser(staff.getId(), UserType.STAFF, name);
+        String token = jwtService.issue(user, role);
+        return new StaffLoginResponse(
+                token,
+                jwtService.expiresSeconds(),
+                new StaffLoginResponse.StaffBrief(staff.getId(), name, "STAFF", role)
         );
     }
 

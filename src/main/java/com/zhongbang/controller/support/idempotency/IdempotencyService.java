@@ -19,4 +19,9 @@ public interface IdempotencyService {
 
     /** 业务成功后把占坑改成结果标记，供重复请求读回。resultMarker 的格式由调用方自己约定。 */
     void complete(String requestId, String resultMarker, Duration ttl);
+
+    /**
+     * 业务失败时删掉占坑。否则同一个 requestId 会一直停在 PENDING，客户改完再提交会被当成重复请求。
+     */
+    void forget(String requestId);
 }
