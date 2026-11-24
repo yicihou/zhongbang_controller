@@ -24,4 +24,9 @@ export const paths = {
   receivables: '/api/admin/receivables',
   technicians: '/api/admin/technicians',
   schedules: '/api/admin/technicians/schedules',
+  products: '/api/admin/products',
+  product: (id: number | string) => `/api/admin/products/${id}`,
+  productOn: (id: number | string) => `/api/admin/products/${id}/on-shelf`,
+  productOff: (id: number | string) => `/api/admin/products/${id}/off-shelf`,
+  productPrice: (id: number | string) => `/api/admin/products/${id}/price`,
 }

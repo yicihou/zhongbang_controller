@@ -1,7 +1,7 @@
 /**
- * 商品 HTTP 入口，路径 {@code /api/products}，无需登录。列表固定返回空页，详情返回占位字段。
- *
- * <p>表 {@code product}、{@code product_sku} 已由 Flyway 建好。Java 侧只有这个空壳，不读这两张表，
- * 所以还没有 {@code service.product}、{@code mapper.product} 或 {@code pojo.product}。
+ * 商品的 HTTP 入口。
+ * {@code ProductController} 是小程序公开的列表和详情，只要上架商品。
+ * {@code AdminProductController} 给管理端做增删改查、上下架和改价，要员工令牌。
+ * {@code CatalogController} 提供首页和分类，也是公开的。
  */
 package com.zhongbang.controller.controller.product;

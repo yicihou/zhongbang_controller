@@ -29,7 +29,7 @@ npm test         # 单元测试
 npm run build    # vue-tsc 类型检查 + 生产构建
 ```
 
-默认 **Mock**（与小程序 `USE_MOCK` 一样）。不启动 Java 也能走完订单和报修。
+默认 **真实后端** `http://127.0.0.1:8080`（`admin-web/.env.development` 里 `VITE_USE_MOCK=false`）。要先在仓库根目录启动 Spring Boot。把 `VITE_USE_MOCK=true` 后重启，才改走浏览器 Mock，这时不启动 Java 也能看订单和报修。
 
 Mock 账号：
 
@@ -40,25 +40,24 @@ Mock 账号：
 
 登录成功后的 JWT `type` 必须是 `STAFF`（对应后端 `ROLE_STAFF`）。客户或师傅令牌会被拒绝。也可以在登录页粘贴一枚已有的 STAFF JWT。
 
-### 切换真实 API
+### 切换 Mock / 真实后端
 
 ```bash
-# .env.local （已被 gitignore）
+# admin-web/.env.development 或 .env.local
 VITE_USE_MOCK=false
-VITE_API_BASE=
+VITE_API_BASE=http://127.0.0.1:8080
 ```
 
-`VITE_API_BASE` 为空时，开发服务器把 `/api` 代理到 `http://127.0.0.1:8080`。后端 CORS 目前只放行 `:3000`，走代理可以避开跨域，不必改后端。
-
-代码里的默认值是 Mock：`VITE_USE_MOCK` 不是 `false` 就走 mock。
+`VITE_USE_MOCK=true` 走 Mock。`VITE_API_BASE` 写成空字符串时，请求发到 5173 的 `/api`，由 Vite 代理到 8080。改完要重启 `npm run dev`。
 
 ## 页面与决策、接口
 
-商品管理不在 `docs/04` §8 的 P1a–P1c 里，这个前端不做。微信支付、管理端小程序、企微推送留到二期。
+左侧有「商品」：列表、新增、编辑、上下架、改价。微信支付、企微推送留到二期。报修在真实后端还没有接口，关掉 Mock 后这一页会 404。
 
 | 页面 | 路由 | 决策 / 阶段 | 接口 |
 | --- | --- | --- | --- |
-| 登录 | `/login` | D8；JWT `STAFF` | `POST /api/auth/staff/login`（骨架里还没有，见文末） |
+| 登录 | `/login` | D8；JWT `STAFF` | `POST /api/auth/staff/login`（admin / admin123） |
+| 商品 | `/products` | 上下架、改价、图片地址 | `GET/POST /api/admin/products`，以及 `on-shelf` / `off-shelf` / `price` |
 | 工作台 | `/` | 待付款 / 待发货 / 待派工 / 待报价 | 用订单、报修列表的 `total` 汇总，§4.2 没有单独的汇总接口 |
 | 订单列表 | `/orders` | D2、D7、D8；P1a | `GET /api/admin/orders?status&keyword&page&size` |
 | 实时新订单 | 顶栏 | D8；§5 | `GET /api/admin/stream`（SSE）。连续失败 3 次后，每 30 秒 `GET /api/admin/notices?unread=1` |
@@ -120,17 +119,16 @@ SSE 事件：`ORDER_CREATED` / `REPAIR_CREATED` / `PAYMENT_OFFLINE_PENDING`。`d
 
 订单状态用 §3.1：`PENDING_PAYMENT`、`PARTIALLY_PAID`、`PAID`、`FULFILLING`、`COMPLETED`、`CANCELLED`。报修用 §3.2。
 
-## 和文档、后端骨架的出入
+## 和文档、后端的出入
 
-后端 `src/` 本 PR 不改。这些差异留在这里，方便后面接真接口：
+员工登录、商品、订单、发货、派工、线下收款、SSE 通知已经接到 Spring Boot。还没对齐的是：
 
-1. **没有员工登录。** `POST /api/auth/login` 只收微信 `code`，并且永远签发 `CUSTOMER`。`/api/admin/**` 却要求 `ROLE_STAFF`。本前端因此调用尚未实现的 `POST /api/auth/staff/login`（`{ username, password }` → `{ token, expiresIn, staff }`），并认 JWT 的 `type=STAFF`。`sys_user` 表已经有 `username/password/role`，没有对应接口。
-2. **V1 表还是旧订单模型。** `orders` 仍是 `total_amount/deposit_amount/balance_amount` 和单头安装字段，没有 `goods_amount/install_amount/freight_amount/adjust_amount/payable_amount`，也没有 `order_item`。`payment` 挂在 `order_id` 上，默认渠道 `WXPAY`，没有 `biz_type/biz_id/title/voucher/operator`。没有 `shipment`、`repair_ticket`、`repair_line`、`technician_schedule`、`admin_notice`。
-3. **§4.2 没写、页面又需要的路径：** `POST /api/admin/orders/{id}/cancel`（客户取消在 `/api/orders/{id}/cancel`）、`GET /api/admin/technicians`、`GET /api/admin/technicians/schedules`、`POST /api/auth/staff/login`。
-4. **派工粒度。** OpenAPI 的 `POST /api/admin/orders/{id}/assign` 只有 `technicianId` 和 `reason`。按 04，这里改成订单行 + 安装日期 + 时段。
-5. **线下收款路径。** 旧 OpenAPI 是 `POST /api/admin/payments/offline`。04 是 `POST /api/admin/payments/{id}/offline-confirm`，前端跟 04。
-6. **订单状态枚举。** OpenAPI 示例仍是 `PENDING_BALANCE` 等旧值。前端用 04 §3 的新状态。
-7. **待收款的 `summary`。** OpenAPI 示例在分页体外还有 `summary`。Java `PageResult` 只有 `list/total/page/size`，前端只读这四项。
-8. **已付之后的改价（O1）。** 新应付低于已付时直接拒绝，不自动退差。已付清后再加运费，会另开一笔 `FREIGHT` 待付。
-9. **没有「履约完成」接口。** §4.2 未提供把订单打到 `COMPLETED` 的写接口，完成单只在列表里展示。
-10. **工作台数字**由列表接口聚合，不是新的 summary API。
+1. **报修没有后端。** `/api/admin/repairs` 仍只存在于 Mock。关掉 Mock 后报修页会 404。
+2. **V1 表保留了旧列。** `V2__product_order_payment.sql` 追加了订单行、发货、改价、收款和通知，没有改 `V1__init.sql`。旧的 `total_amount` 会在保存时写成应付。
+3. **派工粒度。** OpenAPI 的 `POST /api/admin/orders/{id}/assign` 只有 `technicianId` 和 `reason`。按 04，这里改成订单行 + 安装日期 + 时段。
+4. **线下收款路径。** 旧 OpenAPI 是 `POST /api/admin/payments/offline`。04 是 `POST /api/admin/payments/{id}/offline-confirm`，前端跟 04。
+5. **订单状态枚举。** OpenAPI 示例仍是 `PENDING_BALANCE` 等旧值。前端用 04 §3 的新状态。
+6. **待收款的 `summary`。** OpenAPI 示例在分页体外还有 `summary`。Java `PageResult` 只有 `list/total/page/size`，前端只读这四项。
+7. **已付之后的改价（O1）。** 新应付低于已付时直接拒绝，不自动退差。已付清后再加运费，会另开一笔 `FREIGHT` 待付。
+8. **没有「履约完成」接口。** §4.2 未提供把订单打到 `COMPLETED` 的写接口，完成单只在列表里展示。
+9. **工作台数字**由列表接口聚合，不是新的 summary API。

@@ -10,6 +10,10 @@
           <el-icon><Odometer /></el-icon>
           <span>工作台</span>
         </el-menu-item>
+        <el-menu-item index="/products">
+          <el-icon><Goods /></el-icon>
+          <span>商品</span>
+        </el-menu-item>
         <el-menu-item index="/orders">
           <el-icon><List /></el-icon>
           <span>订单</span>
@@ -80,7 +84,7 @@
  */
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Bell, Calendar, List, Odometer, Tools, Wallet } from '@element-plus/icons-vue'
+import { Bell, Calendar, Goods, List, Odometer, Tools, Wallet } from '@element-plus/icons-vue'
 import { USE_MOCK } from '@/config'
 import { useAdminStream } from '@/composables/useAdminStream'
 import type { AdminNotice } from '@/api/types'
@@ -96,6 +100,7 @@ const { status, reconnect, simulateDrop, pollNow } = useAdminStream()
 const mockMode = USE_MOCK
 const mockLabel = USE_MOCK ? '数据：Mock' : '数据：真实 API'
 const active = computed(() => {
+  if (route.path.startsWith('/products')) return '/products'
   if (route.path.startsWith('/orders')) return '/orders'
   if (route.path.startsWith('/repairs')) return '/repairs'
   return route.path

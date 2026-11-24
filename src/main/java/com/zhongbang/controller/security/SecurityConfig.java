@@ -9,6 +9,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -20,11 +22,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * CSRF 关掉，因为接口用 Authorization 头，不靠浏览器自动带的 Cookie。
  *
  * <p>路径规则自上而下，先匹配到的生效：
- * 登录、首页、分类、支付回调、探活、健康检查公开；商品的 GET 公开；
- * {@code /api/admin/**} 要 {@code ROLE_STAFF}；{@code /api/tech/**} 要 {@code ROLE_TECHNICIAN}；
+ * 客户登录、员工登录、首页、分类、支付回调、探活、健康检查公开；商品的 GET 公开；
+ * {@code /api/admin/**} 要 {@code ROLE_STAFF}（管理员登录后的类型也是 STAFF）；
+ * {@code /api/tech/**} 要 {@code ROLE_TECHNICIAN}；
  * 其余 Actuator 和 H2 控制台一律拒绝；其他路径只要登录即可。
  * 未登录访问「拒绝」或「要登录」的路径，实际先得到 401；已登录但角色不对才是 403。
- * 本仓库还没有 admin、tech、首页、分类、支付回调的控制器，路径只是先占上。
+ * 员工登录必须放在「要登录」之前，否则没令牌的人打不开登录接口。
  */
 @Configuration
 @EnableMethodSecurity
@@ -52,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/phone",
+                                "/api/auth/staff/login",
                                 "/api/home",
                                 "/api/categories",
                                 "/api/pay/notify",
@@ -69,5 +73,11 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    /** 员工密码用 BCrypt 校验。数据库里只存哈希，不存明文。 */
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }

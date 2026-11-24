@@ -1,5 +1,20 @@
 <view class="page with-bar">
-  <view class="card" bindtap="chooseAddress">
+  <view class="card" wx:if="{{manualAddress}}">
+    <view class="field">
+      <text class="field-k">收货人</text>
+      <input class="remark" placeholder="姓名" value="{{contactName}}" bindinput="onName" />
+    </view>
+    <view class="field">
+      <text class="field-k">手机</text>
+      <input class="remark" placeholder="手机号" value="{{contactMobile}}" bindinput="onMobile" />
+    </view>
+    <view class="field">
+      <text class="field-k">地址</text>
+      <input class="remark" placeholder="省市区和详细地址" value="{{addressText}}" bindinput="onAddressText" />
+    </view>
+    <view class="t3">没有地址簿时在这里填写，提交仍走下单接口。地址簿有数据时改回点选。</view>
+  </view>
+  <view class="card" wx:else bindtap="chooseAddress">
     <view class="row">
       <view class="col">
         <view class="t1">{{address.name || '请选择收货地址'}} {{address.mobileMask}}</view>

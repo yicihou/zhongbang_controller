@@ -5,6 +5,8 @@ import com.zhongbang.controller.common.exception.BusinessException;
 import com.zhongbang.controller.common.exception.ErrorCode;
 import com.zhongbang.controller.pojo.auth.dto.LoginRequest;
 import com.zhongbang.controller.pojo.auth.dto.LoginResponse;
+import com.zhongbang.controller.pojo.auth.dto.StaffLoginRequest;
+import com.zhongbang.controller.pojo.auth.dto.StaffLoginResponse;
 import com.zhongbang.controller.service.auth.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,6 +36,15 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.ok(authService.login(request));
+    }
+
+    /**
+     * 管理端员工登录，公开。成功时 data 里是 STAFF 令牌和角色。
+     * 初始账号 admin / admin123 由 Flyway 写入，密码是 BCrypt 哈希。
+     */
+    @PostMapping("/staff/login")
+    public ApiResponse<StaffLoginResponse> staffLogin(@Valid @RequestBody StaffLoginRequest request) {
+        return ApiResponse.ok(authService.staffLogin(request));
     }
 
     /**

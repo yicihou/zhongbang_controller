@@ -7,6 +7,7 @@
 import type {
   AdminNotice,
   AdminOrder,
+  AdminProduct,
   Payment,
   RepairTicket,
   Technician,
@@ -30,6 +31,7 @@ export interface Database {
   orders: AdminOrder[]
   repairs: RepairTicket[]
   notices: AdminNotice[]
+  products: AdminProduct[]
 }
 
 function payment(partial: Payment): Payment {
@@ -750,6 +752,28 @@ export function createSeed(): Database {
     orders,
     repairs,
     notices,
+    products: [
+      {
+        id: 101,
+        name: '电脑平缝机 A5',
+        brand: '标准牌',
+        category: '工业平缝',
+        categoryId: 2,
+        model: 'A5-5000',
+        subtitle: '直驱 · 自动剪线',
+        coverImage: '',
+        tags: '含上门安装,现货',
+        status: 'ON',
+        price: 328000,
+        stock: 12,
+        createdAt: '2026-11-24 09:00:00',
+        updatedAt: '2026-11-24 09:00:00',
+        skus: [
+          { id: 1011, title: '标准台板 + 伺服电机', price: 328000, stock: 8 },
+          { id: 1012, title: '加厚台板 + 伺服电机', price: 336000, stock: 4 },
+        ],
+      },
+    ],
   }
 }
 

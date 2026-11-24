@@ -11,17 +11,16 @@
 1. 安装[微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)（基础库 2.30 以上）。
 2. 导入项目，目录选本文件夹 `miniprogram/`（不要选仓库根目录）。
 3. AppID 用测试号，或沿用 `project.config.json` 里的 `touristappid`。
-4. 编译即可。默认 `config.js` 的 `USE_MOCK = true`，不需要后端。
+4. 和 Spring Boot 联调：先在仓库根目录 `mvn spring-boot:run`。`config.js` 的 `USE_MOCK` 默认 `false`，`baseUrl` 是 `http://127.0.0.1:8080`。开发者工具「详情 → 本地设置」勾选 **不校验合法域名、web-view、TLS 版本以及 HTTPS 证书**。
+5. 只看页面、不连 Java：把 `USE_MOCK` 改成 `true`，请求改走 `mock/index.js`。
 
 建议路径：商品详情 → 加入购物车 / 立即购买 → 购物车勾选结算 → 确认页选发货方式 → 订单详情线下转账；首页「一键报修」多台/外购。
 
-真机或联调：
+也可以先起一份不依赖 Java 的 Mock 服务，再把 `USE_MOCK` 改成 `false`、`baseUrl` 指过去：
 
 ```bash
 python3 api/mock_server.py 8080
 ```
-
-把 `config.js` 的 `USE_MOCK` 改成 `false`，`baseUrl` 指向上述地址或 Java 后端。开发者工具勾选 **不校验合法域名**。
 
 ## Mock 与支付
 

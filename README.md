@@ -10,7 +10,7 @@
 - 小程序：`miniprogram/`
 - 商家 Web 后台：`admin-web/`（见该目录 README）
 
-当前 Java 代码只落实架构评审中的 **H1–H6** 骨架，业务模块多数仍是空包，便于你继续扩展。
+商品、订单、线下收款和员工登录已经接到同一套数据库。报修仍是管理端 Mock。小程序报修、微信支付还没接。
 
 ## 已对齐的能力（H1–H6）
 
@@ -46,7 +46,39 @@ src/main/java/com/zhongbang/controller
 └── job/                    定时任务占位
 ```
 
-请求路径：`controller/<业务>` 收 HTTP → `service/<业务>` 写规则 → `mapper/<业务>` 访问数据库。数据对象在 `pojo/<业务>`。订单、支付、工单、售后、师傅、通知、报表这 7 个业务在四层下都只有 `package-info.java`。
+请求路径：`controller/<业务>` 收 HTTP → `service/<业务>` 写规则 → `mapper/<业务>` 访问数据库。数据对象在 `pojo/<业务>`。商品、订单、收款、通知、师傅已经有实现。报修、报表、定时任务仍是占位。
+
+## 本地联调（管理端 + 小程序 + 后端）
+
+三端共用这一套 Spring Boot 和同一张库。默认 `dev` 是内存 H2，停掉进程数据就没了，但会重新放进管理员和四台样例商品。
+
+1. 启动后端（仓库根目录）：
+
+```bash
+mvn spring-boot:run
+```
+
+看到端口 `8080` 即可。初始管理员 **admin / admin123**（密码在库里是 BCrypt）。
+
+2. 启动管理端：
+
+```bash
+cd admin-web
+npm install
+npm run dev
+```
+
+浏览器打开 `http://127.0.0.1:5173`。开发配置默认 `VITE_USE_MOCK=false`，请求发到 `http://127.0.0.1:8080`（见 `admin-web/.env.development`）。用 admin / admin123 登录。左侧有「商品」。
+
+只想看页面、不启 Java 时，把 `admin-web/.env.development` 改成 `VITE_USE_MOCK=true`，或在 `admin-web/.env.local` 里写同样一行，然后重启 `npm run dev`。Mock 另有 clerk / clerk123。
+
+3. 微信开发者工具打开小程序：
+
+- 导入目录 `miniprogram/`。
+- 右上角「详情 → 本地设置」，勾选 **不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书**。否则工具不会请求 `http://127.0.0.1:8080`。
+- `miniprogram/config.js` 里 `USE_MOCK` 默认 `false`，商品列表、详情、下单、我的订单走真实接口。改成 `true` 就回到 `miniprogram/mock`，不访问后端。两个开关互不影响。
+
+小程序要先能登录。本地登录不访问微信：开发者工具里 `wx.login` 拿到的 code 会变成 `dev_` 加 code 的客户。下单支持购物车多行；上门安装的安装费先是空的，管理端显示「待定」。
 
 ## 本地启动（无需 Redis/MQ）
 
@@ -63,7 +95,18 @@ mvn spring-boot:run
 | Method | Path | 鉴权 |
 | --- | --- | --- |
 | POST | `/api/auth/login` | 公开（本地 stub：`code` → openid） |
-| GET | `/api/products` | 公开 |
+| POST | `/api/auth/staff/login` | 公开。admin / admin123，返回 type=STAFF 的 JWT |
+| GET | `/api/products` | 公开，只含上架商品 |
+| GET/POST/PUT/DELETE | `/api/admin/products` | STAFF。另有 `.../on-shelf`、`.../off-shelf`、`.../price` |
+| POST | `/api/orders` | CUSTOMER。body 可带 `items[]` |
+| GET | `/api/orders` | CUSTOMER，我的订单 |
+| GET | `/api/admin/orders` | STAFF |
+| POST | `/api/admin/orders/{id}/shipments` | STAFF。未付款也可发货 |
+| POST | `/api/admin/orders/{id}/assign` | STAFF。派安装师傅 |
+| POST | `/api/admin/payments/{id}/offline-confirm` | STAFF。部分收款会拆出「（余款）」 |
+| GET | `/api/admin/receivables` | STAFF，待收款 |
+| GET | `/api/admin/stream` | STAFF，SSE。新订单事件 `ORDER_CREATED` |
+| GET | `/api/admin/notices` | STAFF。SSE 断了之后轮询 `unread=1` |
 | GET | `/api/assets` | CUSTOMER |
 | POST | `/api/assets/bind` | CUSTOMER |
 | GET | `/api/system/ping` | 公开 |
@@ -92,7 +135,6 @@ mvn test
 
 ## 后续扩展建议
 
-1. 按 `api/接口清单.md` 在对应业务子包补 Controller、Service、Mapper 和 pojo。
-2. 将 `WxAuthAdapter` 换成 WxJava；补齐 `/api/auth/phone`。
-3. 订单状态机、支付回调验签落在 `controller/order`、`service/order`、`mapper/order`、`pojo/order` 与 payment 的同名四层；延迟关单消费者仍在 `job`。
-4. 中优先级项（SpringDoc、CI、更完整异常映射等）见项目 Agent Store 中的架构评审文档。
+1. 报修仍只在管理端 Mock。真实后端还没有 `/api/admin/repairs`。
+2. 将 `WxAuthAdapter` 换成 WxJava；补齐 `/api/auth/phone`。微信支付预下单仍未做，小程序提交的是意向单，收款在管理端登记。
+3. 中优先级项（SpringDoc、CI、更完整异常映射等）见项目 Agent Store 中的架构评审文档。

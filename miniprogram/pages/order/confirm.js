@@ -8,6 +8,10 @@ Page({
     address: {},
     remark: '',
     invoice: { need: false, title: '', taxNo: '' },
+    manualAddress: false,
+    contactName: '',
+    contactMobile: '',
+    addressText: '',
     deliveryOptions: DELIVERY_OPTIONS,
     goodsText: '0',
     freightTip: '默认 0，管理员后加',
@@ -54,17 +58,25 @@ Page({
         this.setData({ items });
       }
     }
+    // 地址簿在 Mock 里有。真实后端还没有这张表时，改成手填，下单仍走 /api/orders。
     api.getAddresses().then((list) => {
-      const rows = list || [];
-      const picked = Number(wx.getStorageSync('selectedAddressId') || 0);
-      const address = rows.filter((a) => a.id === picked)[0]
-        || rows.filter((a) => a.isDefault)[0]
-        || rows[0]
-        || {};
-      if (address.id) address.mobileMask = fmt.maskMobile(address.mobile);
-      this.setData({ address });
-    });
+      this.applyAddresses(list || []);
+    }).catch(() => this.applyAddresses([]));
   },
+
+  applyAddresses(rows) {
+    const picked = Number(wx.getStorageSync('selectedAddressId') || 0);
+    const address = rows.filter((a) => a.id === picked)[0]
+      || rows.filter((a) => a.isDefault)[0]
+      || rows[0]
+      || {};
+    if (address.id) address.mobileMask = fmt.maskMobile(address.mobile);
+    this.setData({ address, manualAddress: !address.id });
+  },
+
+  onName(e) { this.setData({ contactName: e.detail.value }); },
+  onMobile(e) { this.setData({ contactMobile: e.detail.value }); },
+  onAddressText(e) { this.setData({ addressText: e.detail.value }); },
 
   decorateItem(it, idx) {
     const method = it.deliveryMethod || DeliveryMethod.EXPRESS;
@@ -180,7 +192,11 @@ Page({
   submit() {
     if (this.data.submitting) return;
     if (!this.data.items.length) return wx.showToast({ title: '没有可结算商品', icon: 'none' });
-    if (!this.data.address.id) return wx.showToast({ title: '请先选择收货地址', icon: 'none' });
+    if (!this.data.address.id) {
+      if (!this.data.contactName || !this.data.contactMobile || !this.data.addressText) {
+        return wx.showToast({ title: '请填写收货人和地址', icon: 'none' });
+      }
+    }
     for (let i = 0; i < this.data.items.length; i++) {
       const it = this.data.items[i];
       if (it.needInstall && (!it.installDate || !it.installSlot)) {
@@ -191,7 +207,6 @@ Page({
     const invoice = this.data.invoice || {};
     const body = {
       requestId: 'r' + Date.now() + Math.floor(Math.random() * 1000),
-      addressId: this.data.address.id,
       remark: this.data.remark,
       invoice: { need: !!invoice.need, title: invoice.title || '', taxNo: invoice.taxNo || '' },
       items: this.data.items.map((it) => {
@@ -208,6 +223,12 @@ Page({
         return row;
       })
     };
+    if (this.data.address.id) body.addressId = this.data.address.id;
+    else {
+      body.contactName = this.data.contactName;
+      body.contactMobile = this.data.contactMobile;
+      body.addressText = this.data.addressText;
+    }
     if (this.cartItemIds && this.cartItemIds.length) body.cartItemIds = this.cartItemIds;
     api.createOrder(body).then((res) => {
       try { wx.removeStorageSync('checkoutDraft'); } catch (e) { /* ignore */ }

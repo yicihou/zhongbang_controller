@@ -38,16 +38,26 @@ public class JwtService {
 
     /** 按用户 id、类型和显示名签发令牌。过期时间是当前时间加上配置的秒数。 */
     public String issue(LoginUser user) {
+        return issue(user, null);
+    }
+
+    /**
+     * 员工登录多写一个 {@code role} 声明，例如 ROLE_ADMIN。
+     * 管理端认的是 type=STAFF；role 让令牌里能看出这是管理员还是普通员工。
+     */
+    public String issue(LoginUser user, String role) {
         Instant now = Instant.now();
         Instant exp = now.plusSeconds(properties.getExpiresSeconds());
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(String.valueOf(user.getUserId()))
                 .claim("type", user.getUserType().name())
                 .claim("name", user.getDisplayName())
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(exp))
-                .signWith(key)
-                .compact();
+                .expiration(Date.from(exp));
+        if (role != null && !role.isBlank()) {
+            builder.claim("role", role);
+        }
+        return builder.signWith(key).compact();
     }
 
     /**

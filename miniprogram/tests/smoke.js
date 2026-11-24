@@ -2,6 +2,8 @@
 // 对齐 docs/03 D1–D11、docs/04：购物车、多行下单、线下付款、发货、多行报修
 
 const BASE = require('path').join(__dirname, '..');
+// config.js 默认连真实后端。冒烟只验证 Mock，这里先打开 Mock，再加载 api。
+require(BASE + '/config').USE_MOCK = true;
 
 global.wx = {
   getStorageSync: () => 'mock-token',

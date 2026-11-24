@@ -2,12 +2,15 @@ const api = require('../../utils/api');
 const fmt = require('../../utils/format');
 const { deliveryLabel } = require('../../utils/constants');
 
+// 状态和后端、Mock 一致。部分付款、已取消是真实订单里会出现的状态。
 const TABS = [
   { label: '全部', value: 'ALL' },
   { label: '待付款', value: 'PENDING_PAYMENT' },
+  { label: '部分付款', value: 'PARTIALLY_PAID' },
   { label: '已付款', value: 'PAID' },
   { label: '履约中', value: 'FULFILLING' },
   { label: '已完成', value: 'COMPLETED' },
+  { label: '已取消', value: 'CANCELLED' },
   { label: '售后', value: 'AFTER_SALE' }
 ];
 

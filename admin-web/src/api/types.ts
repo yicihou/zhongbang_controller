@@ -256,6 +256,59 @@ export interface StaffBrief {
   role: 'ROLE_STAFF'
 }
 
+export type ProductStatus = 'ON' | 'OFF'
+
+/** 管理端商品。price、sku.price 的单位是分。coverImage 是图片地址。 */
+export interface AdminProductSku {
+  id: number
+  title: string
+  price: number
+  stock: number
+}
+
+export interface AdminProduct {
+  id: number
+  name: string
+  brand?: string
+  category?: string
+  categoryId?: number
+  model?: string
+  subtitle?: string
+  coverImage?: string
+  tags?: string
+  status: ProductStatus
+  price: number
+  stock: number
+  createdAt: string
+  updatedAt: string
+  skus: AdminProductSku[]
+}
+
+export interface ProductSkuDraft {
+  id?: number
+  title: string
+  price: number
+  stock: number
+}
+
+export interface SaveProductRequest {
+  name: string
+  brand?: string
+  category?: string
+  categoryId?: number
+  model?: string
+  subtitle?: string
+  coverImage?: string
+  tags?: string
+  status?: ProductStatus
+  skus?: ProductSkuDraft[]
+}
+
+export interface ChangeProductPriceRequest {
+  skuId?: number
+  price: number
+}
+
 export interface StaffLoginResponse {
   token: string
   expiresIn: number
