@@ -20,16 +20,20 @@ Page({
     loading: false
   },
 
-  onPullDownRefresh() {
-    this.load().then(() => wx.stopPullDownRefresh());
-  },
-
   onLoad(options) {
     if (options && options.categoryId) {
       this.setData({ activeCat: Number(options.categoryId) });
     }
     this.loadCats();
+  },
+
+  // 从别的页回来、或管理员刚改了上下架和价格时，重新拉一次列表。
+  onShow() {
     this.load();
+  },
+
+  onPullDownRefresh() {
+    this.load().then(() => wx.stopPullDownRefresh());
   },
 
   loadCats() {

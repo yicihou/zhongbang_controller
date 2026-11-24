@@ -7,6 +7,7 @@ import com.zhongbang.controller.pojo.order.vo.OrderVo;
 import com.zhongbang.controller.pojo.payment.vo.ReceivableVo;
 import com.zhongbang.controller.service.order.OrderService;
 import com.zhongbang.controller.service.payment.PaymentQueryService;
+import com.zhongbang.controller.service.repair.RepairService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,10 +27,12 @@ public class AdminPaymentController {
 
     private final OrderService orderService;
     private final PaymentQueryService paymentQueryService;
+    private final RepairService repairService;
 
-    public AdminPaymentController(OrderService orderService, PaymentQueryService paymentQueryService) {
+    public AdminPaymentController(OrderService orderService, PaymentQueryService paymentQueryService, RepairService repairService) {
         this.orderService = orderService;
         this.paymentQueryService = paymentQueryService;
+        this.repairService = repairService;
     }
 
     @GetMapping("/receivables")
@@ -51,6 +54,9 @@ public class AdminPaymentController {
      */
     @PostMapping("/payments/{id}/offline-confirm")
     public ApiResponse<OrderVo.Payment> offlineConfirm(@PathVariable Long id, @RequestBody OrderRequests.OfflineConfirm request) {
+        if (repairService.ownsPayment(id)) {
+            return ApiResponse.ok(repairService.offlineConfirm(id, request));
+        }
         return ApiResponse.ok(orderService.offlineConfirm(id, request));
     }
 }

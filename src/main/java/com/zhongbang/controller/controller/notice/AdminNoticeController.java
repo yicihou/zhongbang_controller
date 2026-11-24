@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * 管理端通知。新订单会推到 {@code /api/admin/stream}。
+ * 管理端通知。新订单、新报修会推到 {@code /api/admin/stream}。
  * 连接失败时，页面改为轮询 {@code /api/admin/notices?unread=1}，读的是同一张表。
  */
 @RestController
@@ -38,7 +38,7 @@ public class AdminNoticeController {
         return ApiResponse.ok(noticeService.list(onlyUnread, page, size));
     }
 
-    /** 浏览器带着 Authorization 头来接事件。事件名是 ORDER_CREATED，data 是一条通知 JSON。 */
+    /** 浏览器带着 Authorization 头来接事件。事件名是 ORDER_CREATED 或 REPAIR_CREATED，data 是一条通知 JSON。 */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream() {
         return adminSseHub.connect();

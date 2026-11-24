@@ -192,6 +192,9 @@ public class ProductService {
         target.setPrice(request.getPrice());
         target.setUpdatedAt(DateTimes.now());
         productSkuMapper.updateById(target);
+        Product product = require(id);
+        product.setUpdatedAt(DateTimes.now());
+        productMapper.updateById(product);
         return adminGet(id);
     }
 

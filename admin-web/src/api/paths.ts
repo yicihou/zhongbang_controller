@@ -1,7 +1,6 @@
 /**
  * 管理端路径常量，避免页面里手写字符串。
- * staffLogin、cancelOrder、technicians、schedules 是页面需要、后端骨架尚未提供的路径。
- * 其余路径对齐 docs/04 的设计，同样还没有 Java 控制器。
+ * 路径对齐 docs/04。Mock 开关打开时由 mock/handle.ts 回答，关掉则打 Spring Boot。
  */
 export const paths = {
   staffLogin: '/api/auth/staff/login',
@@ -19,6 +18,8 @@ export const paths = {
   repair: (id: number | string) => `/api/admin/repairs/${id}`,
   repairQuote: (id: number | string) => `/api/admin/repairs/${id}/quote`,
   repairAssign: (id: number | string) => `/api/admin/repairs/${id}/assign`,
+  repairComplete: (id: number | string) => `/api/admin/repairs/${id}/complete`,
+  repairCancel: (id: number | string) => `/api/admin/repairs/${id}/cancel`,
   notices: '/api/admin/notices',
   stream: '/api/admin/stream',
   receivables: '/api/admin/receivables',

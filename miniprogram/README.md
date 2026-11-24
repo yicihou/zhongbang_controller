@@ -12,7 +12,7 @@
 2. 导入项目，目录选本文件夹 `miniprogram/`（不要选仓库根目录）。
 3. AppID 用测试号，或沿用 `project.config.json` 里的 `touristappid`。
 4. 和 Spring Boot 联调：先在仓库根目录 `mvn spring-boot:run`。`config.js` 的 `USE_MOCK` 默认 `false`，`baseUrl` 是 `http://127.0.0.1:8080`。开发者工具「详情 → 本地设置」勾选 **不校验合法域名、web-view、TLS 版本以及 HTTPS 证书**。
-5. 只看页面、不连 Java：把 `USE_MOCK` 改成 `true`，请求改走 `mock/index.js`。
+5. 只看页面、不连 Java：把 `USE_MOCK` 改成 `true`，请求改走 `mock/index.js`。两个开关互不影响。商品、购物车、订单、报修在页面显示和下拉时会重新请求；订单列表、订单详情、报修详情大约每 10 秒问一次 `GET /api/me/changes`。
 
 建议路径：商品详情 → 加入购物车 / 立即购买 → 购物车勾选结算 → 确认页选发货方式 → 订单详情线下转账；首页「一键报修」多台/外购。
 

@@ -36,7 +36,7 @@ import {
   type IdSource,
 } from '@/domain/order'
 import { paginate } from '@/domain/page'
-import { assignRepair, offlineConfirmRepair, quoteRepair } from '@/domain/repair'
+import { assignRepair, cancelRepair, completeRepair, offlineConfirmRepair, quoteRepair } from '@/domain/repair'
 import { db } from './db'
 
 export interface MockResult {
@@ -394,6 +394,16 @@ function dispatch(method: string, path: string, query: Record<string, string>, b
       db.schedules = result.schedules
       saveRepair(ticketId, result.ticket)
       return result.ticket
+    }
+    if (action === 'complete' && method === 'POST') {
+      const next = completeRepair(ticket, now)
+      saveRepair(ticketId, next)
+      return next
+    }
+    if (action === 'cancel' && method === 'POST') {
+      const next = cancelRepair(ticket, body as CancelOrderRequest, now)
+      saveRepair(ticketId, next)
+      return next
     }
   }
 

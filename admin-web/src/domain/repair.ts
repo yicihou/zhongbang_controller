@@ -1,9 +1,11 @@
 /**
- * 报修规则，同样只给 Mock 用，后端 aftersale 包是空的。
+ * 报修规则。Mock 和 Java 的 RepairRules 用同一套判断。
  * 报价：已取消、已完成、维修中不能再报。保内或合计为 0 时关掉待付并变成可派工（CONFIRMED）。
  * 保外则生成或更新一笔 type=REPAIR 的待付。派工只允许已付款、可派工或维修中，并占用师傅档期。
+ * 完工要求每一行都已派工。已派工或已收款的单不能直接取消。
  */
 import type {
+  CancelOrderRequest,
   OfflineConfirmRequest,
   RepairAssignRequest,
   RepairQuoteRequest,
@@ -162,4 +164,35 @@ export function assignRepair(
   next.status = 'IN_SERVICE'
   next.updatedAt = now
   return { ticket: next, schedules: nextSchedules }
+}
+
+export function completeRepair(ticket: RepairTicket, now: string): RepairTicket {
+  if (ticket.status !== 'IN_SERVICE') throw new ApiError(3003, '维修中才能完工')
+  if (ticket.lines.some((line) => !line.technicianId)) throw new ApiError(3003, '还有设备未派工，不能完工')
+  const next = cloneData(ticket)
+  next.status = 'DONE'
+  next.updatedAt = now
+  return next
+}
+
+export function cancelRepair(ticket: RepairTicket, req: CancelOrderRequest, now: string): RepairTicket {
+  const reason = req?.reason?.trim()
+  if (!reason) throw new ApiError(1001, '请填写取消原因')
+  if (ticket.status === 'CANCELLED') throw new ApiError(3003, '报修单已取消')
+  if (ticket.status === 'DONE') throw new ApiError(3003, '已完成的报修单不能取消')
+  if (ticket.status === 'IN_SERVICE') throw new ApiError(3003, '已派工的报修单不能直接取消')
+  if (ticket.payments.some((payment) => payment.status === 'SUCCESS')) {
+    throw new ApiError(3003, '已有成功付款，取消需走退款（二期）')
+  }
+  const next = cloneData(ticket)
+  for (const payment of next.payments) {
+    if (payment.status === 'WAIT') {
+      payment.status = 'CLOSED'
+      payment.updatedAt = now
+    }
+  }
+  next.remark = next.remark ? `${next.remark}\n取消：${reason}` : `取消：${reason}`
+  next.status = 'CANCELLED'
+  next.updatedAt = now
+  return next
 }

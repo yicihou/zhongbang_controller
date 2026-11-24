@@ -57,7 +57,7 @@
 
 <script setup lang="ts">
 /**
- * 报修列表。数据来自 GET /api/admin/repairs（默认 Mock）。
+ * 报修列表。数据来自 GET /api/admin/repairs。Mock 开关打开时走浏览器里的假数据。
  * 新报修通知让 inbox.revision 增加时会重新查询。没有「模拟新报修」按钮。
  */
 import { onMounted, ref, watch } from 'vue'

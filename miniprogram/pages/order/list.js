@@ -1,5 +1,6 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
+const refresh = require('../../utils/refresh');
 const { deliveryLabel } = require('../../utils/constants');
 
 // 状态和后端、Mock 一致。部分付款、已取消是真实订单里会出现的状态。
@@ -25,6 +26,19 @@ Page({
 
   onShow() {
     this.load();
+    // 订单和报修都在这一页。管理端发货、收款、报价后，大约 10 秒内会重新拉列表。
+    refresh.start(this, {
+      areas: ['orders', 'repairs'],
+      load: (quiet) => this.load(quiet)
+    });
+  },
+
+  onHide() {
+    refresh.stop(this);
+  },
+
+  onUnload() {
+    refresh.stop(this);
   },
 
   onPullDownRefresh() {
@@ -35,8 +49,8 @@ Page({
     this.setData({ status: e.currentTarget.dataset.value }, () => this.load());
   },
 
-  load() {
-    this.setData({ loading: true });
+  load(quiet) {
+    if (!quiet) this.setData({ loading: true });
     const status = this.data.status;
     const showRepair = status === 'ALL' || status === 'AFTER_SALE';
     const orders = status === 'AFTER_SALE'

@@ -8,6 +8,8 @@
       <div class="actions">
         <el-tag :type="repairTagType(ticket.status)" size="large" effect="light">{{ REPAIR_STATUS_LABEL[ticket.status] }}</el-tag>
         <el-button type="primary" :disabled="!canQuote" @click="openQuote">报价</el-button>
+        <el-button type="success" plain :disabled="!canComplete" @click="submitComplete">完成</el-button>
+        <el-button type="danger" plain :disabled="!canCancel" @click="openCancel">取消</el-button>
       </div>
     </div>
 
@@ -124,6 +126,14 @@
     </el-dialog>
 
     <OfflineConfirmDialog v-model="offlineVisible" :payment="offlineTarget" title="登记维修费" @done="load" />
+
+    <el-dialog v-model="cancelVisible" title="取消报修" width="420px">
+      <el-input v-model="cancelReason" type="textarea" :rows="3" placeholder="取消原因" />
+      <template #footer>
+        <el-button @click="cancelVisible = false">返回</el-button>
+        <el-button type="danger" @click="submitCancel">确认取消</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -131,12 +141,20 @@
 /**
  * 一张报修单：按行报价、派师傅、登记线下维修费。
  * 维修费和订单共用同一个收款弹窗，也可以只收一部分。
- * 保内或 0 元在 Mock 里会直接变成可派工；保外会生成待付。派工仍要报价确认或已付款。后端 aftersale 包是空的。
+ * 保内或 0 元会直接变成可派工；保外会生成待付。派工仍要报价确认或已付款。
+ * 关掉 Mock 后这些按钮打 Spring Boot 的 /api/admin/repairs。
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { assignRepair as assignRepairApi, getRepair, listTechnicians, quoteRepair as quoteRepairApi } from '@/api/admin'
+import {
+  assignRepair as assignRepairApi,
+  cancelRepair as cancelRepairApi,
+  completeRepair as completeRepairApi,
+  getRepair,
+  listTechnicians,
+  quoteRepair as quoteRepairApi,
+} from '@/api/admin'
 import type { Payment, RepairLine, RepairTicket, Technician } from '@/api/types'
 import OfflineConfirmDialog from '@/components/OfflineConfirmDialog.vue'
 import { formatYuan, yuanToFen } from '@/domain/money'
@@ -155,6 +173,11 @@ const canAssign = computed(() => {
   const status = ticket.value?.status
   return status === 'PAID' || status === 'CONFIRMED' || status === 'IN_SERVICE'
 })
+const canComplete = computed(() => ticket.value?.status === 'IN_SERVICE')
+const canCancel = computed(() => {
+  const status = ticket.value?.status
+  return status === 'SUBMITTED' || status === 'QUOTED' || status === 'PENDING_PAYMENT' || status === 'CONFIRMED'
+})
 
 const quoteVisible = ref(false)
 const inWarranty = ref(false)
@@ -166,6 +189,8 @@ const assignTech = ref<number>()
 const appointAt = ref('')
 const offlineVisible = ref(false)
 const offlineTarget = ref<Payment | null>(null)
+const cancelVisible = ref(false)
+const cancelReason = ref('')
 
 async function load() {
   loading.value = true
@@ -212,6 +237,26 @@ async function submitQuote() {
     })
   }, '已报价')
   if (ok) quoteVisible.value = false
+}
+
+function openCancel() {
+  cancelReason.value = ''
+  cancelVisible.value = true
+}
+
+async function submitComplete() {
+  if (!ticket.value) return
+  await run(async () => {
+    ticket.value = await completeRepairApi(ticket.value!.id)
+  }, '已完工')
+}
+
+async function submitCancel() {
+  if (!ticket.value) return
+  const ok = await run(async () => {
+    ticket.value = await cancelRepairApi(ticket.value!.id, { reason: cancelReason.value })
+  }, '报修已取消')
+  if (ok) cancelVisible.value = false
 }
 
 async function submitAssign() {

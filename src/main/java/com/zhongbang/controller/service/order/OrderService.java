@@ -440,6 +440,10 @@ public class OrderService {
         if (product == null || !"ON".equals(product.getStatus())) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "商品已下架");
         }
+        long price = sku.getPrice() == null ? 0L : sku.getPrice();
+        if (line.getExpectedPrice() != null && line.getExpectedPrice() != price) {
+            throw new BusinessException(ErrorCode.AMOUNT_MISMATCH, "商品价格已变化，请确认后再提交");
+        }
         String method = normalizeMethod(line.getDeliveryMethod(), line.getInstallDate(), line.getTechnicianId());
         if (productSkuMapper.deductStock(sku.getId(), quantity) != 1) {
             throw new BusinessException(ErrorCode.STOCK_INSUFFICIENT, "库存不足");
@@ -452,7 +456,7 @@ public class OrderService {
         item.setSkuName(sku.getTitle());
         item.setCoverImage(product.getCoverImage());
         item.setQuantity(quantity);
-        item.setUnitPrice(sku.getPrice() == null ? 0L : sku.getPrice());
+        item.setUnitPrice(price);
         item.setLineAmount(item.getUnitPrice() * quantity);
         item.setDeliveryMethod(method);
         if ("ON_SITE_INSTALL".equals(method)) {

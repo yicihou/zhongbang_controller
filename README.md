@@ -10,7 +10,7 @@
 - 小程序：`miniprogram/`
 - 商家 Web 后台：`admin-web/`（见该目录 README）
 
-商品、订单、线下收款和员工登录已经接到同一套数据库。报修仍是管理端 Mock。小程序报修、微信支付还没接。
+商品、订单、报修、线下收款和员工登录已经接到同一套数据库。微信支付还没接。
 
 ## 已对齐的能力（H1–H6）
 
@@ -46,7 +46,7 @@ src/main/java/com/zhongbang/controller
 └── job/                    定时任务占位
 ```
 
-请求路径：`controller/<业务>` 收 HTTP → `service/<业务>` 写规则 → `mapper/<业务>` 访问数据库。数据对象在 `pojo/<业务>`。商品、订单、收款、通知、师傅已经有实现。报修、报表、定时任务仍是占位。
+请求路径：`controller/<业务>` 收 HTTP → `service/<业务>` 写规则 → `mapper/<业务>` 访问数据库。数据对象在 `pojo/<业务>`。商品、订单、报修、收款、通知、师傅已经有实现。报表、定时任务仍是占位。
 
 ## 本地联调（管理端 + 小程序 + 后端）
 
@@ -68,7 +68,7 @@ npm install
 npm run dev
 ```
 
-浏览器打开 `http://127.0.0.1:5173`。开发配置默认 `VITE_USE_MOCK=false`，请求发到 `http://127.0.0.1:8080`（见 `admin-web/.env.development`）。用 admin / admin123 登录。左侧有「商品」。
+浏览器打开 `http://127.0.0.1:5173`。开发配置默认 `VITE_USE_MOCK=false`，请求发到 `http://127.0.0.1:8080`（见 `admin-web/.env.development`）。用 admin / admin123 登录。左侧有「商品」和「报修」。
 
 只想看页面、不启 Java 时，把 `admin-web/.env.development` 改成 `VITE_USE_MOCK=true`，或在 `admin-web/.env.local` 里写同样一行，然后重启 `npm run dev`。Mock 另有 clerk / clerk123。
 
@@ -76,7 +76,7 @@ npm run dev
 
 - 导入目录 `miniprogram/`。
 - 右上角「详情 → 本地设置」，勾选 **不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书**。否则工具不会请求 `http://127.0.0.1:8080`。
-- `miniprogram/config.js` 里 `USE_MOCK` 默认 `false`，商品列表、详情、下单、我的订单走真实接口。改成 `true` 就回到 `miniprogram/mock`，不访问后端。两个开关互不影响。
+- `miniprogram/config.js` 里 `USE_MOCK` 默认 `false`，商品、下单、我的订单和报修走真实接口。改成 `true` 就回到 `miniprogram/mock`，不访问后端。两个开关互不影响。页面显示和下拉会重新请求；订单和报修详情大约每 10 秒查一次 `GET /api/me/changes`。
 
 小程序要先能登录。本地登录不访问微信：开发者工具里 `wx.login` 拿到的 code 会变成 `dev_` 加 code 的客户。下单支持购物车多行；上门安装的安装费先是空的，管理端显示「待定」。
 
@@ -105,8 +105,16 @@ mvn spring-boot:run
 | POST | `/api/admin/orders/{id}/assign` | STAFF。派安装师傅 |
 | POST | `/api/admin/payments/{id}/offline-confirm` | STAFF。部分收款会拆出「（余款）」 |
 | GET | `/api/admin/receivables` | STAFF，待收款 |
-| GET | `/api/admin/stream` | STAFF，SSE。新订单事件 `ORDER_CREATED` |
+| GET | `/api/admin/stream` | STAFF，SSE。新订单 `ORDER_CREATED`，新报修 `REPAIR_CREATED` |
 | GET | `/api/admin/notices` | STAFF。SSE 断了之后轮询 `unread=1` |
+| POST | `/api/repairs` | CUSTOMER。多行报修，可带外购设备 |
+| GET | `/api/repairs` `/api/repairs/{id}` | CUSTOMER，我的报修 |
+| GET | `/api/admin/repairs` | STAFF。工作台待报价用 `status=SUBMITTED` |
+| POST | `/api/admin/repairs/{id}/quote` | STAFF。保外生成待付，保内或 0 元变为可派工 |
+| POST | `/api/admin/repairs/{id}/assign` | STAFF。按行派师傅 |
+| POST | `/api/admin/repairs/{id}/complete` | STAFF。全部行已派工后完工 |
+| POST | `/api/admin/repairs/{id}/cancel` | STAFF。`{ reason }` |
+| GET | `/api/me/changes?since=` | CUSTOMER。轻量变更检查，供小程序约 10 秒轮询 |
 | GET | `/api/assets` | CUSTOMER |
 | POST | `/api/assets/bind` | CUSTOMER |
 | GET | `/api/system/ping` | 公开 |

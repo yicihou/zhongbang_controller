@@ -62,6 +62,8 @@ public final class OrderRequests {
         private String installDate;
         private String installSlot;
         private Long technicianId;
+        /** 客户看到的单价（分）。和当前规格价不一致时拒绝下单，让页面先提示。不传则按库里的现价成交。 */
+        private Long expectedPrice;
 
         public Long getSkuId() { return skuId; }
         public void setSkuId(Long skuId) { this.skuId = skuId; }
@@ -75,6 +77,8 @@ public final class OrderRequests {
         public void setInstallSlot(String installSlot) { this.installSlot = installSlot; }
         public Long getTechnicianId() { return technicianId; }
         public void setTechnicianId(Long technicianId) { this.technicianId = technicianId; }
+        public Long getExpectedPrice() { return expectedPrice; }
+        public void setExpectedPrice(Long expectedPrice) { this.expectedPrice = expectedPrice; }
     }
 
     public static class AdjustPrice {

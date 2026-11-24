@@ -52,7 +52,7 @@ VITE_API_BASE=http://127.0.0.1:8080
 
 ## 页面与决策、接口
 
-左侧有「商品」：列表、新增、编辑、上下架、改价。微信支付、企微推送留到二期。报修在真实后端还没有接口，关掉 Mock 后这一页会 404。
+左侧有「商品」：列表、新增、编辑、上下架、改价。微信支付、企微推送留到二期。报修列表和详情在关掉 Mock 后走 Spring Boot。
 
 | 页面 | 路由 | 决策 / 阶段 | 接口 |
 | --- | --- | --- | --- |
@@ -96,6 +96,8 @@ VITE_API_BASE=http://127.0.0.1:8080
 | --- | --- | --- |
 | 报价 | `POST /api/admin/repairs/{id}/quote` | `{ inWarranty, lines: [{ lineId, lineQuoteAmount }], remark? }` |
 | 按行派工 | `POST /api/admin/repairs/{id}/assign` | `{ lineId, technicianId, appointAt }` |
+| 完工（每一行都已派工） | `POST /api/admin/repairs/{id}/complete` | 无 |
+| 取消（未派工、无成功付款） | `POST /api/admin/repairs/{id}/cancel` | `{ reason }` |
 | 线下收维修费 | `POST /api/admin/payments/{id}/offline-confirm` | 与订单相同 |
 
 保外报价会生成一笔 `type=REPAIR` 的待付；保内或 0 元直接变为可派工。这样后台单独就能把维修费收完，不等客户小程序点「确认报价」。

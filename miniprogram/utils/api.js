@@ -71,6 +71,8 @@ module.exports = {
   mockPaySuccess: (data) => post('/api/pay/mock-success', typeof data === 'object' ? data : { orderId: data }),
 
   getAdminContact: () => get('/api/contact/admin'),
+  // since 是上次拿到的 cursor（毫秒时间戳）。不传只拿新的起点，changed 为 false。
+  changes: (since) => get('/api/me/changes', since ? { since } : {}),
 
   getProfile: () => get('/api/customer/profile'),
   getAddresses: () => get('/api/customer/addresses'),

@@ -8,6 +8,7 @@ import com.zhongbang.controller.mapper.notice.AdminNoticeMapper;
 import com.zhongbang.controller.pojo.notice.entity.AdminNotice;
 import com.zhongbang.controller.pojo.notice.vo.NoticeVo;
 import com.zhongbang.controller.pojo.order.entity.SalesOrder;
+import com.zhongbang.controller.pojo.repair.entity.RepairTicket;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -38,7 +39,10 @@ public class NoticeService {
         row.setReadFlag(0);
         row.setCreatedAt(DateTimes.now());
         adminNoticeMapper.insert(row);
-        NoticeVo vo = toVo(row);
+        publishAfterCommit(toVo(row));
+    }
+
+    private void publishAfterCommit(NoticeVo vo) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -49,6 +53,21 @@ public class NoticeService {
         } else {
             adminSseHub.publish(vo);
         }
+    }
+
+    /** 新报修。和订单一样，先落库，事务提交成功后再推 SSE，事件名是 REPAIR_CREATED。 */
+    public void repairCreated(RepairTicket ticket, int lineCount) {
+        AdminNotice row = new AdminNotice();
+        row.setTenantId(1L);
+        row.setTitle("新报修 " + ticket.getTicketNo());
+        row.setBody(customerText(ticket.getCustomerName(), ticket.getContactMobile()) + " 提交了报修，" + lineCount + " 台设备");
+        row.setBizType("REPAIR");
+        row.setBizId(ticket.getId());
+        row.setEventType("REPAIR_CREATED");
+        row.setReadFlag(0);
+        row.setCreatedAt(DateTimes.now());
+        adminNoticeMapper.insert(row);
+        publishAfterCommit(toVo(row));
     }
 
     public PageResult<NoticeVo> list(boolean unreadOnly, int page, int size) {
@@ -77,11 +96,15 @@ public class NoticeService {
     }
 
     private static String customerText(SalesOrder order) {
-        String name = order.getCustomerName() == null || order.getCustomerName().isBlank() ? "客户" : order.getCustomerName();
-        if (order.getCustomerMobile() == null || order.getCustomerMobile().isBlank()) {
+        return customerText(order.getCustomerName(), order.getCustomerMobile());
+    }
+
+    private static String customerText(String customerName, String mobile) {
+        String name = customerName == null || customerName.isBlank() ? "客户" : customerName;
+        if (mobile == null || mobile.isBlank()) {
             return name;
         }
-        return name + " " + order.getCustomerMobile();
+        return name + " " + mobile;
     }
 
     private static String yuan(Long fen) {

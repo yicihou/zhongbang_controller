@@ -1,7 +1,6 @@
 /**
- * 管理端每个按钮对应的函数。它们只拼路径和请求体，规则在 Mock 的 domain 或将来的 Java 里。
- * 金额字段单位是分。这些 /api/admin/** 和 /api/auth/staff/login 在当前 Spring Boot 工程里还没有控制器。
- * 关掉 Mock 之后，未带令牌会先被安全配置拒绝（401）；带了 STAFF 令牌也会 404，因为没有对应类。
+ * 管理端每个按钮对应的函数。它们只拼路径和请求体，规则在 Mock 的 domain 或 Java 的 Service 里。
+ * 金额字段单位是分。关掉 Mock 之后，这些路径打 Spring Boot。未带令牌是 401。
  */
 import type {
   AdminNotice,
@@ -96,6 +95,14 @@ export function quoteRepair(id: number, body: RepairQuoteRequest): Promise<Repai
 
 export function assignRepair(id: number, body: RepairAssignRequest): Promise<RepairTicket> {
   return request('POST', paths.repairAssign(id), { body })
+}
+
+export function completeRepair(id: number): Promise<RepairTicket> {
+  return request('POST', paths.repairComplete(id))
+}
+
+export function cancelRepair(id: number, body: CancelOrderRequest): Promise<RepairTicket> {
+  return request('POST', paths.repairCancel(id), { body })
 }
 
 export function listNotices(query: NoticeQuery = {}): Promise<PageResult<AdminNotice>> {

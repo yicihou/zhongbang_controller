@@ -15,14 +15,33 @@ Page({
 
   onLoad(options) {
     this.id = options.id;
+  },
+
+  onShow() {
     this.load();
   },
 
+  onPullDownRefresh() {
+    this.load().then(() => wx.stopPullDownRefresh());
+  },
+
   load() {
+    const prevId = this.data.activeSku && this.data.activeSku.id;
     return api.getProduct(this.id).then((p) => {
       const skus = (p.skus || []).map((s) => Object.assign({}, s, { priceText: fmt.yuan(s.price) }));
       const data = Object.assign({}, p, { skus });
-      const built = this.buildGroups(skus);
+      let built = this.buildGroups(skus);
+      // 已经选过的规格还在，就留住它，只更新价格和库存。
+      if (prevId) {
+        const keep = skus.filter((s) => s.id === prevId)[0];
+        if (keep) {
+          built = {
+            groups: this.mark(built.groups, keep.specs || {}),
+            selected: keep.specs || {},
+            sku: keep
+          };
+        }
+      }
       this.setData({ p: data, groups: built.groups, selected: built.selected, activeSku: built.sku }, () => this.calc());
     });
   },
