@@ -1,77 +1,81 @@
 # Zhongbang Controller
 
-中邦控制器后端基础骨架（Spring Boot 3 + Java 21）。
+缝纫机经销商小程序后端骨架（Spring Boot 3 + Java 21）。
 
-当前仓库只搭好分层架构与一个可运行的设备（Device）示例模块，业务逻辑由后续自行扩展。
+业务契约以仓库内文档为准：
+
+- `docs/02-技术架构与数据库设计.md`
+- `api/openapi.yaml` / `api/接口清单.md`
+- 小程序：`miniprogram/`
+
+当前 Java 代码只落实架构评审中的 **H1–H6** 骨架，业务模块多数仍是空包，便于你继续扩展。
+
+## 已对齐的能力（H1–H6）
+
+| 项 | 说明 |
+| --- | --- |
+| H1 | MyBatis-Plus；`module/*` + `adapter/*` + `security` + `job`；`/api/assets` 替换原 device 示例 |
+| H2 | Spring Security + JWT；角色 `CUSTOMER` / `STAFF` / `TECHNICIAN` |
+| H3 | Flyway `db/migration`；不再使用 JPA/`ddl-auto` |
+| H4 | 响应体 `{code,msg,data,traceId}`；分页 `page` 从 1、`list`；路径对齐 OpenAPI |
+| H5 | Redis/RabbitMQ 接入位 + 本地内存/NoOp 回退；`docker/docker-compose.yml` |
+| H6 | 默认关闭 H2 Console；Actuator 仅暴露 `health`（含 probes），其余拒绝 |
 
 ## 技术栈
 
-- Java 21
-- Spring Boot 3.4
-- Spring Web / Validation / Data JPA / Actuator
-- 开发环境：H2 内存库
-- 生产环境：MySQL（`prod` profile）
+- Spring Boot 3.4 / Java 21 / Maven
+- MyBatis-Plus + Flyway
+- Spring Security + JJWT
+- Redis / RabbitMQ（可选，默认关闭）
 
-## 目录结构
+## 目录（后端）
 
 ```text
 src/main/java/com/zhongbang/controller
-├── ZhongbangControllerApplication.java
-├── common/                 # 统一响应、异常、错误码
-├── config/                 # CORS 等基础设施配置
-├── domain/                 # 公共实体基类 BaseEntity
-├── device/                 # 示例业务模块（可按此模式复制）
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   ├── domain/
-│   └── dto/
-└── system/                 # 系统探活接口
+├── common/                 统一响应、错误码、TraceId
+├── config/                 Web / MyBatis / 基础设施开关
+├── security/               JWT、三角色、过滤器
+├── support/                幂等、分布式锁、消息发布（Redis/内存）
+├── adapter/                wx / oss / map 外部能力空壳
+├── module/                 auth / customer / product / ... 领域包
+└── job/                    定时任务占位
 ```
 
-建议新增业务时按 `device` 同样拆包：`controller → service → repository`，DTO 与领域实体分离。
-
-## 快速启动
+## 本地启动（无需 Redis/MQ）
 
 ```bash
 mvn spring-boot:run
 ```
 
-默认端口：`3847`  
-默认 profile：`dev`（H2）
+默认 `dev`：H2 内存库 + Flyway；`zhongbang.redis.enabled=false`、`zhongbang.rabbitmq.enabled=false`。
 
-可选：
+端口：`8080`
+
+### 常用接口
+
+| Method | Path | 鉴权 |
+| --- | --- | --- |
+| POST | `/api/auth/login` | 公开（本地 stub：`code` → openid） |
+| GET | `/api/products` | 公开 |
+| GET | `/api/assets` | CUSTOMER |
+| POST | `/api/assets/bind` | CUSTOMER |
+| GET | `/api/system/ping` | 公开 |
+| GET | `/actuator/health` | 公开 |
+
+登录示例：
 
 ```bash
-# 指定生产配置（需提供 MySQL）
-export SPRING_PROFILES_ACTIVE=prod
-export DB_URL=jdbc:mysql://localhost:3306/zhongbang
-export DB_USERNAME=zhongbang
-export DB_PASSWORD=secret
-mvn spring-boot:run
+curl -s localhost:8080/api/auth/login -H 'Content-Type: application/json' -d '{"code":"demo"}'
 ```
 
-## 已提供接口
+## 启用 Redis / RabbitMQ
 
-| Method | Path | 说明 |
-|--------|------|------|
-| GET | `/api/v1/system/ping` | 服务探活 |
-| GET | `/api/v1/devices` | 设备分页列表 |
-| GET | `/api/v1/devices/{id}` | 设备详情 |
-| POST | `/api/v1/devices` | 创建设备 |
-| PUT | `/api/v1/devices/{id}` | 更新设备 |
-| DELETE | `/api/v1/devices/{id}` | 删除设备 |
-| GET | `/actuator/health` | Actuator 健康检查 |
-
-统一响应格式：
-
-```json
-{
-  "code": 0,
-  "message": "ok",
-  "data": {}
-}
+```bash
+docker compose -f docker/docker-compose.yml up -d
+SPRING_PROFILES_ACTIVE=infra mvn spring-boot:run
 ```
+
+`infra` profile 会连 Compose 中的 MySQL/Redis/RabbitMQ，并切换到 Redis/Rabbit 实现（幂等、锁、消息）。
 
 ## 测试
 
@@ -81,7 +85,7 @@ mvn test
 
 ## 后续扩展建议
 
-1. 复制 `device` 包作为新业务模块模板。
-2. 在 `ErrorCode` 中补充业务错误码。
-3. 需要鉴权时在 `config` 下增加 Security 配置。
-4. 切换生产库时使用 `prod` profile，并设置 `DB_*` 环境变量。
+1. 按 `api/接口清单.md` 在空模块中补 Controller/Service/Mapper。
+2. 将 `WxAuthAdapter` 换成 WxJava；补齐 `/api/auth/phone`。
+3. 订单状态机、支付回调验签、延迟关单消费者落在 `module/order`、`module/payment`、`job`。
+4. 中优先级项（SpringDoc、CI、更完整异常映射等）见项目 Agent Store 中的架构评审文档。
