@@ -68,8 +68,17 @@
           <el-table-column label="状态" width="90">
             <template #default="{ row }">{{ paymentStatusText(row.status) }}</template>
           </el-table-column>
-          <el-table-column label="凭证" min-width="180">
-            <template #default="{ row }">{{ (row.voucherUrls || []).join('；') || '—' }}</template>
+          <el-table-column label="收款方式 / 凭证" min-width="200">
+            <template #default="{ row }">
+              <div>
+                {{
+                  [offlineMethodText(row.offlineMethod), ...(row.voucherUrls || []), row.remark]
+                    .filter(Boolean)
+                    .join('；') || '—'
+                }}
+              </div>
+              <div class="muted">{{ row.paidAt || '' }} {{ row.operatorName || '' }}</div>
+            </template>
           </el-table-column>
           <el-table-column label="操作" width="120">
             <template #default="{ row }">
@@ -114,29 +123,24 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="offlineVisible" title="登记维修费" width="460px">
-      <el-input v-model="voucherText" type="textarea" :rows="3" placeholder="转账凭证，一行一条" />
-      <el-input v-model="offlineRemark" class="gap" placeholder="备注" />
-      <template #footer>
-        <el-button @click="offlineVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitOffline">确认收款</el-button>
-      </template>
-    </el-dialog>
+    <OfflineConfirmDialog v-model="offlineVisible" :payment="offlineTarget" title="登记维修费" @done="load" />
   </div>
 </template>
 
 <script setup lang="ts">
 /**
  * 一张报修单：按行报价、派师傅、登记线下维修费。
- * 保内或 0 元在 Mock 里会直接变成可派工；保外会生成待付。后端 aftersale 包是空的。
+ * 维修费和订单共用同一个收款弹窗，也可以只收一部分。
+ * 保内或 0 元在 Mock 里会直接变成可派工；保外会生成待付。派工仍要报价确认或已付款。后端 aftersale 包是空的。
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { assignRepair as assignRepairApi, getRepair, listTechnicians, offlineConfirm, quoteRepair as quoteRepairApi } from '@/api/admin'
+import { assignRepair as assignRepairApi, getRepair, listTechnicians, quoteRepair as quoteRepairApi } from '@/api/admin'
 import type { Payment, RepairLine, RepairTicket, Technician } from '@/api/types'
+import OfflineConfirmDialog from '@/components/OfflineConfirmDialog.vue'
 import { formatYuan, yuanToFen } from '@/domain/money'
-import { REPAIR_STATUS_LABEL, paymentStatusText, repairTagType } from '@/domain/labels'
+import { REPAIR_STATUS_LABEL, offlineMethodText, paymentStatusText, repairTagType } from '@/domain/labels'
 import { run } from '@/utils/feedback'
 
 const route = useRoute()
@@ -162,8 +166,6 @@ const assignTech = ref<number>()
 const appointAt = ref('')
 const offlineVisible = ref(false)
 const offlineTarget = ref<Payment | null>(null)
-const voucherText = ref('')
-const offlineRemark = ref('')
 
 async function load() {
   loading.value = true
@@ -194,8 +196,6 @@ function openAssign(line: RepairLine) {
 
 function openOffline(payment: Payment) {
   offlineTarget.value = payment
-  voucherText.value = ''
-  offlineRemark.value = ''
   offlineVisible.value = true
 }
 
@@ -227,16 +227,6 @@ async function submitAssign() {
     })
   }, '已派工')
   if (ok) assignVisible.value = false
-}
-
-async function submitOffline() {
-  if (!offlineTarget.value) return
-  const vouchers = voucherText.value.split('\n').map((line) => line.trim()).filter(Boolean)
-  const ok = await run(async () => {
-    await offlineConfirm(offlineTarget.value!.id, { voucherUrls: vouchers, remark: offlineRemark.value })
-    await load()
-  }, '已登记维修费')
-  if (ok) offlineVisible.value = false
 }
 
 onMounted(() => {

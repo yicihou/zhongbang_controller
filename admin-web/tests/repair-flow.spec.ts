@@ -116,7 +116,14 @@ describe('repair admin flow', () => {
     expect(() =>
       assignRepair(quoted, [], technicians, { lineId: 1, technicianId: 90, appointAt: '2026-11-26 15:00:00' }, now, ids()),
     ).toThrow(ApiError)
-    const paid = offlineConfirmRepair(quoted, quoted.payments[0]!.id, { voucherUrls: ['维修费转账'] }, '周晓', 2, now)
+    const paid = offlineConfirmRepair(
+      quoted,
+      quoted.payments[0]!.id,
+      { method: 'BANK_TRANSFER', voucherUrls: ['维修费转账'] },
+      { name: '周晓', id: 2 },
+      now,
+      ids(),
+    )
     expect(paid.status).toBe('PAID')
     const assigned = assignRepair(
       paid,

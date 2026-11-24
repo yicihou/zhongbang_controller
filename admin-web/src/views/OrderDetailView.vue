@@ -7,6 +7,9 @@
       </div>
       <div class="actions" v-if="order">
         <el-tag :type="orderTagType(order.status)" size="large" effect="light">{{ ORDER_STATUS_LABEL[order.status] }}</el-tag>
+        <el-tag v-if="unpaidShipped" type="primary" size="large" effect="plain" data-testid="ship-progress">
+          已发货 {{ progress.shipped }}/{{ progress.total }} 行
+        </el-tag>
         <el-button @click="openAdjust(false)" :disabled="closed">改价</el-button>
         <el-button @click="openFreight" :disabled="closed">运费</el-button>
         <el-button @click="openSplit" :disabled="!fullWait">拆定金/尾款</el-button>
@@ -105,11 +108,13 @@
             <template #default="{ row }">{{ paymentStatusText(row.status) }}</template>
           </el-table-column>
           <el-table-column label="渠道" width="90">
-            <template #default="{ row }">{{ row.channel === 'OFFLINE' ? '线下' : '微信' }}</template>
+            <template #default="{ row }">
+              {{ row.channel === 'OFFLINE' ? offlineMethodText(row.offlineMethod) || '线下' : '微信' }}
+            </template>
           </el-table-column>
           <el-table-column label="凭证 / 时间" min-width="220">
             <template #default="{ row }">
-              <div>{{ (row.voucherUrls || []).join('；') || '—' }}</div>
+              <div>{{ [...(row.voucherUrls || []), row.remark].filter(Boolean).join('；') || '—' }}</div>
               <div class="muted">{{ row.paidAt || '' }} {{ row.operatorName || '' }}</div>
             </template>
           </el-table-column>
@@ -235,21 +240,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="offlineVisible" title="登记线下收款" width="480px">
-      <p class="muted">一期只登记线下到账。微信支付在二期打开。</p>
-      <el-form label-width="80px">
-        <el-form-item label="凭证">
-          <el-input v-model="voucherText" type="textarea" :rows="3" placeholder="转账单号或图片 URL，一行一条" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="offlineRemark" placeholder="例如：对公账户已到账" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="offlineVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitOffline">确认收款</el-button>
-      </template>
-    </el-dialog>
+    <OfflineConfirmDialog v-model="offlineVisible" :payment="offlineTarget" @done="load" />
 
     <el-dialog v-model="shipVisible" title="按行发货" width="520px">
       <p v-if="shipItem">{{ shipItem.productName }} · {{ DELIVERY_LABEL[shipItem.deliveryMethod] }}</p>
@@ -285,8 +276,8 @@
     </el-dialog>
 
     <el-dialog v-model="assignVisible" title="派师傅 / 定安装时间" width="480px">
-      <p v-if="order && order.status !== 'PAID' && order.status !== 'FULFILLING'" class="muted">
-        订单尚未付清。可以预派并占档期，付款结清后进入履约。
+      <p v-if="order && (order.status === 'PENDING_PAYMENT' || order.status === 'PARTIALLY_PAID')" class="muted">
+        订单尚未付清，可以先派工；收款在「应付与收款」里单独登记。
       </p>
       <el-form label-width="90px">
         <el-form-item label="师傅">
@@ -327,8 +318,9 @@
 <script setup lang="ts">
 /**
  * 一张订单上的改价、运费、拆分应付、发货、派安装师傅、线下收款和取消。
- * 每个按钮调用 api/admin.ts 里对应的函数；Mock 下规则在 domain/order.ts。
- * 页面上的金额输入是元，提交前用 yuanToFen 换成分。后端还没有这些接口。
+ * 发货和派工不要求已经付款。收款弹窗可以只收一部分，剩下的拆成余款。
+ * 每个按钮调用 api/admin.ts；Mock 下规则在 domain/order.ts。金额输入是元，提交前换成 分。
+ * 后端还没有这些接口。
  */
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -341,19 +333,20 @@ import {
   createShipment,
   getOrder,
   listTechnicians,
-  offlineConfirm,
   setOrderFreight,
   updatePayment,
 } from '@/api/admin'
 import type { AdminOrder, OrderItem, Payment, PaymentType, Technician } from '@/api/types'
+import OfflineConfirmDialog from '@/components/OfflineConfirmDialog.vue'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
-import { installFeeState } from '@/domain/order'
+import { canShipItem, fulfillmentProgress, installFeeState } from '@/domain/order'
 import {
   DELIVERY_LABEL,
   ORDER_STATUS_LABEL,
   PAYMENT_TYPE_LABEL,
   PRICE_FIELD_LABEL,
   deliveryText,
+  offlineMethodText,
   orderTagType,
   paymentStatusText,
   paymentTypeText,
@@ -368,7 +361,11 @@ const technicians = ref<Technician[]>([])
 const closed = computed(() => order.value?.status === 'CANCELLED' || order.value?.status === 'COMPLETED')
 const fullWait = computed(() => order.value?.payments.find((item) => item.status === 'WAIT' && item.type === 'FULL'))
 const canCancel = computed(
-  () => !!order.value && order.value.status === 'PENDING_PAYMENT' && !order.value.payments.some((item) => item.status === 'SUCCESS'),
+  () =>
+    !!order.value &&
+    order.value.status === 'PENDING_PAYMENT' &&
+    !order.value.payments.some((item) => item.status === 'SUCCESS') &&
+    !order.value.items.some((item) => item.shipment && item.shipment.status !== 'CANCELLED'),
 )
 const splitSumFen = computed(() => yuanToFen(depositYuan.value || 0) + yuanToFen(balanceYuan.value || 0))
 
@@ -378,6 +375,11 @@ const adjustYuan = ref(0)
 const lineDrafts = ref<
   { id: number; name: string; unitYuan: number; installYuan: number | null; delivery: OrderItem['deliveryMethod'] }[]
 >([])
+const progress = computed(() => fulfillmentProgress(order.value ?? { items: [] }))
+const unpaidShipped = computed(
+  () =>
+    (order.value?.status === 'PENDING_PAYMENT' || order.value?.status === 'PARTIALLY_PAID') && progress.value.shipped > 0,
+)
 const feeState = computed(() => (order.value ? installFeeState(order.value) : ({ kind: 'none' } as const)))
 const freightVisible = ref(false)
 const freightYuan = ref(0)
@@ -394,8 +396,6 @@ const patchTitle = ref('')
 const patchYuan = ref(0)
 const offlineVisible = ref(false)
 const offlineTarget = ref<Payment | null>(null)
-const voucherText = ref('')
-const offlineRemark = ref('')
 const shipVisible = ref(false)
 const shipItem = ref<OrderItem | null>(null)
 const shipForm = reactive({
@@ -429,9 +429,7 @@ function shipmentText(item: OrderItem): string {
 }
 
 function canShip(item: OrderItem): boolean {
-  if (!order.value) return false
-  if (order.value.status !== 'PAID' && order.value.status !== 'FULFILLING') return false
-  return !item.shipment || item.shipment.status === 'CANCELLED'
+  return !!order.value && canShipItem(order.value, item)
 }
 
 async function load() {
@@ -483,8 +481,6 @@ function openPatch(payment: Payment) {
 
 function openOffline(payment: Payment) {
   offlineTarget.value = payment
-  voucherText.value = ''
-  offlineRemark.value = ''
   offlineVisible.value = true
 }
 
@@ -589,16 +585,6 @@ async function submitPatch() {
     await load()
   }, '已修改应付')
   if (ok) patchVisible.value = false
-}
-
-async function submitOffline() {
-  if (!offlineTarget.value) return
-  const vouchers = voucherText.value.split('\n').map((line) => line.trim()).filter(Boolean)
-  const ok = await run(async () => {
-    await offlineConfirm(offlineTarget.value!.id, { voucherUrls: vouchers, remark: offlineRemark.value })
-    await load()
-  }, '已登记收款')
-  if (ok) offlineVisible.value = false
 }
 
 async function submitShip() {

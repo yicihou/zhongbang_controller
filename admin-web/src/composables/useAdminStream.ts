@@ -1,9 +1,10 @@
 /**
- * 顶栏的实时通知。
- * Mock：订阅 mock/bus，并每 120 秒自动造一笔新订单广播出去。状态一开始就是 live。
+ * 顶栏的实时通知。Mock 只订阅 mock/bus，不会自己定时造订单。
+ * 新订单要订单列表上的「模拟新订单」按钮调用 simulateIncomingOrder 再 publish。
  * 真实 API：用 fetch 读 /api/admin/stream（浏览器的 EventSource 不能加 Authorization 头），自己拆 SSE 帧。
  * 连续失败 3 次后改为每 30 秒调用 GET /api/admin/notices?unread=1。
  * 后端目前没有 stream 和 notices 控制器，关掉 Mock 后这里会一直重连再进入轮询，轮询同样 404。
+ * 「模拟断线」只在 Mock 下把状态改成轮询，不写入新订单。
  */
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -14,12 +15,9 @@ import { paths } from '@/api/paths'
 import type { AdminNotice } from '@/api/types'
 import { API_BASE, USE_MOCK } from '@/config'
 import { consumeSseBuffer, initialStreamState, registerStreamFailure, registerStreamOpen, type StreamState } from '@/domain/sse'
-import { publishMockStream, subscribeMockStream } from '@/mock/bus'
-import { simulateIncomingOrder } from '@/mock/sim'
+import { subscribeMockStream } from '@/mock/bus'
 import { useInboxStore } from '@/stores/inbox'
 import { playChime } from './sound'
-
-const AUTO_MS = 120_000
 
 export function useAdminStream() {
   const inbox = useInboxStore()
@@ -55,7 +53,6 @@ export function useAdminStream() {
   let stopped = false
   let policy: StreamState = initialStreamState()
   let pollTimer = 0
-  let autoTimer = 0
   let unsubscribe = () => {}
   let abort: AbortController | null = null
 
@@ -84,10 +81,6 @@ export function useAdminStream() {
     policy = registerStreamOpen()
     setStatus('live')
     unsubscribe = subscribeMockStream((notice) => openNotice(notice))
-    if (autoTimer) window.clearInterval(autoTimer)
-    autoTimer = window.setInterval(() => {
-      if (inbox.linkMode === 'live') publishMockStream(simulateIncomingOrder())
-    }, AUTO_MS)
   }
 
   async function connectReal() {
@@ -164,8 +157,6 @@ export function useAdminStream() {
     if (!USE_MOCK) return
     unsubscribe()
     unsubscribe = () => {}
-    if (autoTimer) window.clearInterval(autoTimer)
-    autoTimer = 0
     policy = initialStreamState()
     policy = registerStreamFailure(policy)
     policy = registerStreamFailure(policy)
@@ -193,7 +184,6 @@ export function useAdminStream() {
     unsubscribe()
     stopPoll()
     abort?.abort()
-    if (autoTimer) window.clearInterval(autoTimer)
   })
 
   return { status, reconnect, simulateDrop, pollNow }

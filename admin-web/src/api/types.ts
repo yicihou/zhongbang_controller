@@ -27,6 +27,8 @@ export type DeliveryMethod =
   | 'STORE_PICKUP'
 
 export type PaymentChannel = 'OFFLINE' | 'WXPAY'
+/** 线下收款方式。不是支付渠道；渠道只有 OFFLINE 和预留的 WXPAY。 */
+export type OfflinePayMethod = 'BANK_TRANSFER' | 'WECHAT_TRANSFER' | 'ALIPAY' | 'CASH' | 'OTHER'
 export type PaymentStatus = 'WAIT' | 'SUCCESS' | 'CLOSED' | 'REFUNDED'
 export type PaymentType = 'FULL' | 'DEPOSIT' | 'BALANCE' | 'REPAIR' | 'FREIGHT'
 export type OrderStatus =
@@ -109,10 +111,14 @@ export interface Payment {
   sortNo: number
   transactionId?: string
   voucherUrls?: string[]
+  /** 线下收款方式，channel=OFFLINE 且已收时有值 */
+  offlineMethod?: OfflinePayMethod
   paidAt?: string
   operatorId?: number
   operatorName?: string
   remark?: string
+  /** 部分收款时由哪笔应付拆出的剩余待付 */
+  splitFromId?: number
   createdAt: string
   updatedAt: string
 }
@@ -290,9 +296,13 @@ export interface PatchPaymentRequest {
 }
 
 export interface OfflineConfirmRequest {
+  /** 本次收款金额（分）；不传按该应付单全额。小于全额时剩余部分拆成一笔新的 WAIT。 */
+  amount?: number
+  method: OfflinePayMethod
+  /** yyyy-MM-dd HH:mm:ss，不能晚于当前时间；不传取服务器时间 */
+  paidAt?: string
   voucherUrls?: string[]
   remark?: string
-  paidAt?: string
 }
 
 export interface CreateShipmentRequest {

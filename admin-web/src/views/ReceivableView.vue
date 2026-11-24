@@ -3,14 +3,16 @@
     <div class="page-head">
       <div>
         <h2>待收款</h2>
-        <p>所有状态为 WAIT 的应付单，含订单与报修。点进详情后登记线下收款。</p>
+        <p>所有状态为 WAIT 的应付单，含订单与报修。可直接登记线下收款，支持部分收款。</p>
       </div>
     </div>
     <div class="panel">
       <el-table v-loading="loading" :data="rows">
         <el-table-column label="单号" min-width="170">
           <template #default="{ row }">
-            <router-link :to="row.bizType === 'ORDER' ? `/orders/${row.bizId}` : `/repairs/${row.bizId}`">{{ row.bizNo }}</router-link>
+            <router-link :to="row.bizType === 'ORDER' ? `/orders/${row.bizId}` : `/repairs/${row.bizId}`">{{
+              row.bizNo
+            }}</router-link>
           </template>
         </el-table-column>
         <el-table-column label="类型" width="80">
@@ -23,9 +25,18 @@
           <template #default="{ row }">{{ paymentTypeText(row.type) }}</template>
         </el-table-column>
         <el-table-column label="金额" width="120">
-          <template #default="{ row }"><span class="money">¥{{ formatYuan(row.amount) }}</span></template>
+          <template #default="{ row }"
+            ><span class="money">¥{{ formatYuan(row.amount) }}</span></template
+          >
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" width="170" />
+        <el-table-column label="操作" width="110" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" :data-testid="`receive-${row.paymentId}`" @click="openOffline(row)">
+              登记收款
+            </el-button>
+          </template>
+        </el-table-column>
       </el-table>
       <div class="pager">
         <el-pagination
@@ -38,17 +49,24 @@
         />
       </div>
     </div>
+    <OfflineConfirmDialog
+      v-model="offlineVisible"
+      :payment="offlineTarget"
+      :title="`${offlineTarget?.bizType === 'REPAIR' ? '登记维修费' : '登记线下收款'} · ${offlineTarget?.bizNo ?? ''}`"
+      @done="load"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 /**
  * 待收款。GET /api/admin/receivables，默认 Mock 把订单和报修里 status=WAIT 的应付单拼成一页。
- * 这里不能收款，点进订单或报修详情再用线下确认。
+ * 行上可以直接打开线下收款弹窗，支持只收一部分。单号仍能点进订单或报修详情。
  */
 import { onMounted, ref } from 'vue'
 import { listReceivables } from '@/api/admin'
 import type { Receivable } from '@/api/types'
+import OfflineConfirmDialog from '@/components/OfflineConfirmDialog.vue'
 import { paymentTypeText } from '@/domain/labels'
 import { formatYuan } from '@/domain/money'
 import { run } from '@/utils/feedback'
@@ -58,6 +76,25 @@ const total = ref(0)
 const page = ref(1)
 const size = ref(20)
 const loading = ref(false)
+const offlineVisible = ref(false)
+const offlineTarget = ref<{
+  id: number
+  title: string
+  amount: number
+  bizType: Receivable['bizType']
+  bizNo: string
+} | null>(null)
+
+function openOffline(row: Receivable) {
+  offlineTarget.value = {
+    id: row.paymentId,
+    title: row.title,
+    amount: row.amount,
+    bizType: row.bizType,
+    bizNo: row.bizNo,
+  }
+  offlineVisible.value = true
+}
 
 async function load() {
   loading.value = true
