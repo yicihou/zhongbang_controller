@@ -2,6 +2,8 @@
   "navigationBarTitleText": "维修进度",
   "navigationBarBackgroundColor": "#FFFFFF",
   "navigationBarTextStyle": "black",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#F7F8FA",
   "usingComponents": {
     "price": "/components/price/index"
   }

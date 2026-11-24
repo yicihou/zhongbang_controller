@@ -26,6 +26,11 @@ public class CustomerAsset {
     private Long installOrder;
     private LocalDateTime lastServiceAt;
     private LocalDateTime createdAt;
+    /** INTERNAL 本店或绑定；EXTERNAL 报修时登记的外购。空则交给数据库默认值 INTERNAL。 */
+    private String source;
+    private String brand;
+    private String purchaseChannel;
+    private String purchaseProofUrl;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -49,4 +54,12 @@ public class CustomerAsset {
     public void setLastServiceAt(LocalDateTime lastServiceAt) { this.lastServiceAt = lastServiceAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
+    public String getBrand() { return brand; }
+    public void setBrand(String brand) { this.brand = brand; }
+    public String getPurchaseChannel() { return purchaseChannel; }
+    public void setPurchaseChannel(String purchaseChannel) { this.purchaseChannel = purchaseChannel; }
+    public String getPurchaseProofUrl() { return purchaseProofUrl; }
+    public void setPurchaseProofUrl(String purchaseProofUrl) { this.purchaseProofUrl = purchaseProofUrl; }
 }

@@ -869,6 +869,13 @@ const ROUTES = [
   }],
 
   ['POST', /^\/api\/evaluations$/, () => ok(true)],
+  ['GET', /^\/api\/me\/changes$/, () => ok({
+    cursor: String(Date.now()),
+    changed: false,
+    orders: false,
+    repairs: false,
+    products: false
+  })],
   ['GET', /^\/api\/upload\/policy$/, () => ok({
     host: '', dir: 'mock/', expireAt: 0, policy: 'mock', signature: 'mock', accessKeyId: 'mock'
   })],

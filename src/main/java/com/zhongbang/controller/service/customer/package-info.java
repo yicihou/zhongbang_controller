@@ -1,5 +1,5 @@
 /**
- * 设备档案规则：只查当前登录客户的设备；绑定序列号时如果已被别人占用则拒绝。
- * 由 {@code controller.customer} 调用，通过 {@code mapper.customer} 读写 {@code customer_asset}。
+ * 客户侧规则。{@code AssetService} 只查当前登录客户的设备，序列号已被别人占用时拒绝绑定。
+ * {@code ChangeQueryService} 回答「自从 since 之后，订单、报修、商品有没有变过」，给小程序轮询用。
  */
 package com.zhongbang.controller.service.customer;

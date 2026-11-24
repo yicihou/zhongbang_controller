@@ -1,5 +1,7 @@
 {
   "navigationBarTitleText": "机型详情",
   "navigationBarBackgroundColor": "#FFFFFF",
-  "navigationBarTextStyle": "black"
+  "navigationBarTextStyle": "black",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#F7F8FA"
 }

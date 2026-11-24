@@ -204,6 +204,61 @@ Page({
       }
     }
     this.setData({ submitting: true });
+    // 提交前再问一次商品：下架或价格变了就停住，让客户看到新价格后再点一次。
+    this.ensureFreshPrice().then((ok) => {
+      if (!ok) {
+        this.setData({ submitting: false });
+        return;
+      }
+      this.placeOrder();
+    }).catch(() => this.setData({ submitting: false }));
+  },
+
+  ensureFreshPrice() {
+    const items = this.data.items || [];
+    const ids = [];
+    items.forEach((it) => {
+      if (it.productId && ids.indexOf(it.productId) < 0) ids.push(it.productId);
+    });
+    if (!ids.length) return Promise.resolve(true);
+    return Promise.all(ids.map((id) => api.getProduct(id).then((p) => ({ id: id, p: p })).catch(() => ({ id: id, p: null }))))
+      .then((rows) => {
+        let offName = '';
+        let changed = false;
+        const next = items.map((it) => Object.assign({}, it));
+        next.forEach((it) => {
+          if (!it.productId) return;
+          const hit = rows.filter((row) => row.id === it.productId)[0];
+          const product = hit && hit.p;
+          const sku = product && (product.skus || []).filter((s) => s.id === it.skuId)[0];
+          if (!product || product.status === 'OFF' || !sku) {
+            offName = it.name || '商品';
+            return;
+          }
+          if (sku.price !== it.price) {
+            it.price = sku.price;
+            it.priceText = fmt.yuan(sku.price);
+            changed = true;
+          }
+        });
+        if (offName) {
+          wx.showToast({ title: offName + '已下架，请重新选择', icon: 'none' });
+          return false;
+        }
+        if (changed) {
+          this.setData({ items: next }, () => this.recalc());
+          wx.showModal({
+            title: '价格已变化',
+            content: '商品价格已更新为最新价格，请确认后再提交订单',
+            showCancel: false
+          });
+          return false;
+        }
+        return true;
+      });
+  },
+
+  placeOrder() {
     const invoice = this.data.invoice || {};
     const body = {
       requestId: 'r' + Date.now() + Math.floor(Math.random() * 1000),
@@ -213,7 +268,8 @@ Page({
         const row = {
           skuId: it.skuId,
           quantity: it.quantity,
-          deliveryMethod: it.deliveryMethod
+          deliveryMethod: it.deliveryMethod,
+          expectedPrice: it.price
         };
         if (it.needInstall) {
           row.installDate = it.installDate;

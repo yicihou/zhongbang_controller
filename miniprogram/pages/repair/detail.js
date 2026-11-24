@@ -1,5 +1,6 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
+const refresh = require('../../utils/refresh');
 const { payOfflineIntent } = require('../../utils/pay');
 const { FAULTS, PAYMENT_TYPE_TEXT, PAYMENT_STATUS_TEXT } = require('../../utils/constants');
 
@@ -21,6 +22,19 @@ Page({
 
   onShow() {
     this.load();
+    refresh.start(this, { areas: ['repairs'], load: () => this.load() });
+  },
+
+  onHide() {
+    refresh.stop(this);
+  },
+
+  onUnload() {
+    refresh.stop(this);
+  },
+
+  onPullDownRefresh() {
+    this.load().then(() => wx.stopPullDownRefresh());
   },
 
   load() {

@@ -11,6 +11,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -64,6 +66,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleAccess(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.fail(ErrorCode.FORBIDDEN.getCode(), ErrorCode.FORBIDDEN.getMessage()));
+    }
+
+    /**
+     * 没有对应的控制器或静态资源。Spring Boot 3 对未知路径抛的是这两个异常，
+     * 如果不单独接住，会被下面的 {@code Exception} 收成 500「服务内部错误」。
+     * 这里只记一行警告，不打堆栈：路径打错很常见，不是服务故障。
+     */
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ApiResponse<Void>> handleMissing(Exception ex) {
+        log.warn("接口不存在: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.fail(ErrorCode.NOT_FOUND.getCode(), "接口不存在"));
     }
 
     /** 没预料到的异常。日志打完整堆栈，响应只给「服务内部错误」，不把异常信息回给调用方。 */
