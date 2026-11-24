@@ -5,11 +5,14 @@ import {
   addShipment,
   adjustPrice,
   assignInstall,
+  canShipItem,
   cancelOrder,
   createPayments,
+  fulfillmentProgress,
   installFeeState,
   offlineConfirmOrder,
   setFreight,
+  syncOrderStatus,
   type IdSource,
 } from '../src/domain/order'
 
@@ -181,17 +184,74 @@ describe('order admin flow', () => {
     expect(paid.paidAmount).toBe(339000)
   })
 
-  it('ships by line only after payment and blocks a second shipment', () => {
-    expect(() => addShipment(order(), { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF1' }, now, ids())).toThrow(
-      /付款结清/,
-    )
-    let current = offlineConfirmOrder(order(), 21, { voucherUrls: ['现金'] }, '李敏', 1, now)
-    current = addShipment(current, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF1' }, now, ids())
-    expect(current.status).toBe('FULFILLING')
+  it('ships before payment, keeps the payment status, and moves to FULFILLING once paid', () => {
+    const unpaid = order()
+    expect(canShipItem(unpaid, unpaid.items[1]!)).toBe(true)
+    let current = addShipment(unpaid, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF1' }, now, ids())
+    expect(current.status).toBe('PENDING_PAYMENT')
     expect(current.items[1]?.shipment?.trackingNo).toBe('SF1')
+    expect(fulfillmentProgress(current)).toEqual({ shipped: 1, done: 0, total: 2 })
+    expect(canShipItem(current, current.items[1]!)).toBe(false)
     expect(() => addShipment(current, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF2' }, now, ids())).toThrow(
       /已有发货/,
     )
+    expect(() => cancelOrder(current, { reason: '不要了' }, now)).toThrow(/已有发货/)
+
+    current = offlineConfirmOrder(current, 21, { voucherUrls: ['现金'] }, '李敏', 1, now)
+    expect(current.status).toBe('FULFILLING')
+  })
+
+  it('keeps PARTIALLY_PAID after shipping and completes only when paid and every line is done', () => {
+    let current = createPayments(
+      order(),
+      {
+        mode: 'SPLIT',
+        payments: [
+          { type: 'DEPOSIT', title: '定金', amount: 100000 },
+          { type: 'BALANCE', title: '尾款', amount: 237000 },
+        ],
+      },
+      now,
+      ids(),
+    )
+    current = offlineConfirmOrder(current, current.payments.find((p) => p.type === 'DEPOSIT')!.id, { remark: '定金' }, '李敏', 1, now)
+    current = addShipment(current, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF9' }, now, ids())
+    const assigned = assignInstall(
+      current,
+      [],
+      technicians,
+      { orderItemId: 11, technicianId: 88, installDate: '2026-11-28', installSlot: '上午' },
+      now,
+      ids(),
+    )
+    current = assigned.order
+    expect(current.status).toBe('PARTIALLY_PAID')
+    expect(fulfillmentProgress(current).shipped).toBe(2)
+
+    for (const item of current.items) item.shipment!.status = 'DONE'
+    syncOrderStatus(current)
+    expect(current.status).toBe('PARTIALLY_PAID')
+
+    current = offlineConfirmOrder(current, current.payments.find((p) => p.type === 'BALANCE')!.id, { remark: '尾款' }, '李敏', 1, now)
+    expect(current.status).toBe('COMPLETED')
+  })
+
+  it('still refuses shipping and dispatch on a cancelled order', () => {
+    const cancelled = cancelOrder(order(), { reason: '客户不要了' }, now)
+    expect(canShipItem(cancelled, cancelled.items[1]!)).toBe(false)
+    expect(() => addShipment(cancelled, { orderItemId: 12, carrier: '顺丰', trackingNo: 'SF1' }, now, ids())).toThrow(
+      /已取消/,
+    )
+    expect(() =>
+      assignInstall(
+        cancelled,
+        [],
+        technicians,
+        { orderItemId: 11, technicianId: 88, installDate: '2026-11-28', installSlot: '上午' },
+        now,
+        ids(),
+      ),
+    ).toThrow(/已取消/)
   })
 
   it('assigns a technician and refuses an overbooked slot', () => {
@@ -218,6 +278,7 @@ describe('order admin flow', () => {
       ids(),
     )
     expect(assigned.order.items[0]?.technicianName).toBe('王建国')
+    expect(assigned.order.items[0]?.shipment?.method).toBe('ON_SITE_INSTALL')
     expect(assigned.order.status).toBe('PENDING_PAYMENT')
     expect(assigned.schedules[0]?.used).toBe(1)
   })

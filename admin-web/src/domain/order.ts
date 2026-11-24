@@ -8,6 +8,7 @@ import type {
   DeliveryMethod,
   FreightRequest,
   OfflineConfirmRequest,
+  OrderItem,
   PatchPaymentRequest,
   Payment,
   PaymentDraft,
@@ -30,11 +31,33 @@ function paidAmount(order: AdminOrder): number {
   return order.payments.filter((p) => p.status === 'SUCCESS').reduce((sum, p) => sum + p.amount, 0)
 }
 
+function hasActiveShipment(item: OrderItem): boolean {
+  return !!item.shipment && item.shipment.status !== 'CANCELLED'
+}
+
 function fulfillmentStarted(order: AdminOrder): boolean {
   return order.items.some((item) => {
     if (item.shipment && item.shipment.status !== 'CANCELLED' && item.shipment.status !== 'PENDING') return true
     return item.deliveryMethod === 'ON_SITE_INSTALL' && !!item.technicianId && !!item.workOrderNo
   })
+}
+
+/** 发货进度与收款状态相互独立：已发出 / 已完成的行数。 */
+export function fulfillmentProgress(order: Pick<AdminOrder, 'items'>): { shipped: number; done: number; total: number } {
+  let shipped = 0
+  let done = 0
+  for (const item of order.items) {
+    if (!item.shipment || item.shipment.status === 'CANCELLED' || item.shipment.status === 'PENDING') continue
+    shipped += 1
+    if (item.shipment.status === 'DONE') done += 1
+  }
+  return { shipped, done, total: order.items.length }
+}
+
+/** 先发货后收款（2026-11-24 用户决定）：只拦已取消 / 已完成订单和已有有效发货记录的行。 */
+export function canShipItem(order: Pick<AdminOrder, 'status'>, item: OrderItem): boolean {
+  if (order.status === 'CANCELLED' || order.status === 'COMPLETED') return false
+  return !hasActiveShipment(item)
 }
 
 export function recalcOrder(order: AdminOrder): void {
@@ -65,7 +88,9 @@ export function syncOrderStatus(order: AdminOrder): void {
   if (order.status === 'CANCELLED' || order.status === 'COMPLETED') return
   const waits = order.payments.filter((p) => p.status === 'WAIT')
   if (waits.length === 0 && paid >= order.payableAmount) {
-    order.status = fulfillmentStarted(order) ? 'FULFILLING' : 'PAID'
+    const progress = fulfillmentProgress(order)
+    if (progress.total > 0 && progress.done === progress.total) order.status = 'COMPLETED'
+    else order.status = fulfillmentStarted(order) ? 'FULFILLING' : 'PAID'
     return
   }
   if (waits.length > 0 && paid > 0) {
@@ -432,16 +457,14 @@ export function addShipment(
   now: string,
   ids: IdSource,
 ): AdminOrder {
-  if (order.status !== 'PAID' && order.status !== 'FULFILLING') {
-    throw new ApiError(3003, '付款结清后才能发货')
-  }
+  assertFulfillable(order, '发货')
   const next = cloneData(order)
   const item = next.items.find((it) => it.id === req.orderItemId)
   if (!item) throw new ApiError(4040, '订单行不存在')
   if (req.method && req.method !== item.deliveryMethod) {
     throw new ApiError(3004, '发货方式与订单行不一致')
   }
-  if (item.shipment && item.shipment.status !== 'CANCELLED') {
+  if (hasActiveShipment(item)) {
     throw new ApiError(3003, '该行已有发货记录')
   }
   assertVoucher(item.deliveryMethod, req)
@@ -468,9 +491,14 @@ export function addShipment(
   }
   item.shipment = shipment
   item.shipmentId = shipment.id
-  next.status = 'FULFILLING'
   next.updatedAt = now
+  syncOrderStatus(next)
   return next
+}
+
+function assertFulfillable(order: AdminOrder, action: string): void {
+  if (order.status === 'CANCELLED') throw new ApiError(3003, `已取消订单不能${action}`)
+  if (order.status === 'COMPLETED') throw new ApiError(3003, `已完成订单不能${action}`)
 }
 
 function findSchedule(
@@ -536,6 +564,7 @@ export function assignInstall(
   if (!req.installDate?.trim() || !req.installSlot?.trim()) {
     throw new ApiError(1001, '请填写安装日期和时段')
   }
+  assertFulfillable(order, '派工')
   const next = cloneData(order)
   const nextSchedules = cloneData(schedules)
   const item = next.items.find((it) => it.id === req.orderItemId)
@@ -559,36 +588,34 @@ export function assignInstall(
   if (!item.workOrderNo) {
     item.workOrderNo = `WO${req.installDate.replace(/-/g, '')}${String(item.id).slice(-4)}`
   }
-  if (next.status === 'PAID' || next.status === 'FULFILLING') {
-    const appointAt = `${req.installDate} ${req.installSlot}`
-    if (!item.shipment || item.shipment.status === 'CANCELLED') {
-      const shipmentId = ids.next()
-      item.shipment = {
-        id: shipmentId,
-        orderId: next.id,
-        orderItemId: item.id,
-        method: 'ON_SITE_INSTALL',
-        status: 'DISPATCHED',
-        courierName: technician.name,
-        courierMobile: technician.mobile,
-        appointAt,
-        remark: req.reason?.trim() || undefined,
-        createdAt: now,
-        updatedAt: now,
-      }
-      item.shipmentId = shipmentId
-    } else {
-      item.shipment.courierName = technician.name
-      item.shipment.courierMobile = technician.mobile
-      item.shipment.appointAt = appointAt
-      item.shipment.updatedAt = now
+  const appointAt = `${req.installDate} ${req.installSlot}`
+  if (!hasActiveShipment(item)) {
+    const shipmentId = ids.next()
+    item.shipment = {
+      id: shipmentId,
+      orderId: next.id,
+      orderItemId: item.id,
+      method: 'ON_SITE_INSTALL',
+      status: 'DISPATCHED',
+      courierName: technician.name,
+      courierMobile: technician.mobile,
+      appointAt,
+      remark: req.reason?.trim() || undefined,
+      createdAt: now,
+      updatedAt: now,
     }
-    next.status = 'FULFILLING'
+    item.shipmentId = shipmentId
+  } else if (item.shipment) {
+    item.shipment.courierName = technician.name
+    item.shipment.courierMobile = technician.mobile
+    item.shipment.appointAt = appointAt
+    item.shipment.updatedAt = now
   }
   if (req.reason?.trim()) {
     next.adminRemark = [next.adminRemark, `派工：${req.reason.trim()}`].filter(Boolean).join('\n')
   }
   next.updatedAt = now
+  syncOrderStatus(next)
   return { order: next, schedules: nextSchedules }
 }
 
@@ -597,6 +624,9 @@ export function cancelOrder(order: AdminOrder, req: CancelOrderRequest, now: str
   if (order.status === 'CANCELLED') throw new ApiError(3003, '订单已取消')
   if (order.status === 'COMPLETED' || order.status === 'FULFILLING') {
     throw new ApiError(3003, '履约中或已完成的订单不能直接取消')
+  }
+  if (order.items.some(hasActiveShipment)) {
+    throw new ApiError(3003, '已有发货或派工记录，不能直接取消')
   }
   if (order.payments.some((p) => p.status === 'SUCCESS')) {
     throw new ApiError(3003, '已有成功付款，取消需走退款（二期）')

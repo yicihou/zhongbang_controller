@@ -7,6 +7,9 @@
       </div>
       <div class="actions" v-if="order">
         <el-tag :type="orderTagType(order.status)" size="large" effect="light">{{ ORDER_STATUS_LABEL[order.status] }}</el-tag>
+        <el-tag v-if="unpaidShipped" type="primary" size="large" effect="plain" data-testid="ship-progress">
+          已发货 {{ progress.shipped }}/{{ progress.total }} 行
+        </el-tag>
         <el-button @click="openAdjust(false)" :disabled="closed">改价</el-button>
         <el-button @click="openFreight" :disabled="closed">运费</el-button>
         <el-button @click="openSplit" :disabled="!fullWait">拆定金/尾款</el-button>
@@ -285,8 +288,8 @@
     </el-dialog>
 
     <el-dialog v-model="assignVisible" title="派师傅 / 定安装时间" width="480px">
-      <p v-if="order && order.status !== 'PAID' && order.status !== 'FULFILLING'" class="muted">
-        订单尚未付清。可以预派并占档期，付款结清后进入履约。
+      <p v-if="order && (order.status === 'PENDING_PAYMENT' || order.status === 'PARTIALLY_PAID')" class="muted">
+        订单尚未付清，可以先派工；收款在「应付与收款」里单独登记。
       </p>
       <el-form label-width="90px">
         <el-form-item label="师傅">
@@ -342,7 +345,7 @@ import {
 } from '@/api/admin'
 import type { AdminOrder, OrderItem, Payment, PaymentType, Technician } from '@/api/types'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
-import { installFeeState } from '@/domain/order'
+import { canShipItem, fulfillmentProgress, installFeeState } from '@/domain/order'
 import {
   DELIVERY_LABEL,
   ORDER_STATUS_LABEL,
@@ -363,7 +366,11 @@ const technicians = ref<Technician[]>([])
 const closed = computed(() => order.value?.status === 'CANCELLED' || order.value?.status === 'COMPLETED')
 const fullWait = computed(() => order.value?.payments.find((item) => item.status === 'WAIT' && item.type === 'FULL'))
 const canCancel = computed(
-  () => !!order.value && order.value.status === 'PENDING_PAYMENT' && !order.value.payments.some((item) => item.status === 'SUCCESS'),
+  () =>
+    !!order.value &&
+    order.value.status === 'PENDING_PAYMENT' &&
+    !order.value.payments.some((item) => item.status === 'SUCCESS') &&
+    !order.value.items.some((item) => item.shipment && item.shipment.status !== 'CANCELLED'),
 )
 const splitSumFen = computed(() => yuanToFen(depositYuan.value || 0) + yuanToFen(balanceYuan.value || 0))
 
@@ -373,6 +380,11 @@ const adjustYuan = ref(0)
 const lineDrafts = ref<
   { id: number; name: string; unitYuan: number; installYuan: number | null; delivery: OrderItem['deliveryMethod'] }[]
 >([])
+const progress = computed(() => fulfillmentProgress(order.value ?? { items: [] }))
+const unpaidShipped = computed(
+  () =>
+    (order.value?.status === 'PENDING_PAYMENT' || order.value?.status === 'PARTIALLY_PAID') && progress.value.shipped > 0,
+)
 const feeState = computed(() => (order.value ? installFeeState(order.value) : ({ kind: 'none' } as const)))
 const freightVisible = ref(false)
 const freightYuan = ref(0)
@@ -424,9 +436,7 @@ function shipmentText(item: OrderItem): string {
 }
 
 function canShip(item: OrderItem): boolean {
-  if (!order.value) return false
-  if (order.value.status !== 'PAID' && order.value.status !== 'FULFILLING') return false
-  return !item.shipment || item.shipment.status === 'CANCELLED'
+  return !!order.value && canShipItem(order.value, item)
 }
 
 async function load() {

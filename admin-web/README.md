@@ -79,9 +79,11 @@ VITE_API_BASE=
 | 线下收款 | `POST /api/admin/payments/{id}/offline-confirm` | `{ voucherUrls?, remark?, paidAt? }` |
 | 按行发货 | `POST /api/admin/orders/{id}/shipments` | `{ orderItemId, method?, carrier?, trackingNo?, logisticsCompany?, freightNo?, vehicleNo?, courierName?, courierMobile?, appointAt?, pickupCode?, remark? }` |
 | 上门安装派师傅、定时间 | `POST /api/admin/orders/{id}/assign` | `{ orderItemId, technicianId, installDate, installSlot, reason? }` |
-| 取消（无成功付款） | `POST /api/admin/orders/{id}/cancel` | `{ reason }` |
+| 取消（无成功付款、无发货记录） | `POST /api/admin/orders/{id}/cancel` | `{ reason }` |
 
 发货凭证按行上的方式校验：快递要承运商和快递单号；物流要公司，以及物流单号或车牌；上门送货要送货人和电话；到店自提可生成自提码。安装费只能加在 `ON_SITE_INSTALL` 行上（D4）。上门安装行的 `installFee` 为 `null` 表示管理员还没定价（D3），页面显示「待定」；`0` 表示明确免安装费。改价请求里不带 `installFee` 时保持原值。
+
+允许先发货后收款（2026-11-24 用户决定，docs/03 D12）。未付清（`PENDING_PAYMENT` / `PARTIALLY_PAID`）的订单也能按行发货和派安装师傅，收款仍在「应付与收款」里逐笔登记。订单状态只要还有待付就保持待付款 / 部分付款，详情页另外显示「已发货 n/m 行」。结清后，有行已发出就是 `FULFILLING`，所有行完成就是 `COMPLETED`。已取消、已完成的订单不能发货或派工；同一行已有未取消的发货记录时不能重复发货；已有发货或派工记录的订单不能直接取消。
 
 报修：
 
