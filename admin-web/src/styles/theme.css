@@ -1,0 +1,78 @@
+:root {
+  --zb-red: #c8102e;
+  --zb-red-dark: #96061f;
+  --zb-tint: #fff5f6;
+  --zb-edge: #f0bec6;
+  --zb-ink: #1a1e24;
+  --zb-muted: #6c7480;
+  --zb-line: #e5e8ed;
+  --zb-bg: #f7f8fa;
+  --el-color-primary: #c8102e;
+  --el-color-primary-light-3: #d85a6e;
+  --el-color-primary-light-5: #e38896;
+  --el-color-primary-light-7: #f0c2ca;
+  --el-color-primary-light-8: #f6d5db;
+  --el-color-primary-light-9: #fbecee;
+  --el-color-primary-dark-2: #a00d25;
+  --el-border-radius-base: 8px;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  color: var(--zb-ink);
+  background: var(--zb-bg);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Segoe UI", sans-serif;
+}
+
+a {
+  color: var(--zb-red);
+  text-decoration: none;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.page-head h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.page-head p {
+  margin: 4px 0 0;
+  color: var(--zb-muted);
+  font-size: 13px;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid var(--zb-line);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.money {
+  color: var(--zb-red);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.row-fresh td {
+  background: var(--zb-tint) !important;
+}
+
+.el-button--primary {
+  --el-button-hover-bg-color: #a00d25;
+  --el-button-hover-border-color: #a00d25;
+}

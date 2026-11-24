@@ -7,6 +7,7 @@
 - `docs/02-技术架构与数据库设计.md`
 - `api/openapi.yaml` / `api/接口清单.md`
 - 小程序：`miniprogram/`
+- 商家 Web 后台：`admin-web/`（见该目录 README）
 
 当前 Java 代码只落实架构评审中的 **H1–H6** 骨架，业务模块多数仍是空包，便于你继续扩展。
 
