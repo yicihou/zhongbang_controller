@@ -141,6 +141,58 @@
         }
       }
     },
+    "/api/auth/staff-login": {
+      "post": {
+        "tags": [
+          "认证"
+        ],
+        "summary": "管理端登录（P1a stub）",
+        "description": "本地/演示用；按 `sys_user.username` 签发 STAFF JWT，暂不校验密码。",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "username"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "example": "admin"
+                  }
+                }
+              },
+              "example": {
+                "username": "admin"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 0,
+                  "msg": "ok",
+                  "data": {
+                    "token": "eyJ...",
+                    "expiresIn": 2592000,
+                    "userId": 9001,
+                    "username": "admin",
+                    "role": "STAFF"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/phone": {
       "post": {
         "tags": [
@@ -729,34 +781,250 @@
         }
       }
     },
-    "/api/orders": {
+    "/api/cart": {
+      "get": {
+        "tags": [
+          "订单"
+        ],
+        "summary": "购物车列表（P1a）",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 0,
+                  "msg": "ok",
+                  "data": [
+                    {
+                      "id": 1,
+                      "skuId": 1011,
+                      "productName": "电脑平缝机 A5",
+                      "skuName": "标准台板 + 伺服电机",
+                      "unitPrice": 328000,
+                      "quantity": 1,
+                      "deliveryMethod": "EXPRESS",
+                      "needInstall": false,
+                      "lineAmount": 328000
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "订单"
         ],
-        "summary": "提交订单",
-        "description": "金额由服务端按 SKU 与定金比例计算，前端传的金额仅做校验比对。\n提交时校验库存与师傅档期；任一不满足返回 3001 / 3002。\n接口幂等：同 `requestId` 10 分钟内重复提交返回同一订单。\n",
+        "summary": "加入购物车（P1a）",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateOrderReq"
+                "type": "object",
+                "required": [
+                  "skuId",
+                  "quantity"
+                ],
+                "properties": {
+                  "skuId": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "deliveryMethod": {
+                    "type": "string",
+                    "enum": [
+                      "EXPRESS",
+                      "FREIGHT",
+                      "HOME_DELIVERY",
+                      "ON_SITE_INSTALL",
+                      "STORE_PICKUP"
+                    ]
+                  }
+                }
+              },
+              "example": {
+                "skuId": 1011,
+                "quantity": 1,
+                "deliveryMethod": "EXPRESS"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/cart/items/{id}": {
+      "put": {
+        "tags": [
+          "订单"
+        ],
+        "summary": "更新购物车行（P1a）",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "skuId",
+                  "quantity"
+                ],
+                "properties": {
+                  "skuId": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "deliveryMethod": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "订单"
+        ],
+        "summary": "删除购物车行（P1a）",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/orders": {
+      "post": {
+        "tags": [
+          "订单"
+        ],
+        "summary": "提交订单（多行，P1a）",
+        "description": "P1a：`items[]` 多行下单；服务端按标价合计 `goodsAmount`，`freightAmount=0`，\n默认创建一笔 `payment(type=FULL, status=WAIT, channel=OFFLINE)`，订单 `PENDING_PAYMENT`，\n并 SSE 推送 `ORDER_CREATED`。\n接口幂等：同 `requestId` 10 分钟内重复提交返回同一订单。\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "requestId",
+                  "items"
+                ],
+                "properties": {
+                  "requestId": {
+                    "type": "string"
+                  },
+                  "addressId": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "remark": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "skuId",
+                        "quantity",
+                        "deliveryMethod"
+                      ],
+                      "properties": {
+                        "skuId": {
+                          "type": "integer",
+                          "format": "int64"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "deliveryMethod": {
+                          "type": "string",
+                          "enum": [
+                            "EXPRESS",
+                            "FREIGHT",
+                            "HOME_DELIVERY",
+                            "ON_SITE_INSTALL",
+                            "STORE_PICKUP"
+                          ]
+                        },
+                        "installDate": {
+                          "type": "string",
+                          "format": "date"
+                        },
+                        "installSlot": {
+                          "type": "string"
+                        },
+                        "technicianId": {
+                          "type": "integer",
+                          "format": "int64"
+                        }
+                      }
+                    }
+                  }
+                }
               },
               "example": {
                 "requestId": "8f1c2e4a-6b7d-4c1e-9a2f-1d3e5b7c9a01",
-                "skuId": 1011,
-                "quantity": 1,
-                "addressId": 55801,
-                "installDate": "2025-11-28",
-                "installSlot": "AM",
-                "technicianId": 88,
-                "remark": "厂房在 3 楼，有货梯",
-                "invoice": {
-                  "need": true,
-                  "title": "杭州某某服饰有限公司",
-                  "taxNo": "91330100MA2XXXXX"
-                }
+                "items": [
+                  {
+                    "skuId": 1011,
+                    "quantity": 1,
+                    "deliveryMethod": "EXPRESS"
+                  },
+                  {
+                    "skuId": 2011,
+                    "quantity": 2,
+                    "deliveryMethod": "EXPRESS"
+                  }
+                ],
+                "remark": "混购一单"
               }
             }
           }
@@ -766,21 +1034,41 @@
             "description": "下单成功，返回待支付订单",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RCreateOrder"
-                },
                 "example": {
                   "code": 0,
                   "msg": "ok",
                   "traceId": "a1b2d1",
                   "data": {
-                    "orderId": 910233001,
-                    "orderNo": "SO20251123000123",
-                    "totalAmount": 328000,
-                    "depositAmount": 98400,
-                    "balanceAmount": 229600,
-                    "status": "UNPAID",
-                    "expireAt": "2025-11-23 21:15:00"
+                    "id": 910233001,
+                    "orderNo": "O20251123000123",
+                    "status": "PENDING_PAYMENT",
+                    "goodsAmount": 345600,
+                    "installAmount": 0,
+                    "freightAmount": 0,
+                    "payableAmount": 345600,
+                    "paidAmount": 0,
+                    "items": [
+                      {
+                        "skuId": 1011,
+                        "quantity": 1,
+                        "deliveryMethod": "EXPRESS",
+                        "lineAmount": 328000
+                      },
+                      {
+                        "skuId": 2011,
+                        "quantity": 2,
+                        "deliveryMethod": "EXPRESS",
+                        "lineAmount": 17600
+                      }
+                    ],
+                    "payments": [
+                      {
+                        "type": "FULL",
+                        "title": "全款",
+                        "amount": 345600,
+                        "status": "WAIT"
+                      }
+                    ]
                   }
                 }
               }
@@ -2120,18 +2408,70 @@
         }
       }
     },
+    "/api/admin/stream": {
+      "get": {
+        "tags": [
+          "后台"
+        ],
+        "summary": "管理端 SSE（P1a）",
+        "description": "`text/event-stream`。事件名示例：`CONNECTED`、`ORDER_CREATED`、`REPAIR_CREATED`。\n需 STAFF JWT；断开后可轮询 `/api/admin/notices?unread=1`。\n",
+        "responses": {
+          "200": {
+            "description": "SSE stream"
+          }
+        }
+      }
+    },
+    "/api/admin/notices": {
+      "get": {
+        "tags": [
+          "后台"
+        ],
+        "summary": "管理端通知收件箱（P1a）",
+        "parameters": [
+          {
+            "name": "unread",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/admin/orders": {
       "get": {
         "tags": [
           "后台"
         ],
-        "summary": "订单看板",
+        "summary": "订单看板（P1a 已实现列表/详情）",
         "parameters": [
           {
             "name": "status",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "PENDING_PAYMENT",
+                "PAID",
+                "FULFILLING",
+                "COMPLETED",
+                "CANCELLED"
+              ]
             }
           },
           {
@@ -2140,7 +2480,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "订单号 / 客户手机号"
+            "description": "订单号 / 客户手机号（P1b）"
           },
           {
             "$ref": "#/components/parameters/Page"
@@ -2721,6 +3061,10 @@
           },
           "totalAmount": {
             "type": "integer"
+          },
+          "depositAmount": {
+            "type": "integer",
+            "description": "应约定金"
           },
           "paidAmount": {
             "type": "integer"

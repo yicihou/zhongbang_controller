@@ -1,11 +1,12 @@
 package com.zhongbang.controller;
 
+import org.apache.ibatis.annotations.Mapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan("com.zhongbang.controller.module")
+@MapperScan(basePackages = "com.zhongbang.controller.module", annotationClass = Mapper.class)
 public class ZhongbangControllerApplication {
 
     public static void main(String[] args) {
