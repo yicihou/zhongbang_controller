@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:zhongbang;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
+zhongbang:
+  redis:
+    enabled: false
+  rabbitmq:
+    enabled: false
+  h2-console:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+    com.zhongbang.controller: DEBUG

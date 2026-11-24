@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+zhongbang:
+  redis:
+    enabled: true
+  rabbitmq:
+    enabled: true
+  jwt:
+    secret: ${JWT_SECRET}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+  health:
+    redis:
+      enabled: true
+    rabbit:
+      enabled: true
+
+logging:
+  level:
+    root: WARN
+    com.zhongbang.controller: INFO
