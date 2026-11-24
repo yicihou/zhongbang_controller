@@ -1,35 +1,34 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
-const config = require('../../config');
+const { deliveryLabel } = require('../../utils/constants');
 
-const MOCK_TABS = [
-  { label: '全部', value: 'ALL' },
-  { label: '待付款', value: 'UNPAID' },
-  { label: '待安装', value: 'DEPOSIT_PAID' },
-  { label: '待付尾款', value: 'PENDING_BALANCE' },
-  { label: '已完成', value: 'COMPLETED' },
-  { label: '售后', value: 'AFTER_SALE' }
-];
-
-const REAL_TABS = [
+// 状态和后端、Mock 一致。部分付款、已取消是真实订单里会出现的状态。
+const TABS = [
   { label: '全部', value: 'ALL' },
   { label: '待付款', value: 'PENDING_PAYMENT' },
   { label: '部分付款', value: 'PARTIALLY_PAID' },
+  { label: '已付款', value: 'PAID' },
   { label: '履约中', value: 'FULFILLING' },
   { label: '已完成', value: 'COMPLETED' },
-  { label: '已取消', value: 'CANCELLED' }
+  { label: '已取消', value: 'CANCELLED' },
+  { label: '售后', value: 'AFTER_SALE' }
 ];
 
 Page({
   data: {
-    tabs: config.USE_MOCK ? MOCK_TABS : REAL_TABS,
+    tabs: TABS,
     status: 'ALL',
     list: [],
+    repairs: [],
     loading: true
   },
 
   onShow() {
     this.load();
+  },
+
+  onPullDownRefresh() {
+    this.load().then(() => wx.stopPullDownRefresh());
   },
 
   onTab(e) {
@@ -38,17 +37,30 @@ Page({
 
   load() {
     this.setData({ loading: true });
-    return api.getOrders({ status: this.data.status, page: 1, size: 20 }).then((d) => {
+    const status = this.data.status;
+    const showRepair = status === 'ALL' || status === 'AFTER_SALE';
+    const orders = status === 'AFTER_SALE'
+      ? Promise.resolve({ list: [] })
+      : api.getOrders({ status, page: 1, size: 20 });
+    const repairs = showRepair ? api.listRepairs() : Promise.resolve({ list: [] });
+    return Promise.all([orders, repairs]).then(([d, r]) => {
       this.setData({
         loading: false,
         list: (d.list || []).map((o) => Object.assign({}, o, {
           done: o.status === 'COMPLETED',
-          totalText: fmt.yuan(o.totalAmount),
-          paidText: fmt.yuan(o.paidAmount),
-          balanceText: fmt.yuan(o.balanceAmount),
-          metaText: (o.installDate ? '安装 ' + o.installDate : '') +
-            (o.technicianName ? ' · ' + o.technicianName : ''),
-          items: (o.items || []).map((it) => Object.assign({}, it, { priceText: fmt.yuan(it.price) }))
+          totalText: fmt.yuan(o.payableAmount || o.totalAmount || 0),
+          paidText: fmt.yuan(o.paidAmount || 0),
+          waitText: fmt.yuan(o.waitAmount || 0),
+          canOffline: o.status === 'PENDING_PAYMENT' || o.status === 'PARTIALLY_PAID',
+          items: (o.items || []).map((it) => Object.assign({}, it, {
+            priceText: fmt.yuan(it.unitPrice || it.price || 0),
+            deliveryMethodText: it.deliveryMethodText || deliveryLabel(it.deliveryMethod)
+          }))
+        })),
+        repairs: (r.list || []).map((w) => Object.assign({}, w, {
+          quoteText: fmt.yuan(w.quoteAmount || 0),
+          workNo: w.ticketNo || w.workNo,
+          lineHint: (w.lineCount || 1) + ' 台设备'
         }))
       });
     }).catch(() => this.setData({ loading: false }));
@@ -56,5 +68,9 @@ Page({
 
   goDetail(e) {
     wx.navigateTo({ url: '/pages/order/detail?id=' + e.currentTarget.dataset.id });
+  },
+
+  goRepair(e) {
+    wx.navigateTo({ url: '/pages/repair/detail?id=' + e.currentTarget.dataset.id });
   }
 });

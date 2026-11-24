@@ -1,0 +1,39 @@
+<view class="page with-bar">
+  <view class="card tint">
+    <view class="t1">维修报价确认</view>
+    <view class="t2" style="margin-top:8rpx;color:#96061F">{{w.warrantyDesc}}</view>
+    <view class="t3" wx:if="{{must}}" style="margin-top:8rpx">金额超过 300 元，未确认不能进入维修。</view>
+  </view>
+
+  <view class="card" wx:for="{{lines}}" wx:key="id">
+    <view class="t1">{{item.brand}} {{item.model}}</view>
+    <view class="t2" style="margin-top:6rpx">{{item.faultText}} · {{item.faultDesc}}</view>
+    <view class="between" style="margin-top:10rpx" wx:if="{{item.lineQuoteAmount}}">
+      <text class="t2">行报价</text><text class="price">¥{{item.quoteText}}</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="t1" style="margin-bottom:8rpx">费用明细</view>
+    <view class="kv" wx:for="{{items}}" wx:key="name">
+      <text>{{item.name}}</text>
+      <text class="price">¥{{item.amountText}}</text>
+    </view>
+    <view class="empty" wx:if="{{items.length === 0}}">报价金额已生成，明细待补充</view>
+    <view class="between" style="margin-top:16rpx">
+      <text class="t1">合计</text>
+      <text class="price price-lg">¥{{quoteText}}</text>
+    </view>
+    <view class="tint-box">确认后生成待付维修费，一期线下转账给管理员。</view>
+  </view>
+
+  <view class="card">
+    <view class="t1">备注</view>
+    <textarea class="ta" placeholder="同意可留空；拒绝请写原因" value="{{remark}}" bindinput="onRemark" />
+  </view>
+
+  <view class="bar">
+    <view class="btn ghost" style="flex:1" data-accept="0" bindtap="decide">拒绝</view>
+    <view class="btn" style="flex:1" data-accept="1" bindtap="decide">确认报价</view>
+  </view>
+</view>

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "收入与结算",
+  "navigationBarBackgroundColor": "#FFFFFF",
+  "navigationBarTextStyle": "black",
+  "usingComponents": { "price": "/components/price/index" }
+}

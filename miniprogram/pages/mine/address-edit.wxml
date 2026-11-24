@@ -1,0 +1,33 @@
+<view class="page with-bar">
+  <view class="card">
+    <view class="field">
+      <text class="field-k">联系人</text>
+      <input class="remark" placeholder="姓名" value="{{name}}" bindinput="onName" />
+    </view>
+    <view class="field">
+      <text class="field-k">手机号</text>
+      <input class="remark" type="number" maxlength="11" placeholder="11 位手机号" value="{{mobile}}" bindinput="onMobile" />
+    </view>
+    <picker mode="region" value="{{region}}" bindchange="onRegion">
+      <view class="field">
+        <text class="field-k">所在地区</text>
+        <text class="field-v">{{regionText}}<text class="arrow">›</text></text>
+      </view>
+    </picker>
+    <view class="field">
+      <text class="field-k">详细地址</text>
+      <input class="remark" placeholder="街道、楼层、门牌" value="{{detail}}" bindinput="onDetail" />
+    </view>
+    <view class="field" bindtap="locate">
+      <text class="field-k">地图选点</text>
+      <text class="field-v">打开地图<text class="arrow">›</text></text>
+    </view>
+    <view class="field">
+      <text class="field-k">设为默认</text>
+      <switch color="#C8102E" checked="{{isDefault}}" bindchange="onDefault" />
+    </view>
+  </view>
+  <view class="bar">
+    <view class="btn" style="flex:1" bindtap="save">保存</view>
+  </view>
+</view>

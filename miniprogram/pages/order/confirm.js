@@ -1,180 +1,240 @@
 const api = require('../../utils/api');
 const fmt = require('../../utils/format');
-const config = require('../../config');
-const cart = require('../../utils/cart');
+const { DELIVERY_OPTIONS, DeliveryMethod, needInstall, deliveryLabel } = require('../../utils/constants');
 
 Page({
   data: {
-    skuId: 0,
-    skuName: '',
-    productName: '',
-    priceText: '0',
-    depositText: '0',
-    balanceText: '0',
-    depositRate: 30,
+    items: [],
     address: {},
-    installDate: '',
-    minDate: '',
-    slot: 'AM',
-    tech: null,
     remark: '',
-    submitting: false,
-    realMode: !config.USE_MOCK,
-    lines: [],
+    invoice: { need: false, title: '', taxNo: '' },
+    manualAddress: false,
     contactName: '',
     contactMobile: '',
     addressText: '',
-    deliveryMethod: 'EXPRESS',
-    totalText: '0'
+    deliveryOptions: DELIVERY_OPTIONS,
+    goodsText: '0',
+    freightTip: '默认 0，管理员后加',
+    installTip: '上门安装行安装费待管理员确认',
+    minDate: '',
+    submitting: false,
+    fromCart: false
   },
 
   onLoad(options) {
-    const price = Number(options.price || 0);
-    const deposit = Math.floor(price * 0.3);
-    let lines = [];
-    this.fromCart = options.from === 'cart';
-    if (!config.USE_MOCK && options.from === 'cart') {
-      lines = cart.read();
-    } else if (!config.USE_MOCK && options.skuId) {
-      lines = [{
+    const draft = wx.getStorageSync('checkoutDraft') || {};
+    const items = (draft.items || []).map((it, idx) => this.decorateItem(it, idx));
+    if (!items.length && options.skuId) {
+      // 兼容旧单行跳转
+      items.push(this.decorateItem({
         skuId: Number(options.skuId),
-        skuName: decodeURIComponent(options.skuName || ''),
-        productName: decodeURIComponent(options.productName || ''),
-        price: price,
         quantity: 1,
-        deliveryMethod: 'EXPRESS'
-      }];
+        deliveryMethod: DeliveryMethod.ON_SITE_INSTALL,
+        name: decodeURIComponent(options.productName || ''),
+        skuName: decodeURIComponent(options.skuName || ''),
+        price: Number(options.price || 0)
+      }, 0));
     }
-    const goods = lines.reduce((sum, row) => sum + Number(row.price || 0) * Number(row.quantity || 1), 0);
+    this.cartItemIds = draft.cartItemIds || [];
     this.setData({
-      skuId: Number(options.skuId),
-      skuName: decodeURIComponent(options.skuName || ''),
-      productName: decodeURIComponent(options.productName || ''),
-      priceText: fmt.yuan(price),
-      depositText: fmt.yuan(deposit),
-      balanceText: fmt.yuan(price - deposit),
-      installDate: fmt.dateAfter(3),
-      minDate: fmt.dateAfter(1),
-      lines: lines.map((row) => Object.assign({}, row, { priceText: fmt.yuan(row.price) })),
-      totalText: fmt.yuan(goods)
-    });
-    this.price = price;
-    if (config.USE_MOCK) this.loadAddress();
+      items,
+      fromCart: draft.from === 'cart' || options.from === 'cart',
+      minDate: fmt.dateAfter(1)
+    }, () => this.recalc());
+  },
+
+  onShow() {
+    const invoice = wx.getStorageSync('invoiceDraft') || { need: false, title: '', taxNo: '' };
+    this.setData({ invoice });
+    const techPick = wx.getStorageSync('confirmTechPick');
+    if (techPick && techPick.lineIndex !== undefined) {
+      wx.removeStorageSync('confirmTechPick');
+      const items = this.data.items.slice();
+      const row = items[techPick.lineIndex];
+      if (row) {
+        row.technicianId = techPick.id;
+        row.technicianName = techPick.name;
+        items[techPick.lineIndex] = row;
+        this.setData({ items });
+      }
+    }
+    // 地址簿在 Mock 里有。真实后端还没有这张表时，改成手填，下单仍走 /api/orders。
+    api.getAddresses().then((list) => {
+      this.applyAddresses(list || []);
+    }).catch(() => this.applyAddresses([]));
+  },
+
+  applyAddresses(rows) {
+    const picked = Number(wx.getStorageSync('selectedAddressId') || 0);
+    const address = rows.filter((a) => a.id === picked)[0]
+      || rows.filter((a) => a.isDefault)[0]
+      || rows[0]
+      || {};
+    if (address.id) address.mobileMask = fmt.maskMobile(address.mobile);
+    this.setData({ address, manualAddress: !address.id });
   },
 
   onName(e) { this.setData({ contactName: e.detail.value }); },
   onMobile(e) { this.setData({ contactMobile: e.detail.value }); },
-  onAddress(e) { this.setData({ addressText: e.detail.value }); },
-  onDelivery(e) { this.setData({ deliveryMethod: e.currentTarget.dataset.method }); },
+  onAddressText(e) { this.setData({ addressText: e.detail.value }); },
 
-  loadAddress() {
-    api.getAddresses().then((list) => {
-      const def = (list || []).filter((a) => a.isDefault)[0] || (list || [])[0] || {};
-      this.setData({ address: def });
+  decorateItem(it, idx) {
+    const method = it.deliveryMethod || DeliveryMethod.EXPRESS;
+    return {
+      key: idx,
+      skuId: it.skuId,
+      quantity: it.quantity || 1,
+      deliveryMethod: method,
+      deliveryMethodText: deliveryLabel(method),
+      name: it.name || '',
+      skuName: it.skuName || '',
+      price: it.price || 0,
+      priceText: fmt.yuan(it.price || 0),
+      productId: it.productId,
+      kind: it.kind,
+      cartItemId: it.cartItemId,
+      needInstall: needInstall(method),
+      installDate: it.installDate || fmt.dateAfter(3),
+      installSlot: it.installSlot || 'AM',
+      technicianId: it.technicianId || null,
+      technicianName: it.technicianName || ''
+    };
+  },
+
+  recalc() {
+    const goods = this.data.items.reduce((s, it) => s + it.price * it.quantity, 0);
+    this.setData({ goodsText: fmt.yuan(goods) });
+  },
+
+  changeQty(e) {
+    const idx = Number(e.currentTarget.dataset.idx);
+    const step = Number(e.currentTarget.dataset.step);
+    const items = this.data.items.slice();
+    const row = items[idx];
+    if (!row) return;
+    row.quantity = Math.max(1, Math.min(99, row.quantity + step));
+    items[idx] = row;
+    this.setData({ items }, () => this.recalc());
+  },
+
+  onDelivery(e) {
+    const idx = Number(e.currentTarget.dataset.idx);
+    const method = e.currentTarget.dataset.method;
+    const items = this.data.items.slice();
+    const row = items[idx];
+    if (!row) return;
+    row.deliveryMethod = method;
+    row.deliveryMethodText = deliveryLabel(method);
+    row.needInstall = needInstall(method);
+    if (row.needInstall && !row.installDate) {
+      row.installDate = fmt.dateAfter(3);
+      row.installSlot = 'AM';
+    }
+    if (!row.needInstall) {
+      row.technicianId = null;
+      row.technicianName = '';
+    }
+    items[idx] = row;
+    this.setData({ items });
+  },
+
+  onDate(e) {
+    const idx = Number(e.currentTarget.dataset.idx);
+    const items = this.data.items.slice();
+    items[idx].installDate = e.detail.value;
+    items[idx].technicianId = null;
+    items[idx].technicianName = '';
+    this.setData({ items });
+  },
+
+  onSlot(e) {
+    const idx = Number(e.currentTarget.dataset.idx);
+    const items = this.data.items.slice();
+    items[idx].installSlot = e.currentTarget.dataset.slot;
+    items[idx].technicianId = null;
+    items[idx].technicianName = '';
+    this.setData({ items });
+  },
+
+  chooseTech(e) {
+    const idx = Number(e.currentTarget.dataset.idx);
+    const row = this.data.items[idx];
+    if (!row) return;
+    wx.setStorageSync('confirmTechLineIndex', idx);
+    wx.navigateTo({
+      url: '/pages/order/tech?skuId=' + row.skuId
+        + '&date=' + row.installDate
+        + '&slot=' + row.installSlot
+        + '&lineIndex=' + idx,
+      events: {
+        selectTech: (t) => {
+          const items = this.data.items.slice();
+          items[idx].technicianId = t.id;
+          items[idx].technicianName = t.name;
+          this.setData({ items });
+        }
+      }
     });
   },
 
   chooseAddress() {
-    const list = this.addresses || [];
-    wx.showToast({ title: '地址管理页可新增/切换', icon: 'none' });
+    wx.navigateTo({ url: '/pages/mine/address?select=1' });
   },
 
-  onDate(e) {
-    this.setData({ installDate: e.detail.value });
-  },
-
-  onSlot(e) {
-    this.setData({ slot: e.currentTarget.dataset.slot });
+  editInvoice() {
+    wx.navigateTo({ url: '/pages/mine/invoice' });
   },
 
   onRemark(e) {
     this.setData({ remark: e.detail.value });
   },
 
-  chooseTech() {
-    wx.navigateTo({
-      url: '/pages/order/tech?skuId=' + this.data.skuId + '&date=' + this.data.installDate,
-      events: {
-        selectTech: (t) => this.setData({ tech: t })
-      }
-    });
-  },
-
   submit() {
     if (this.data.submitting) return;
-    if (!config.USE_MOCK) return this.submitReal();
-    if (!this.data.address.id) return wx.showToast({ title: '请先选择收货地址', icon: 'none' });
-    this.setData({ submitting: true });
-
-    const payload = {
-      requestId: 'r' + Date.now() + Math.floor(Math.random() * 1000),
-      skuId: this.data.skuId,
-      quantity: 1,
-      addressId: this.data.address.id,
-      installDate: this.data.installDate,
-      installSlot: this.data.slot,
-      technicianId: this.data.tech ? this.data.tech.id : null,
-      remark: this.data.remark
-    };
-
-    api.createOrder(payload).then((res) => {
-      return this.pay(res.orderId, 'DEPOSIT').then(() => {
-        wx.redirectTo({ url: '/pages/order/detail?id=' + res.orderId + '&paid=1' });
-      }).catch(() => {
-        wx.redirectTo({ url: '/pages/order/detail?id=' + res.orderId });
-      });
-    }).catch(() => {
-      this.setData({ submitting: false });
-    });
-  },
-
-  submitReal() {
-    const lines = this.data.lines || [];
-    if (!lines.length) return wx.showToast({ title: '请先选择商品', icon: 'none' });
-    if (!this.data.contactName || !this.data.contactMobile || !this.data.addressText) {
-      return wx.showToast({ title: '请填写收货人和地址', icon: 'none' });
+    if (!this.data.items.length) return wx.showToast({ title: '没有可结算商品', icon: 'none' });
+    if (!this.data.address.id) {
+      if (!this.data.contactName || !this.data.contactMobile || !this.data.addressText) {
+        return wx.showToast({ title: '请填写收货人和地址', icon: 'none' });
+      }
+    }
+    for (let i = 0; i < this.data.items.length; i++) {
+      const it = this.data.items[i];
+      if (it.needInstall && (!it.installDate || !it.installSlot)) {
+        return wx.showToast({ title: '请完善上门安装日期与时段', icon: 'none' });
+      }
     }
     this.setData({ submitting: true });
-    const method = this.data.deliveryMethod;
-    const payload = {
+    const invoice = this.data.invoice || {};
+    const body = {
       requestId: 'r' + Date.now() + Math.floor(Math.random() * 1000),
-      contactName: this.data.contactName,
-      contactMobile: this.data.contactMobile,
-      addressText: this.data.addressText,
       remark: this.data.remark,
-      items: lines.map((row) => ({
-        skuId: row.skuId,
-        quantity: Number(row.quantity || 1),
-        deliveryMethod: method,
-        installDate: method === 'ON_SITE_INSTALL' ? this.data.installDate : '',
-        installSlot: method === 'ON_SITE_INSTALL' ? this.data.slot : '',
-        technicianId: method === 'ON_SITE_INSTALL' && this.data.tech ? this.data.tech.id : null
-      }))
+      invoice: { need: !!invoice.need, title: invoice.title || '', taxNo: invoice.taxNo || '' },
+      items: this.data.items.map((it) => {
+        const row = {
+          skuId: it.skuId,
+          quantity: it.quantity,
+          deliveryMethod: it.deliveryMethod
+        };
+        if (it.needInstall) {
+          row.installDate = it.installDate;
+          row.installSlot = it.installSlot;
+          if (it.technicianId) row.technicianId = it.technicianId;
+        }
+        return row;
+      })
     };
-    api.createOrder(payload).then((res) => {
-      if (this.fromCart) cart.clear();
-      wx.redirectTo({ url: '/pages/order/detail?id=' + res.orderId });
-    }).catch(() => {
-      this.setData({ submitting: false });
-    });
-  },
-
-  pay(orderId, type) {
-    return api.prepay(orderId, type).then((p) => {
-      if (config.USE_MOCK) {
-        return api.mockPaySuccess(orderId, type);
-      }
-      return new Promise((resolve, reject) => {
-        wx.requestPayment({
-          timeStamp: p.payParams.timeStamp,
-          nonceStr: p.payParams.nonceStr,
-          package: p.payParams.package,
-          signType: p.payParams.signType,
-          paySign: p.payParams.paySign,
-          success: resolve,
-          fail: reject
-        });
+    if (this.data.address.id) body.addressId = this.data.address.id;
+    else {
+      body.contactName = this.data.contactName;
+      body.contactMobile = this.data.contactMobile;
+      body.addressText = this.data.addressText;
+    }
+    if (this.cartItemIds && this.cartItemIds.length) body.cartItemIds = this.cartItemIds;
+    api.createOrder(body).then((res) => {
+      try { wx.removeStorageSync('checkoutDraft'); } catch (e) { /* ignore */ }
+      wx.redirectTo({
+        url: '/pages/order/detail?id=' + res.orderId + '&created=1'
       });
-    });
+    }).catch(() => this.setData({ submitting: false }));
   }
 });

@@ -36,4 +36,17 @@ function slotText(slot) {
   return slot === 'PM' ? '下午' : '上午';
 }
 
-module.exports = { yuan, yuan2, dateAfter, shortDate, slotText, pad };
+/** 4.9 → ★★★★★，按四舍五入取整颗星 */
+function stars(rating) {
+  const full = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+  return '★★★★★'.slice(0, full) + '☆☆☆☆☆'.slice(full);
+}
+
+/** 11 位手机号中间打码，已打码的原样返回 */
+function maskMobile(mobile) {
+  const s = String(mobile || '');
+  if (s.length === 11 && s.indexOf('*') < 0) return s.slice(0, 3) + '****' + s.slice(7);
+  return s;
+}
+
+module.exports = { yuan, yuan2, dateAfter, shortDate, slotText, pad, stars, maskMobile };

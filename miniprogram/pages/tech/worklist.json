@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "师傅工作台",
+  "navigationBarBackgroundColor": "#FFFFFF",
+  "navigationBarTextStyle": "black",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#F7F8FA"
+}

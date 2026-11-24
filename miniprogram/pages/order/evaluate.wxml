@@ -1,0 +1,33 @@
+<view class="page with-bar">
+  <view class="card" style="text-align:center">
+    <view class="t2">为「{{target}}」打分</view>
+    <view class="star-pick" style="margin-top:16rpx">
+      <text class="{{score >= item ? 'on' : ''}}" wx:for="{{stars}}" wx:key="*this"
+            data-n="{{item}}" bindtap="onStar">★</text>
+    </view>
+    <view class="t1" style="margin-top:8rpx">{{score}} 分</view>
+    <view class="t3">订单完成后 7 天内可评，评分按近 90 天加权</view>
+  </view>
+
+  <view class="card">
+    <view class="t1">标签</view>
+    <view class="cats">
+      <view class="cat {{item.on ? 'on' : ''}}" wx:for="{{tags}}" wx:key="name"
+            data-tag="{{item.name}}" bindtap="onTag">{{item.name}}</view>
+    </view>
+    <textarea class="ta" placeholder="说说师傅的安装或维修，方便其他客户参考" value="{{content}}"
+              bindinput="onContent" maxlength="200" />
+  </view>
+
+  <view class="card">
+    <view class="between"><text class="t1">照片</text><text class="t3">最多 6 张，可不传</text></view>
+    <view class="upload">
+      <view class="up" bindtap="addImage">＋</view>
+      <image class="up-img" wx:for="{{images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+    </view>
+  </view>
+
+  <view class="bar">
+    <view class="btn {{submitting ? 'disabled' : ''}}" style="flex:1" bindtap="submit">{{submitting ? '提交中…' : '提交评价'}}</view>
+  </view>
+</view>

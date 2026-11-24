@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="card tint">
+    <view class="t2" style="color:#96061F">演示汇总：安装单按 80 元、维修单按 50 元估算。真实提成、已结算 / 待结算要等结算接口（FR-G07，P2）。</view>
+  </view>
+  <view class="card">
+    <view class="t3">本月估算收入</view>
+    <view style="margin-top:8rpx"><price cents="{{cents}}" size="lg" /></view>
+    <view class="row" style="margin-top:20rpx">
+      <view class="flex1"><view class="t1">{{done}}</view><view class="t3">已完成</view></view>
+      <view class="flex1"><view class="t1">{{install}}</view><view class="t3">安装</view></view>
+      <view class="flex1"><view class="t1">{{repair}}</view><view class="t3">维修</view></view>
+      <view class="flex1"><view class="t1">{{pending}}</view><view class="t3">未完成</view></view>
+    </view>
+  </view>
+  <view class="card" wx:for="{{rows}}" wx:key="id">
+    <view class="between">
+      <text>{{item.title}}</text>
+      <text class="price">¥{{item.text}}</text>
+    </view>
+  </view>
+  <view class="empty" wx:if="{{rows.length === 0}}">
+    <view class="e-ico">账</view>
+    <view>还没有已完成工单</view>
+  </view>
+</view>

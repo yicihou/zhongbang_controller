@@ -1,0 +1,58 @@
+<view class="page with-bar">
+  <view class="card">
+    <view class="order-h">
+      <text>{{w.workNo}}</text>
+      <text class="order-st">{{w.statusText}}</text>
+    </view>
+    <view class="t1">{{w.typeText}} · {{w.faultText}}</view>
+    <view class="t2" style="margin-top:8rpx">{{w.faultDesc}}</view>
+    <view class="divider"></view>
+    <view class="kv"><text>客户</text><text>{{w.customerName}}</text></view>
+    <view class="kv"><text>地址</text><text style="max-width:70%;text-align:right">{{w.address}}</text></view>
+    <view class="kv"><text>距离</text><text>{{w.distanceKm}} km</text></view>
+    <view class="kv"><text>预约</text><text>{{w.appointmentAt || '待确认'}}</text></view>
+    <view class="tag {{w.inWarranty ? '' : 'grey'}}" style="margin-top:12rpx">{{w.inWarranty ? '保内' : '保外'}}</view>
+  </view>
+
+  <view class="card" wx:if="{{w.status === 'PENDING'}}">
+    <view class="t1">确认上门时间</view>
+    <picker mode="date" value="{{date}}" start="{{minDate}}" bindchange="onDate">
+      <view class="field">
+        <text class="field-k">日期</text>
+        <text class="field-v">{{date}} ›</text>
+      </view>
+    </picker>
+    <view class="field">
+      <text class="field-k">时段</text>
+      <view class="row">
+        <text class="cat {{slot === 'AM' ? 'on' : ''}}" data-slot="AM" bindtap="onSlot" style="margin:0 12rpx 0 0">上午</text>
+        <text class="cat {{slot === 'PM' ? 'on' : ''}}" data-slot="PM" bindtap="onSlot" style="margin:0">下午</text>
+      </view>
+    </view>
+    <view class="t3">改约需要客户同意。契约里还没有改约接口，当前只能在接单时确认时间。</view>
+  </view>
+
+  <view class="card">
+    <view class="t1" style="margin-bottom:12rpx">轨迹</view>
+    <view class="timeline">
+      <view class="tl {{item.done ? 'on' : ''}}" wx:for="{{w.timeline}}" wx:key="title">
+        <view class="tl-dot"></view>
+        <view class="tl-body">
+          <view class="tl-t">{{item.title}}</view>
+          <view class="t3" wx:if="{{item.desc}}">{{item.desc}}</view>
+          <view class="t3" wx:if="{{item.time}}">{{item.time}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="bar" wx:if="{{w.status === 'PENDING'}}">
+    <view class="btn ghost" style="flex:1" bindtap="reject">拒单</view>
+    <view class="btn" style="flex:1" bindtap="accept">确认接单</view>
+  </view>
+  <view class="bar" wx:if="{{w.status === 'ACCEPTED' || w.status === 'ON_SITE'}}">
+    <view class="btn ghost" style="flex:1" bindtap="navigate">导航</view>
+    <view class="btn ghost" style="flex:1" bindtap="goCheckin">打卡</view>
+    <view class="btn" style="flex:1" bindtap="goForm">{{w.type === 'INSTALL' ? '安装单' : '维修单'}}</view>
+  </view>
+</view>

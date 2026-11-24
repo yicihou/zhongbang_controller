@@ -7,7 +7,7 @@
     <view class="between" style="margin-top:18rpx">
       <view>
         <text class="price price-lg"><text class="cny">¥</text>{{priceText}}</text>
-        <text class="t3" style="margin-left:12rpx">库存 {{p.stock}}</text>
+        <text class="t3" style="margin-left:12rpx">库存 {{activeSku.stock}}</text>
       </view>
       <text class="tag grey">{{p.model}}</text>
     </view>
@@ -17,8 +17,21 @@
   </view>
 
   <view class="card">
-    <view class="t1" style="margin-bottom:12rpx">选择配置</view>
-    <view class="sku-list">
+    <view class="between">
+      <text class="t1">选择配置</text>
+      <text class="t2">已选：{{activeSku.name || '请选择'}}</text>
+    </view>
+    <block wx:if="{{groups.length}}">
+      <view wx:for="{{groups}}" wx:for-item="g" wx:key="name" style="margin-top:16rpx">
+        <view class="t3">{{g.name}}</view>
+        <view class="sku" style="display:flex;flex-wrap:wrap;width:auto;padding:0;border:none;background:transparent">
+          <text class="cat {{opt.on ? 'on' : ''}} {{opt.out ? 'out' : ''}}"
+                wx:for="{{g.options}}" wx:for-item="opt" wx:key="value"
+                data-dim="{{g.name}}" data-value="{{opt.value}}" bindtap="onOpt">{{opt.label}}</text>
+        </view>
+      </view>
+    </block>
+    <view class="sku-list" wx:else>
       <view class="sku {{activeSku.id === item.id ? 'on' : ''}} {{item.stock === 0 ? 'out' : ''}}"
             wx:for="{{p.skus}}" wx:key="id" data-id="{{item.id}}" bindtap="onSku">
         <view class="sku-n">{{item.name}}</view>
@@ -28,25 +41,20 @@
         </view>
       </view>
     </view>
-    <view class="t3" style="margin-top:12rpx">已选：{{activeSku.name || '请选择配置'}}</view>
+    <view class="field" style="margin-top:8rpx">
+      <text class="field-k">数量</text>
+      <view class="stepper">
+        <text data-step="-1" catchtap="changeQty">－</text>
+        <text class="num">{{quantity}}</text>
+        <text data-step="1" catchtap="changeQty">＋</text>
+      </view>
+    </view>
+    <view class="t3" style="margin-top:8rpx" wx:if="{{activeSku.stock === 0}}" bindtap="notify">该配置缺货，点此登记到货通知</view>
   </view>
 
   <view class="card">
-    <view class="between">
-      <text class="t1">付款方式</text>
-      <text class="tag">定金 {{p.depositRate}}%</text>
-    </view>
-    <view class="between" style="margin-top:16rpx">
-      <text class="t2">定金（下单支付）</text>
-      <text class="price price-md">¥{{depositText}}</text>
-    </view>
-    <view class="between" style="margin-top:10rpx">
-      <text class="t2">尾款（安装验收后支付）</text>
-      <text class="price price-md">¥{{balanceText}}</text>
-    </view>
-    <view class="tint-box">
-      安装完成、客户确认验收后才生成尾款单，避免"装完就催钱"。
-    </view>
+    <view class="t1" style="margin-bottom:8rpx">付款说明</view>
+    <view class="t2">一期线下转账：提交订单后按标价生成待付款，管理员可改价/拆定金尾款。安装费待管理员确认，运费默认 0。</view>
   </view>
 
   <view class="card">
@@ -64,16 +72,12 @@
     <view class="t2" wx:for="{{p.services}}" wx:key="*this">· {{item}}</view>
   </view>
 
-  <view class="bar" wx:if="{{realMode}}">
-    <view class="btn ghost" style="flex:1" bindtap="addCart">加入购物车</view>
-    <view class="btn" style="flex:1" bindtap="goConfirm">立即下单</view>
-    <view class="btn ghost" style="flex:1" bindtap="goCart">去结算</view>
-  </view>
-  <view class="bar" wx:else>
-    <view class="bar-price">
-      <view class="t3">合计</view>
-      <view class="price price-md"><text class="cny">¥</text>{{priceText}}</view>
+  <view class="bar">
+    <view class="bar-price" bindtap="goCart">
+      <view class="t3">购物车</view>
+      <view class="t1">去看看</view>
     </view>
-    <view class="btn {{activeSku.stock === 0 ? 'disabled' : ''}}" bindtap="goConfirm">选择安装师傅</view>
+    <view class="btn ghost" style="width:200rpx;flex:none" bindtap="addCart">{{adding ? '…' : '加入购物车'}}</view>
+    <view class="btn" style="width:220rpx;flex:none" bindtap="buyNow">{{activeSku.stock === 0 ? '到货通知' : '立即购买'}}</view>
   </view>
 </view>

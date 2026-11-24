@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="card">
+    <view class="t1">微信静默登录</view>
+    <view class="t2" style="margin-top:8rpx">打开小程序就会用 wx.login 换取身份，不用单独注册。头像昵称不强制授权。</view>
+  </view>
+  <view class="card">
+    <view class="between">
+      <view>
+        <view class="t1">手机号</view>
+        <view class="t2" style="margin-top:6rpx">{{mobile || '尚未绑定'}}</view>
+      </view>
+      <text class="tag" wx:if="{{mobile}}">已绑定</text>
+    </view>
+    <view class="t3" style="margin-top:12rpx">手机号是客户档案的业务标识，同一号码会合并历史订单和设备。</view>
+  </view>
+  <view class="row" style="margin:8rpx 8rpx 24rpx" bindtap="toggle">
+    <view class="check {{agreed ? 'on' : ''}}" style="border:none;padding:0">
+      <view class="box">{{agreed ? '✓' : ''}}</view>
+    </view>
+    <text class="t2">我已阅读</text>
+    <text class="t2" style="color:#C8102E" catchtap="goPrivacy">《隐私说明》</text>
+  </view>
+  <button class="btn block" open-type="getPhoneNumber" bindgetphonenumber="onPhone">授权手机号</button>
+  <view class="t3 center" style="margin-top:16rpx">开发者工具里可能拿不到真实 code，Mock 模式会完成绑定演示</view>
+</view>
