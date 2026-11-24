@@ -1,0 +1,46 @@
+<view class="page with-bar">
+  <view class="card">
+    <view class="t1">{{w.faultDesc || '新机安装'}}</view>
+    <view class="t3" style="margin-top:6rpx">{{w.workNo}} · {{w.customerName}}</view>
+  </view>
+
+  <view class="card">
+    <view class="t1">安装项</view>
+    <view class="check {{item.on ? 'on' : ''}}" wx:for="{{items}}" wx:key="key" data-key="{{item.key}}" bindtap="toggle">
+      <view class="box">{{item.on ? '✓' : ''}}</view>{{item.label}}
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="between">
+      <text class="t1">机身码</text>
+      <text class="t3" bindtap="scanSn">扫码</text>
+    </view>
+    <input class="ta" style="height:80rpx" placeholder="扫码或手输，例如 A5-2024-008671" value="{{sn}}" bindinput="onSn" />
+  </view>
+
+  <view class="card">
+    <view class="between"><text class="t1">现场照片</text><text class="t3">至少 3 张：拆箱 / 组装 / 试缝</text></view>
+    <view class="upload">
+      <view class="up" bindtap="addImage">＋</view>
+      <image class="up-img" wx:for="{{images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="between">
+      <text class="t1">客户签字</text>
+      <text class="t3" bindtap="clearSign">清除</text>
+    </view>
+    <canvas canvas-id="sign" class="sign-pad" disable-scroll
+            bindtouchstart="touchStart" bindtouchmove="touchMove" bindtouchend="touchEnd"></canvas>
+  </view>
+
+  <view class="card">
+    <textarea class="ta" placeholder="补充说明（选填）" value="{{remark}}" bindinput="onRemark" />
+  </view>
+
+  <view class="bar">
+    <view class="btn {{submitting ? 'disabled' : ''}}" style="flex:1" bindtap="submit">{{submitting ? '提交中…' : '提交安装单'}}</view>
+  </view>
+</view>

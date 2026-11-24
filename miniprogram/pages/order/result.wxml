@@ -1,0 +1,19 @@
+<view class="page">
+  <view class="card" style="text-align:center;padding:48rpx 28rpx">
+    <view class="avatar" style="margin:0 auto 20rpx;background:#C8102E;color:#fff;width:96rpx;height:96rpx">转</view>
+    <view class="t1" style="font-size:36rpx">{{title}}</view>
+    <view class="t2" style="margin-top:10rpx">{{loading ? '正在核对单据…' : nextText}}</view>
+    <view style="margin-top:28rpx">
+      <price cents="{{amountCents}}" size="lg" />
+    </view>
+    <view class="t3" style="margin-top:12rpx">单号 {{orderNo}}</view>
+  </view>
+
+  <view class="card tint">
+    <view class="t2" style="color:#96061F">微信支付为二期能力。当前页面仅记录线下转账意向；最终入账以管理员登记为准。</view>
+  </view>
+
+  <view class="btn block" bindtap="goDetail">查看详情</view>
+  <view class="btn ghost block" style="margin-top:20rpx" bindtap="subscribe">开启进度提醒</view>
+  <view class="btn grey block" style="margin-top:20rpx" bindtap="goHome">返回首页</view>
+</view>

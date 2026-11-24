@@ -7,6 +7,11 @@
           data-id="{{item.id}}" bindtap="onCat">{{item.name}}</view>
   </scroll-view>
 
+  <scroll-view scroll-x class="tabs" style="border-bottom:none;margin-bottom:8rpx">
+    <view class="tab {{band === item.value ? 'on' : ''}}" wx:for="{{bands}}" wx:key="value"
+          data-band="{{item.value}}" bindtap="onBand">{{item.label}}</view>
+  </scroll-view>
+
   <view class="row" style="margin:8rpx 0 20rpx">
     <view class="tab {{sort === 'default' ? 'on' : ''}}" data-sort="default" bindtap="onSort"
           style="margin-right:32rpx">综合</view>

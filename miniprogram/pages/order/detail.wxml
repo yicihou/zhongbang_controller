@@ -5,24 +5,27 @@
   </view>
 
   <view style="padding:24rpx 24rpx 0">
+    <view class="card tint" wx:if="{{o.priceAdjusted}}">
+      <view class="t2" style="color:#96061F">管理员已调整价格（含运费/安装费/改价）。以下金额以当前应付为准。</view>
+    </view>
+
     <view class="card">
-      <view class="t1" style="margin-bottom:12rpx">收货与安装</view>
+      <view class="t1" style="margin-bottom:12rpx">收货地址</view>
       <view class="t2">{{o.address.name}} {{o.address.mobile}}</view>
       <view class="t2" style="margin-top:6rpx">{{o.address.province}}{{o.address.city}}{{o.address.district}}{{o.address.detail}}</view>
-      <view class="divider"></view>
-      <view class="between"><text class="t2">期望安装</text><text>{{o.installDate}} {{slotText}}</text></view>
-      <view class="between" style="margin-top:10rpx" wx:if="{{o.remark}}">
-        <text class="t2">备注</text><text class="t2" style="max-width:70%">{{o.remark}}</text>
-      </view>
+      <view class="t2" style="margin-top:10rpx" wx:if="{{o.remark}}">备注：{{o.remark}}</view>
     </view>
 
     <view class="card">
       <view class="order-h"><text>订单号 {{o.orderNo}}</text></view>
-      <view class="order-item" wx:for="{{o.items}}" wx:for-item="it" wx:key="skuId">
+      <view class="order-item" wx:for="{{o.items}}" wx:for-item="it" wx:key="id">
         <view class="thumb mini-thumb">图</view>
         <view class="col" style="margin-left:16rpx">
           <view class="t1">{{it.name}}</view>
           <view class="t3">{{it.skuName}}</view>
+          <view class="tag grey" style="margin-top:6rpx">{{it.deliveryMethodText}}</view>
+          <view class="t3" wx:if="{{it.installDate}}">安装 {{it.installDate}} {{it.installSlot === 'PM' ? '下午' : '上午'}}{{it.technicianName ? ' · ' + it.technicianName : ''}}</view>
+          <view class="t3" wx:if="{{it.installFeeTip}}">安装费：{{it.installFeeTip}}</view>
         </view>
         <view style="text-align:right">
           <view class="price">¥{{it.priceText}}</view>
@@ -30,22 +33,69 @@
         </view>
       </view>
       <view class="divider"></view>
-      <view class="between"><text class="t2">订单总额</text><text>¥{{o.totalText}}</text></view>
-      <view class="between" style="margin-top:12rpx"><text class="t2">已付</text><text class="price">¥{{o.paidText}}</text></view>
-      <view class="between" style="margin-top:12rpx">
-        <text class="t2">待付尾款</text><text class="price price-md">¥{{o.balanceText}}</text>
+      <view class="between"><text class="t2">商品标价</text><text>¥{{o.goodsText}}</text></view>
+      <view class="between" style="margin-top:10rpx"><text class="t2">安装费</text><text>¥{{o.installText}}</text></view>
+      <view class="between" style="margin-top:10rpx"><text class="t2">运费</text><text>¥{{o.freightText}}</text></view>
+      <view class="between" style="margin-top:10rpx" wx:if="{{o.adjustAmount}}">
+        <text class="t2">改价调整</text><text>{{o.adjustSign}}¥{{o.adjustText}}</text>
+      </view>
+      <view class="between" style="margin-top:12rpx"><text class="t2">应付合计</text><text class="price">¥{{o.payableText}}</text></view>
+      <view class="between" style="margin-top:10rpx"><text class="t2">已入账</text><text class="price">¥{{o.paidText}}</text></view>
+    </view>
+
+    <view class="card" wx:if="{{o.waitPayments.length}}">
+      <view class="t1" style="margin-bottom:12rpx">待付款笔次</view>
+      <view class="between" wx:for="{{o.waitPayments}}" wx:key="id" style="padding:12rpx 0;border-bottom:1rpx dashed #EDF0F4">
+        <view>
+          <view class="t1">{{item.typeText}} · {{item.title || item.typeText}}</view>
+          <view class="t3">{{item.offlineIntent ? '已标记将线下转账' : '等待线下转账'}}</view>
+        </view>
+        <text class="price">¥{{item.amountText}}</text>
+      </view>
+      <view class="between" style="margin-top:16rpx">
+        <text class="t2">待付合计</text>
+        <text class="price price-md">¥{{waitTotalText}}</text>
       </view>
     </view>
 
-    <view class="card" wx:if="{{o.technician}}">
-      <view class="t1" style="margin-bottom:16rpx">安装师傅</view>
-      <view class="row">
-        <view class="avatar">{{techInitial}}</view>
-        <view class="col" style="margin-left:18rpx">
-          <view class="t1">{{o.technician.name}}</view>
-          <view class="t3">★ {{o.technician.rating}} · {{o.technician.mobile}}</view>
+    <view class="card" wx:if="{{contact}}">
+      <view class="t1" style="margin-bottom:12rpx">管理员联系方式</view>
+      <view class="t2">{{contact.name}} · {{contact.tip}}</view>
+      <view class="between" style="margin-top:16rpx">
+        <text class="t2">微信 {{contact.wechat}}</text>
+        <text class="btn mini ghost" bindtap="copyWechat">复制</text>
+      </view>
+      <view class="between" style="margin-top:12rpx">
+        <text class="t2">电话 {{contact.phone}}</text>
+        <text class="btn mini ghost" bindtap="callAdmin">拨打</text>
+      </view>
+    </view>
+
+    <view class="card" wx:if="{{shipments.length}}">
+      <view class="t1" style="margin-bottom:12rpx">发货 / 物流</view>
+      <view wx:for="{{shipments}}" wx:key="id" style="margin-bottom:20rpx">
+        <view class="between">
+          <text class="tag">{{item.methodText}}</text>
+          <text class="t3">{{item.statusText}}</text>
         </view>
-        <text class="btn mini ghost" catchtap="callTech">联系</text>
+        <view class="between" wx:for="{{item.lines}}" wx:for-item="ln" wx:key="k" style="margin-top:10rpx">
+          <text class="t2">{{ln.k}}</text>
+          <view class="row">
+            <text class="t2">{{ln.v}}</text>
+            <text class="btn mini ghost" style="margin-left:12rpx;height:48rpx;line-height:48rpx;padding:0 16rpx"
+                  wx:if="{{ln.copy}}" data-v="{{ln.copy}}" catchtap="copyText">复制</text>
+            <text class="btn mini ghost" style="margin-left:12rpx;height:48rpx;line-height:48rpx;padding:0 16rpx"
+                  wx:if="{{ln.call}}" data-v="{{ln.call}}" catchtap="callPhone">拨打</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card" wx:if="{{o.payments.length}}">
+      <view class="t1" style="margin-bottom:12rpx">付款记录</view>
+      <view class="between" wx:for="{{o.payments}}" wx:key="id" style="padding:10rpx 0">
+        <text class="t2">{{item.typeText}} · {{item.statusText}}</text>
+        <text>¥{{item.amountText}}</text>
       </view>
     </view>
 
@@ -66,9 +116,10 @@
 
   <view class="bar" wx:if="{{hasAction}}">
     <view class="btn ghost" wx:if="{{canCancel}}" bindtap="cancel" style="flex:1">取消订单</view>
-    <view class="btn ghost" wx:if="{{canCall}}" bindtap="callTech" style="flex:1">联系师傅</view>
-    <view class="btn" wx:if="{{canAccept}}" bindtap="accept" style="flex:1">确认验收</view>
-    <view class="btn" wx:if="{{payType}}" bindtap="pay" style="flex:1">{{payText}}</view>
-    <view class="btn" wx:if="{{canRepair}}" bindtap="goRepair" style="flex:1">申请报修</view>
+    <view class="btn" wx:if="{{canOffline}}" bindtap="offlineIntent" style="flex:2">
+      {{intenting ? '提交中…' : '我将线下转账'}}
+    </view>
+    <view class="btn ghost" wx:if="{{canEvaluate}}" bindtap="goEvaluate" style="flex:1">评价</view>
+    <view class="btn" wx:if="{{canRepair && !canOffline}}" bindtap="goRepair" style="flex:1">申请报修</view>
   </view>
 </view>

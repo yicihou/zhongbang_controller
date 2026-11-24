@@ -1,0 +1,30 @@
+<view class="page">
+  <view class="card tint">
+    <view class="t1">一机一码</view>
+    <view class="t2" style="margin-top:8rpx;color:#96061F">每台机器对应唯一机身码。保修从安装完成日起算，整机 12 个月，电机电控 24 个月。</view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && list.length === 0}}">
+    <view class="e-ico">档</view>
+    <view>还没有设备</view>
+    <view class="t3" style="margin-top:12rpx">购买并完成安装后会自动建档，也可以扫码绑定</view>
+  </view>
+
+  <view class="card" wx:for="{{list}}" wx:key="id">
+    <view class="between" data-id="{{item.id}}" bindtap="open">
+      <view class="col">
+        <view class="t1">{{item.model}}</view>
+        <view class="t3" style="margin-top:6rpx">{{item.sn}}</view>
+        <view class="t3">购机 {{item.buyDate}} · 最近服务 {{item.lastServiceAt || '—'}}</view>
+      </view>
+      <text class="tag {{item.warrantyStatus === 'IN' ? '' : 'grey'}}">{{item.warrantyText}}</text>
+    </view>
+    <view class="between" style="margin-top:18rpx">
+      <text class="t3" data-id="{{item.id}}" bindtap="open">电子保修卡 ›</text>
+      <text class="btn mini" data-id="{{item.id}}" catchtap="repair">报修</text>
+    </view>
+  </view>
+
+  <view class="btn block" bindtap="bindScan">扫码绑定设备</view>
+  <view class="t3 center" style="margin-top:16rpx">演示机身码 A5-2024-008671</view>
+</view>

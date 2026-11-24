@@ -1,0 +1,23 @@
+<view class="page with-bar">
+  <view class="card tint">
+    <view class="t2" style="color:#96061F">这里保存的是下单时默认带上的发票信息。电子发票开具与对账单在商家后台，小程序只负责提交抬头。</view>
+  </view>
+  <view class="card">
+    <view class="field">
+      <text class="field-k">需要发票</text>
+      <switch color="#C8102E" checked="{{need}}" bindchange="onNeed" />
+    </view>
+    <view class="field">
+      <text class="field-k">抬头</text>
+      <input class="remark" placeholder="个人或公司全称" value="{{title}}" bindinput="onTitle" />
+    </view>
+    <view class="field">
+      <text class="field-k">税号</text>
+      <input class="remark" placeholder="企业抬头请填写" value="{{taxNo}}" bindinput="onTax" />
+    </view>
+  </view>
+  <view class="t3" style="padding:0 8rpx">专票、对公账户等信息由商家在后台核对后开具。</view>
+  <view class="bar">
+    <view class="btn" style="flex:1" bindtap="save">保存</view>
+  </view>
+</view>

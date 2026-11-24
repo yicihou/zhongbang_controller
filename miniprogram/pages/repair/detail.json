@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "维修进度",
+  "navigationBarBackgroundColor": "#FFFFFF",
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "price": "/components/price/index"
+  }
+}

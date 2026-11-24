@@ -174,6 +174,23 @@ def seed():
                        time="2025-11-23 20:14:00", done=True, current=False),
                   dict(status="ACCEPTED", title="师傅已接单", desc="约定 11-25 上午上门",
                        time="2025-11-24 09:02:00", done=True, current=True),
+                  dict(status="DONE", title="维修完成", desc="", time="", done=False, current=False)],
+        quoteConfirmed=True, latitude=30.27415, longitude=120.15515, assetModel="电脑平缝机 A5")
+    WORKORDERS[660099] = dict(
+        id=660099, workNo="WO20251120000099", type="REPAIR", status="ACCEPTED",
+        faultType="NOISE", faultDesc="包缝机高速有异响",
+        inWarranty=False, warrantyDesc="已过保。报价超过 300 元，确认后才能施工",
+        quoteAmount=45000, actualAmount=45000, quoteConfirmed=False,
+        quoteItems=[dict(name="上门检测费", amount=8000), dict(name="工时费", amount=12000),
+                    dict(name="旋梭", amount=25000)],
+        appointmentAt="2025-11-26 14:00:00", createdAt="2025-11-20 11:20:00",
+        customerName="张建国", address="余杭区某某街道 128 号 3 楼", distanceKm=2.4,
+        technician=dict(id=88, name="王师傅", mobile="13812348000", rating=4.9),
+        images=[], assetModel="四线包缝机 E4", latitude=30.27415, longitude=120.15515,
+        timeline=[dict(status="PENDING", title="提交报修", desc="已判定保外",
+                       time="2025-11-20 11:20:00", done=True, current=False),
+                  dict(status="ACCEPTED", title="待确认报价", desc="报价 ¥450",
+                       time="2025-11-20 16:02:00", done=True, current=True),
                   dict(status="DONE", title="维修完成", desc="", time="", done=False, current=False)])
 
 
@@ -421,10 +438,43 @@ def _(h, m, body, q):
 
 @route("POST", r"/api/customer/addresses")
 def _(h, m, body, q):
-    nid = max(a["id"] for a in ADDRESSES) + 1
-    body = dict(body, id=nid)
-    ADDRESSES.append(body)
+    nid = max(a["id"] for a in ADDRESSES) + 1 if ADDRESSES else 1
+    row = dict(id=nid, name=body.get("name", ""), mobile=body.get("mobile", ""),
+               province=body.get("province", ""), city=body.get("city", ""),
+               district=body.get("district", ""), detail=body.get("detail", ""),
+               isDefault=bool(body.get("isDefault")))
+    if row["isDefault"]:
+        for a in ADDRESSES:
+            a["isDefault"] = False
+    ADDRESSES.append(row)
     return ok(dict(id=nid))
+
+
+@route("PUT", r"/api/customer/addresses/(\d+)")
+def _(h, m, body, q, aid=None):
+    for a in ADDRESSES:
+        if a["id"] == int(aid):
+            for k in ("name", "mobile", "province", "city", "district", "detail"):
+                if k in body:
+                    a[k] = body[k]
+            if body.get("isDefault"):
+                for x in ADDRESSES:
+                    x["isDefault"] = False
+                a["isDefault"] = True
+            return ok(True)
+    return err(1001, "地址不存在")
+
+
+@route("DELETE", r"/api/customer/addresses/(\d+)")
+def _(h, m, body, q, aid=None):
+    for i, a in enumerate(ADDRESSES):
+        if a["id"] == int(aid):
+            was = a.get("isDefault")
+            ADDRESSES.pop(i)
+            if was and ADDRESSES:
+                ADDRESSES[0]["isDefault"] = True
+            return ok(True)
+    return err(1001, "地址不存在")
 
 
 @route("GET", r"/api/assets")
@@ -439,6 +489,13 @@ def _(h, m, body, q):
         if a["sn"] == sn:
             return ok(a)
     return err(1001, "未查询到该机身码，请联系经销商")
+
+
+@route("GET", r"/api/repairs")
+def _(h, m, body, q):
+    # 契约未定义列表。本地 Mock 服务补上，便于关闭小程序内置 Mock 后仍能看报修进度。
+    rows = [w for w in WORKORDERS.values() if w.get("type") == "REPAIR"]
+    return ok(dict(total=len(rows), page=1, size=20, list=[_decorate_work(w) for w in rows]))
 
 
 @route("POST", r"/api/repairs")
@@ -486,7 +543,13 @@ def _(h, m, body, q, wid=None):
     w = WORKORDERS.get(int(wid))
     if not w:
         return err(1001, "工单不存在")
-    w["status"] = "ACCEPTED" if body.get("accept") else "CLOSED"
+    if body.get("accept") is False:
+        w["status"] = "CLOSED"
+        w["quoteConfirmed"] = False
+    else:
+        w["status"] = "ACCEPTED"
+        w["quoteConfirmed"] = True
+        w["actualAmount"] = w.get("quoteAmount") or 0
     return ok(dict(status=w["status"]))
 
 
@@ -519,13 +582,82 @@ def _(h, m, body, q):
     return ok(dict(total=len(lst), page=1, size=20, list=lst))
 
 
+def _decorate_work(w):
+    fault_map = dict(THREAD_BREAK="断线 / 跳针", NOISE="噪音异响", OIL="不上油",
+                     ELECTRIC="电控故障", FEED="送布异常", OTHER="其他", INSTALL="新机安装")
+    d = dict(w)
+    d["typeText"] = "安装" if w.get("type") == "INSTALL" else "维修"
+    d["faultText"] = fault_map.get(w.get("faultType"), "其他")
+    if w.get("type") == "REPAIR" and w.get("quoteAmount", 0) > 0 and not w.get("quoteConfirmed") and w.get("status") != "DONE":
+        d["statusText"] = "待确认报价"
+    else:
+        d["statusText"] = STATUS_TEXT.get(w.get("status"), w.get("status"))
+    return d
+
+
+@route("GET", r"/api/tech/workorders/(\d+)")
+def _(h, m, body, q, wid=None):
+    # 契约的工单列表是摘要，详情页使用同一 WorkOrder 模型。路径未写入 OpenAPI，见小程序 README。
+    w = WORKORDERS.get(int(wid))
+    if not w:
+        return err(1001, "工单不存在")
+    return ok(_decorate_work(w))
+
+
 @route("POST", r"/api/tech/workorders/(\d+)/accept")
 def _(h, m, body, q, wid=None):
     w = WORKORDERS.get(int(wid))
     if not w:
         return err(1001, "工单不存在")
     w["status"] = "ACCEPTED"
+    if body.get("appointmentAt"):
+        w["appointmentAt"] = body["appointmentAt"]
     return ok(dict(status="ACCEPTED"))
+
+
+@route("POST", r"/api/tech/workorders/(\d+)/checkin")
+def _(h, m, body, q, wid=None):
+    w = WORKORDERS.get(int(wid))
+    if not w:
+        return err(1001, "工单不存在")
+    lat, lng = body.get("latitude"), body.get("longitude")
+    if lat is None or lng is None:
+        return err(1001, "缺少定位")
+    import math
+    def rad(n):
+        return n * math.pi / 180
+    lat2, lng2 = w.get("latitude") or 30.27415, w.get("longitude") or 120.15515
+    dlat, dlng = rad(lat2 - float(lat)), rad(lng2 - float(lng))
+    a = math.sin(dlat / 2) ** 2 + math.cos(rad(float(lat))) * math.cos(rad(lat2)) * math.sin(dlng / 2) ** 2
+    km = 6371 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    if km > 0.5:
+        return err(3005, "距离客户地址超过 500 米，无法打卡")
+    w["status"] = "ON_SITE"
+    w["checkinAt"] = now()
+    return ok(dict(status="ON_SITE", checkinAt=w["checkinAt"]))
+
+
+@route("POST", r"/api/tech/workorders/(\d+)/finish")
+def _(h, m, body, q, wid=None):
+    w = WORKORDERS.get(int(wid))
+    if not w:
+        return err(1001, "工单不存在")
+    if w.get("type") == "INSTALL":
+        if not body.get("sn"):
+            return err(1001, "请填写或扫描机身码")
+        if len(body.get("images") or []) < 3:
+            return err(1001, "安装单至少上传 3 张现场照片")
+        if not body.get("signImage"):
+            return err(1001, "请让客户签字")
+    elif not body.get("remark"):
+        return err(1001, "请填写处理措施")
+    if w.get("type") == "REPAIR" and not w.get("inWarranty") and not w.get("quoteConfirmed"):
+        return err(3003, "保外报价尚未确认，不能施工")
+    w["status"] = "DONE"
+    w["finishAt"] = now()
+    w["images"] = body.get("images") or []
+    w["remark"] = body.get("remark") or ""
+    return ok(dict(status="DONE", finishAt=w["finishAt"]))
 
 
 class Handler(BaseHTTPRequestHandler):

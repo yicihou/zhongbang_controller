@@ -1,0 +1,48 @@
+<view class="page with-bar">
+  <view class="card tint" wx:if="{{blocked}}">
+    <view class="t2" style="color:#96061F">这是保外工单，客户确认报价前不能提交完工。</view>
+  </view>
+  <view class="card">
+    <view class="t1">{{w.faultText}} · {{w.customerName}}</view>
+    <view class="t2" style="margin-top:8rpx">{{w.faultDesc}}</view>
+  </view>
+
+  <view class="card">
+    <view class="t1">处理措施</view>
+    <textarea class="ta" placeholder="故障原因、做了什么" value="{{remark}}" bindinput="onRemark" maxlength="300" />
+    <view class="field">
+      <text class="field-k">试机结果</text>
+      <input class="remark" value="{{result}}" bindinput="onResult" />
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="t1">更换配件</view>
+    <view class="field" wx:for="{{parts}}" wx:key="name">
+      <text>{{item.name}} × {{item.qty}}</text>
+      <text class="t3" data-i="{{index}}" bindtap="removePart">移除</text>
+    </view>
+    <view class="field">
+      <input placeholder="配件名称" value="{{partName}}" bindinput="onPartName" style="flex:1" />
+      <input type="number" value="{{partQty}}" bindinput="onPartQty" style="width:80rpx;text-align:center" />
+      <text class="tag" bindtap="addPart">添加</text>
+    </view>
+    <view class="t1" style="margin-top:12rpx">旧件归属</view>
+    <view class="cats">
+      <view class="cat {{oldPart === 'CUSTOMER' ? 'on' : ''}}" data-v="CUSTOMER" bindtap="onOld">留给客户</view>
+      <view class="cat {{oldPart === 'RECYCLE' ? 'on' : ''}}" data-v="RECYCLE" bindtap="onOld">商家回收</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="between"><text class="t1">照片</text><text class="t3">故障与修好后的对比</text></view>
+    <view class="upload">
+      <view class="up" bindtap="addImage">＋</view>
+      <image class="up-img" wx:for="{{images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+    </view>
+  </view>
+
+  <view class="bar">
+    <view class="btn {{submitting || blocked ? 'disabled' : ''}}" style="flex:1" bindtap="submit">提交维修单</view>
+  </view>
+</view>

@@ -3,13 +3,33 @@
     "pages/index/index",
     "pages/product/list",
     "pages/product/detail",
+    "pages/cart/index",
     "pages/order/confirm",
     "pages/order/tech",
     "pages/order/list",
     "pages/order/detail",
+    "pages/order/result",
+    "pages/order/accept",
+    "pages/order/evaluate",
     "pages/repair/create",
+    "pages/repair/tech",
+    "pages/repair/detail",
+    "pages/repair/quote",
+    "pages/asset/list",
+    "pages/asset/warranty",
     "pages/mine/mine",
-    "pages/tech/worklist"
+    "pages/mine/address",
+    "pages/mine/address-edit",
+    "pages/mine/invoice",
+    "pages/mine/service",
+    "pages/mine/privacy",
+    "pages/mine/login",
+    "pages/tech/worklist",
+    "pages/tech/detail",
+    "pages/tech/install",
+    "pages/tech/repair",
+    "pages/tech/checkin",
+    "pages/tech/income"
   ],
   "window": {
     "navigationBarBackgroundColor": "#C8102E",
@@ -26,10 +46,17 @@
     "list": [
       { "pagePath": "pages/index/index", "text": "首页" },
       { "pagePath": "pages/product/list", "text": "机型" },
+      { "pagePath": "pages/cart/index", "text": "购物车" },
       { "pagePath": "pages/order/list", "text": "订单" },
       { "pagePath": "pages/mine/mine", "text": "我的" }
     ]
   },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于师傅上门打卡，以及地图选择安装地址"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation", "chooseLocation"],
   "style": "v2",
   "sitemapLocation": "sitemap.json"
 }

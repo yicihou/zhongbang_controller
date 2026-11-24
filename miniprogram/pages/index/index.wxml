@@ -3,7 +3,8 @@
 
   <view class="banner" wx:if="{{banner}}">
     <view class="banner-t">{{banner.title}}</view>
-    <view class="banner-s">下单可选安装师傅 · 验收后再付尾款</view>
+    <view class="banner-s">{{banner.subtitle || '下单可选安装师傅 · 验收后再付尾款'}}</view>
+    <view class="banner-s">整机保修 12 个月，电机电控 24 个月</view>
     <view class="banner-go" bindtap="goList">看新款机型 →</view>
   </view>
 

@@ -1,0 +1,24 @@
+<view class="page with-bar">
+  <view class="between" style="margin:0 4rpx 16rpx">
+    <text class="t2">期望上门：{{dateText}}</text>
+  </view>
+  <scroll-view scroll-x class="tabs">
+    <view class="tab {{sort === item.value ? 'on' : ''}}" wx:for="{{sorts}}" wx:key="value"
+          data-sort="{{item.value}}" bindtap="onSort">{{item.label}}</view>
+  </scroll-view>
+
+  <tech-card wx:for="{{list}}" wx:key="id" item="{{item}}" selected="{{selectedId === item.id}}" bind:pick="onPick" />
+
+  <view class="card tint">
+    <text class="t2" style="color:#96061F" wx:if="{{outWarranty}}">保外维修会先说明上门费 / 检测费。报价超过 300 元必须您确认后才能施工。</text>
+    <text class="t2" style="color:#96061F" wx:else>不选也可以，系统按技能、距离和评分派单。</text>
+  </view>
+
+  <view class="bar">
+    <view class="bar-price">
+      <view class="t3">维修师傅</view>
+      <view class="t1">{{selectedName || '系统推荐'}}</view>
+    </view>
+    <view class="btn" bindtap="confirm">确认</view>
+  </view>
+</view>

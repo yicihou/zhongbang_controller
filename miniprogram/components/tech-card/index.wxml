@@ -1,0 +1,17 @@
+<view class="tech {{selected ? 'on' : ''}}" bindtap="onTap">
+  <view class="pick">{{selected ? '✓' : ''}}</view>
+  <view class="avatar">{{initial}}</view>
+  <view class="col">
+    <view class="row">
+      <text class="t1">{{item.name}}</text>
+      <text class="tag" wx:if="{{item.recommended}}" style="margin-left:10rpx">店长推荐</text>
+    </view>
+    <view class="stars" style="margin-top:6rpx">{{star}} <text class="t2">{{item.rating}} · 完成 {{item.orderCount}} 单</text></view>
+    <view class="t2" style="margin-top:4rpx">距您 {{item.distanceKm}} km · 擅长 {{skillText}}</view>
+    <view class="t3" wx:if="{{item.intro}}">{{item.intro}}</view>
+    <view class="slots">
+      <text class="slot {{s.free ? 'free' : 'no'}}" wx:for="{{slots}}" wx:for-item="s" wx:key="text">{{s.text}}</text>
+    </view>
+    <view class="t3" wx:if="{{item.bookable === false}}" style="color:#B45309">所选日期暂无档期</view>
+  </view>
+</view>

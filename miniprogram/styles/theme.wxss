@@ -1,0 +1,17 @@
+/* 红白设计令牌，与需求文档 §9 / 原型 prototype/index.html 一致 */
+page {
+  --brand: #C8102E;
+  --brand-dark: #96061F;
+  --brand-tint: #FFF5F6;
+  --brand-line: #F0BEC6;
+  --brand-disabled: #F3C6CD;
+  --ink: #1A1E24;
+  --ink-2: #6C7480;
+  --ink-3: #9AA1AB;
+  --line: #E5E8ED;
+  --bg: #F7F8FA;
+  --ok: #0F7B57;
+  --warn: #B45309;
+  background: var(--bg);
+  color: var(--ink);
+}
