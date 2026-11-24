@@ -6,32 +6,26 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
-@EnableConfigurationProperties(CorsProperties.class)
+@EnableConfigurationProperties(ZhongbangProperties.class)
 public class WebConfig implements WebMvcConfigurer {
 
-    private final CorsProperties corsProperties;
+    private final ZhongbangProperties properties;
 
-    public WebConfig(CorsProperties corsProperties) {
-        this.corsProperties = corsProperties;
+    public WebConfig(ZhongbangProperties properties) {
+        this.properties = properties;
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        ListOrEmpty origins = ListOrEmpty.of(corsProperties.getAllowedOrigins());
+        var origins = properties.getCors().getAllowedOrigins();
+        if (origins == null || origins.isEmpty()) {
+            return;
+        }
         registry.addMapping("/api/**")
-                .allowedOrigins(origins.values())
+                .allowedOrigins(origins.toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
-    }
-
-    private record ListOrEmpty(String[] values) {
-        static ListOrEmpty of(java.util.List<String> list) {
-            if (list == null || list.isEmpty()) {
-                return new ListOrEmpty(new String[0]);
-            }
-            return new ListOrEmpty(list.toArray(String[]::new));
-        }
     }
 }
