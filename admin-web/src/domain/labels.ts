@@ -1,0 +1,119 @@
+import type {
+  DeliveryMethod,
+  OrderStatus,
+  PaymentStatus,
+  PaymentType,
+  RepairStatus,
+  ShipmentStatus,
+} from '@/api/types'
+
+export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+  PENDING_PAYMENT: '待付款',
+  PARTIALLY_PAID: '部分付款',
+  PAID: '已付款',
+  FULFILLING: '履约中',
+  COMPLETED: '已完成',
+  CANCELLED: '已取消',
+}
+
+export const REPAIR_STATUS_LABEL: Record<RepairStatus, string> = {
+  SUBMITTED: '待报价',
+  QUOTED: '已报价',
+  PENDING_PAYMENT: '待付款',
+  PAID: '已付款',
+  CONFIRMED: '可派工',
+  IN_SERVICE: '维修中',
+  DONE: '已完成',
+  CANCELLED: '已取消',
+}
+
+export const DELIVERY_LABEL: Record<DeliveryMethod, string> = {
+  EXPRESS: '快递',
+  FREIGHT: '物流货运',
+  HOME_DELIVERY: '上门送货',
+  ON_SITE_INSTALL: '上门安装',
+  STORE_PICKUP: '到店自提',
+}
+
+export const PAYMENT_TYPE_LABEL: Record<PaymentType, string> = {
+  FULL: '全款',
+  DEPOSIT: '定金',
+  BALANCE: '尾款',
+  REPAIR: '维修费',
+  FREIGHT: '运费',
+}
+
+export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
+  WAIT: '待付',
+  SUCCESS: '已收',
+  CLOSED: '已关闭',
+  REFUNDED: '已退款',
+}
+
+export const SHIPMENT_STATUS_LABEL: Record<ShipmentStatus, string> = {
+  PENDING: '待发出',
+  DISPATCHED: '已发出',
+  DONE: '已完成',
+  CANCELLED: '已取消',
+}
+
+export const PRICE_FIELD_LABEL: Record<string, string> = {
+  unitPrice: '单价',
+  installFee: '安装费',
+  adjustAmount: '整单调整',
+  freightAmount: '运费',
+}
+
+export const ORDER_STATUS_OPTIONS: OrderStatus[] = [
+  'PENDING_PAYMENT',
+  'PARTIALLY_PAID',
+  'PAID',
+  'FULFILLING',
+  'COMPLETED',
+  'CANCELLED',
+]
+
+export const REPAIR_STATUS_OPTIONS: RepairStatus[] = [
+  'SUBMITTED',
+  'QUOTED',
+  'PENDING_PAYMENT',
+  'PAID',
+  'CONFIRMED',
+  'IN_SERVICE',
+  'DONE',
+  'CANCELLED',
+]
+
+export function orderStatusText(status: OrderStatus): string {
+  return ORDER_STATUS_LABEL[status]
+}
+
+export function repairStatusText(status: RepairStatus): string {
+  return REPAIR_STATUS_LABEL[status]
+}
+
+export function deliveryText(method: DeliveryMethod): string {
+  return DELIVERY_LABEL[method]
+}
+
+export function paymentTypeText(type: PaymentType): string {
+  return PAYMENT_TYPE_LABEL[type]
+}
+
+export function paymentStatusText(status: PaymentStatus): string {
+  return PAYMENT_STATUS_LABEL[status]
+}
+
+export function orderTagType(status: OrderStatus): 'primary' | 'success' | 'warning' | 'info' {
+  if (status === 'PENDING_PAYMENT' || status === 'PARTIALLY_PAID') return 'warning'
+  if (status === 'PAID' || status === 'COMPLETED') return 'success'
+  if (status === 'FULFILLING') return 'primary'
+  return 'info'
+}
+
+export function repairTagType(status: RepairStatus): 'primary' | 'success' | 'warning' | 'info' {
+  if (status === 'SUBMITTED' || status === 'QUOTED' || status === 'PENDING_PAYMENT') return 'warning'
+  if (status === 'IN_SERVICE') return 'primary'
+  if (status === 'PAID' || status === 'CONFIRMED' || status === 'DONE') return 'success'
+  return 'info'
+}
