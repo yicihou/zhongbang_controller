@@ -78,7 +78,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleTooLarge(MaxUploadSizeExceededException ex) {
         return ResponseEntity.badRequest()
-                .body(ApiResponse.fail(ErrorCode.BAD_REQUEST.getCode(), "图片不能超过 10MB"));
+                .body(ApiResponse.fail(ErrorCode.BAD_REQUEST.getCode(), "文件太大，请压缩后再上传"));
     }
 
     @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})

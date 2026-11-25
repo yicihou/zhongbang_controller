@@ -9,6 +9,8 @@ import com.zhongbang.controller.pojo.notice.entity.AdminNotice;
 import com.zhongbang.controller.pojo.notice.vo.NoticeVo;
 import com.zhongbang.controller.pojo.order.entity.SalesOrder;
 import com.zhongbang.controller.pojo.repair.entity.RepairTicket;
+import com.zhongbang.controller.security.StaffRoles;
+import com.zhongbang.controller.security.UserContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -37,6 +39,7 @@ public class NoticeService {
         row.setBizId(order.getId());
         row.setEventType("ORDER_CREATED");
         row.setReadFlag(0);
+        row.setAudience("ALL");
         row.setCreatedAt(DateTimes.now());
         adminNoticeMapper.insert(row);
         publishAfterCommit(toVo(row));
@@ -65,6 +68,7 @@ public class NoticeService {
         row.setBizId(ticket.getId());
         row.setEventType("REPAIR_CREATED");
         row.setReadFlag(0);
+        row.setAudience("ALL");
         row.setCreatedAt(DateTimes.now());
         adminNoticeMapper.insert(row);
         publishAfterCommit(toVo(row));
@@ -77,6 +81,10 @@ public class NoticeService {
                 .orderByDesc(AdminNotice::getCreatedAt);
         if (unreadOnly) {
             wrapper.eq(AdminNotice::getReadFlag, 0);
+        }
+        // 协议还款只写给老板。其他员工轮询未读时看不到这些行，SSE 也不会推给他们。
+        if (!StaffRoles.isBoss(UserContext.currentOrNull())) {
+            wrapper.and(query -> query.isNull(AdminNotice::getAudience).or().ne(AdminNotice::getAudience, "BOSS"));
         }
         Page<AdminNotice> result = adminNoticeMapper.selectPage(new Page<>(p, s), wrapper);
         return PageResult.of(result.getRecords().stream().map(this::toVo).toList(), result.getTotal(), p, s);
@@ -91,8 +99,25 @@ public class NoticeService {
                 row.getBizId(),
                 row.getEventType(),
                 row.getReadFlag() != null && row.getReadFlag() == 1,
-                DateTimes.format(row.getCreatedAt())
+                DateTimes.format(row.getCreatedAt()),
+                row.getAudience() == null || row.getAudience().isBlank() ? "ALL" : row.getAudience()
         );
+    }
+
+    /** 只推给老板的通知。协议还款提醒用这个，订单和报修仍走上面的方法。 */
+    public void bossNotice(String title, String body, String bizType, Long bizId, String eventType) {
+        AdminNotice row = new AdminNotice();
+        row.setTenantId(1L);
+        row.setTitle(title);
+        row.setBody(body);
+        row.setBizType(bizType);
+        row.setBizId(bizId == null ? 0L : bizId);
+        row.setEventType(eventType);
+        row.setReadFlag(0);
+        row.setAudience("BOSS");
+        row.setCreatedAt(DateTimes.now());
+        adminNoticeMapper.insert(row);
+        publishAfterCommit(toVo(row));
     }
 
     private static String customerText(SalesOrder order) {

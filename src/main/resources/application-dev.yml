@@ -26,6 +26,10 @@ zhongbang:
     enabled: false
   rabbitmq:
     enabled: false
+  demo:
+    # 开发环境可以点「生成演示数据」。auto-seed 保持 false，避免测试一启动就灌进 30 个客户。
+    enabled: true
+    auto-seed: false
   h2-console:
     # 仍无代码读取。保持 false，与控制台关闭一致。
     enabled: false

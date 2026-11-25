@@ -5,5 +5,7 @@ declare module 'vue-router' {
     title?: string
     /** 只有管理员能打开的页面，例如员工管理。 */
     admin?: boolean
+    /** 只有老板能打开的页面，例如客户档案。 */
+    boss?: boolean
   }
 }

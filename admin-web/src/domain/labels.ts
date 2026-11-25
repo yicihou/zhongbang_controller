@@ -105,13 +105,14 @@ export const REPAIR_STATUS_OPTIONS: RepairStatus[] = [
 ]
 
 export const STAFF_ROLE_LABEL: Record<string, string> = {
+  BOSS: '老板',
   ADMIN: '管理员',
   SALES: '业务员',
   TECHNICIAN: '师傅',
   STAFF: '员工',
 }
 
-export const STAFF_ROLE_OPTIONS = ['ADMIN', 'SALES', 'TECHNICIAN'] as const
+export const STAFF_ROLE_OPTIONS = ['BOSS', 'ADMIN', 'SALES', 'TECHNICIAN'] as const
 
 export const STAFF_STATUS_LABEL: Record<string, string> = {
   ENABLED: '启用',

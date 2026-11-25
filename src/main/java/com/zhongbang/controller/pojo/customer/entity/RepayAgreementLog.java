@@ -1,0 +1,33 @@
+package com.zhongbang.controller.pojo.customer.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
+import java.time.LocalDateTime;
+
+/** 协议的一次变更。snapshotJson 是当时整条协议的内容，方便对照。 */
+@TableName("repay_agreement_log")
+public class RepayAgreementLog {
+
+    @TableId(type = IdType.ASSIGN_ID)
+    private Long id;
+    private Long agreementId;
+    private String action;
+    private String snapshotJson;
+    private String operatorName;
+    private LocalDateTime createdAt;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getAgreementId() { return agreementId; }
+    public void setAgreementId(Long agreementId) { this.agreementId = agreementId; }
+    public String getAction() { return action; }
+    public void setAction(String action) { this.action = action; }
+    public String getSnapshotJson() { return snapshotJson; }
+    public void setSnapshotJson(String snapshotJson) { this.snapshotJson = snapshotJson; }
+    public String getOperatorName() { return operatorName; }
+    public void setOperatorName(String operatorName) { this.operatorName = operatorName; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+}

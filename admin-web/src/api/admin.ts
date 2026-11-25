@@ -33,9 +33,11 @@ import type {
   UploadedImage,
 } from './types'
 import type { StaffMember, StaffSave } from '@/domain/staff'
-import { USE_MOCK } from '@/config'
+import type { CustomerListItem, LevelRule } from '@/domain/customer'
+import { API_BASE, USE_MOCK } from '@/config'
+import { ApiError } from '@/domain/errors'
 import { paths } from './paths'
-import { request, requestForm } from './http'
+import { readToken, request, requestForm } from './http'
 
 export function staffLogin(username: string, password: string): Promise<StaffLoginResponse> {
   return request<StaffLoginResponse>('POST', paths.staffLogin, {
@@ -188,4 +190,157 @@ export function shelveProduct(id: number, on: boolean): Promise<AdminProduct> {
 
 export function changeProductPrice(id: number, body: ChangeProductPriceRequest): Promise<AdminProduct> {
   return request('POST', paths.productPrice(id), { body })
+}
+
+export interface CustomerQuery {
+  name?: string
+  mobile?: string
+  region?: string
+  tag?: string
+  customerType?: string
+  level?: string
+  unpaidOnly?: string
+  sort?: string
+  direction?: string
+  page?: number
+  size?: number
+}
+
+export function listCustomers(query: CustomerQuery = {}): Promise<PageResult<CustomerListItem>> {
+  return request('GET', paths.customers, { query })
+}
+
+export function getCustomer(id: number | string): Promise<Record<string, unknown>> {
+  return request('GET', paths.customer(id))
+}
+
+export function createCustomer(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request('POST', paths.customers, { body })
+}
+
+export function updateCustomer(id: number | string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request('PUT', paths.customer(id), { body })
+}
+
+export function addCustomerFollow(id: number | string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request('POST', paths.customerFollows(id), { body })
+}
+
+export function saveCustomerPreference(id: number | string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request('PUT', paths.customerPreference(id), { body })
+}
+
+export function assignCustomerLevel(id: number | string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request('PUT', paths.customerLevelAssign(id), { body })
+}
+
+export function addCustomerAddress(id: number | string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request('POST', paths.customerAddresses(id), { body })
+}
+
+export function addCustomerAgreement(id: number | string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request('POST', paths.customerAgreements(id), { body })
+}
+
+export function updateCustomerAgreement(id: number | string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request('PUT', paths.customerAgreement(id), { body })
+}
+
+export function fulfillAgreement(id: number | string): Promise<Record<string, unknown>> {
+  return request('POST', `${paths.customerAgreement(id)}/fulfill`)
+}
+
+export function voidAgreement(id: number | string): Promise<Record<string, unknown>> {
+  return request('POST', `${paths.customerAgreement(id)}/void`)
+}
+
+export function listRepayments(bucket: string, page = 1): Promise<PageResult<Record<string, unknown>>> {
+  return request('GET', paths.customerRepayments, { query: { bucket, page, size: 50 } })
+}
+
+export function scanRepayments(): Promise<number> {
+  return request('POST', paths.customerRepayScan)
+}
+
+export function customerOverview(): Promise<Record<string, unknown>> {
+  return request('GET', paths.customerOverview)
+}
+
+export function analyzeCustomer(id: number | string): Promise<Record<string, unknown>> {
+  return request('POST', paths.customerInsight(id))
+}
+
+export function customerInsightHistory(id: number | string): Promise<Record<string, unknown>[]> {
+  return request('GET', paths.customerInsight(id))
+}
+
+export function analyzeOverall(): Promise<Record<string, unknown>> {
+  return request('POST', paths.customerInsights)
+}
+
+export function listLevelRules(): Promise<LevelRule[]> {
+  return request('GET', paths.customerLevels)
+}
+
+export function updateLevelRule(id: number, body: { name: string; minPaid: number; enabled: boolean }): Promise<LevelRule> {
+  return request('PUT', paths.customerLevel(id), { body })
+}
+
+export function seedDemoCustomers(): Promise<{ created: boolean; customers: number; message: string }> {
+  return request('POST', paths.customerDemo)
+}
+
+export async function downloadCustomers(query: CustomerQuery, format: 'csv' | 'xlsx'): Promise<void> {
+  if (USE_MOCK) {
+    const data = await request<{ text: string; filename: string }>('GET', paths.customerExport, { query: { ...query, format } })
+    saveText(data.text, format === 'xlsx' ? '客户.csv' : data.filename)
+    return
+  }
+  await saveRemote(`${paths.customerExport}?${toQuery({ ...query, format })}`, format === 'xlsx' ? '客户.xlsx' : '客户.csv')
+}
+
+export async function downloadCustomerTemplate(format: 'csv' | 'xlsx'): Promise<void> {
+  if (USE_MOCK) {
+    const data = await request<{ text: string; filename: string }>('GET', paths.customerTemplate, { query: { format } })
+    saveText(data.text, data.filename)
+    return
+  }
+  await saveRemote(`${paths.customerTemplate}?format=${format}`, format === 'xlsx' ? '客户导入模板.xlsx' : '客户导入模板.csv')
+}
+
+export function importCustomers(file: File): Promise<{ created: number; skipped: number; errors: string[] }> {
+  if (USE_MOCK) {
+    return file.text().then((csv) => request('POST', paths.customerImport, { body: { csv } }))
+  }
+  const form = new FormData()
+  form.append('file', file)
+  return requestForm(paths.customerImport, form)
+}
+
+function toQuery(query: object): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    if (value != null && value !== '') params.set(key, String(value))
+  }
+  return params.toString()
+}
+
+function saveText(text: string, filename: string): void {
+  saveBlob(new Blob([text], { type: 'text/csv;charset=utf-8' }), filename)
+}
+
+async function saveRemote(pathAndQuery: string, filename: string): Promise<void> {
+  const token = readToken()
+  const response = await fetch(`${API_BASE}${pathAndQuery}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (!response.ok) throw new ApiError(response.status === 403 ? 2003 : 1001, '下载失败')
+  saveBlob(await response.blob(), filename)
+}
+
+function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }

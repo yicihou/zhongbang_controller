@@ -3,7 +3,7 @@
     <div class="page-head">
       <div>
         <h2>员工管理</h2>
-        <p>管理员、业务员和师傅。停用的师傅不会出现在报修或安装的派工下拉框里。只有管理员能改这里。</p>
+        <p>老板、管理员、业务员和师傅。客户档案只有老板能看。停用的师傅不会出现在派工下拉框里。只有管理员能改这里。</p>
       </div>
       <el-button type="primary" @click="openCreate">新增员工</el-button>
     </div>

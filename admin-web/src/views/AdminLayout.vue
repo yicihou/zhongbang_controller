@@ -32,6 +32,16 @@
           <el-icon><Wallet /></el-icon>
           <span>待收款</span>
         </el-menu-item>
+        <el-sub-menu v-if="session.isBoss" index="/customers">
+          <template #title>
+            <el-icon><Avatar /></el-icon>
+            <span>客户</span>
+          </template>
+          <el-menu-item index="/customers">客户列表</el-menu-item>
+          <el-menu-item index="/customers/reminders">还款提醒</el-menu-item>
+          <el-menu-item index="/customers/analysis">客户分析</el-menu-item>
+          <el-menu-item index="/customers/levels">等级规则</el-menu-item>
+        </el-sub-menu>
         <el-menu-item v-if="session.isAdmin" index="/staff">
           <el-icon><User /></el-icon>
           <span>员工管理</span>
@@ -88,7 +98,7 @@
  */
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Bell, Calendar, Goods, List, Odometer, Tools, User, Wallet } from '@element-plus/icons-vue'
+import { Avatar, Bell, Calendar, Goods, List, Odometer, Tools, User, Wallet } from '@element-plus/icons-vue'
 import { USE_MOCK } from '@/config'
 import { useAdminStream } from '@/composables/useAdminStream'
 import type { AdminNotice } from '@/api/types'
@@ -107,6 +117,10 @@ const active = computed(() => {
   if (route.path.startsWith('/products')) return '/products'
   if (route.path.startsWith('/orders')) return '/orders'
   if (route.path.startsWith('/repairs')) return '/repairs'
+  if (route.path.startsWith('/customers/reminders')) return '/customers/reminders'
+  if (route.path.startsWith('/customers/analysis')) return '/customers/analysis'
+  if (route.path.startsWith('/customers/levels')) return '/customers/levels'
+  if (route.path.startsWith('/customers')) return '/customers'
   return route.path
 })
 const linkText = computed(() => {
@@ -126,6 +140,7 @@ function markRead() {
 function openNotice(item: AdminNotice) {
   if (item.bizType === 'ORDER') void router.push(`/orders/${item.bizId}`)
   else if (item.bizType === 'REPAIR') void router.push(`/repairs/${item.bizId}`)
+  else if (item.bizType === 'CUSTOMER' && session.isBoss) void router.push(`/customers/${item.bizId}`)
 }
 
 function logout() {

@@ -77,3 +77,9 @@ export function isAdminPayload(payload: JwtPayload | null, nowSec = Date.now() /
   if (!isStaffPayload(payload, nowSec)) return false
   return payload?.role === 'ROLE_ADMIN' || payload?.role === 'ADMIN'
 }
+
+/** 客户模块只给老板。type 仍是 STAFF，角色声明是 ROLE_BOSS。 */
+export function isBossPayload(payload: JwtPayload | null, nowSec = Date.now() / 1000): boolean {
+  if (!isStaffPayload(payload, nowSec)) return false
+  return payload?.role === 'ROLE_BOSS' || payload?.role === 'BOSS'
+}

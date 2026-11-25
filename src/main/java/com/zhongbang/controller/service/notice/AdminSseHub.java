@@ -2,6 +2,8 @@ package com.zhongbang.controller.service.notice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhongbang.controller.pojo.notice.vo.NoticeVo;
+import com.zhongbang.controller.security.StaffRoles;
+import com.zhongbang.controller.security.UserContext;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -15,7 +17,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Component
 public class AdminSseHub {
 
-    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    private final List<Subscription> emitters = new CopyOnWriteArrayList<>();
     private final ObjectMapper objectMapper;
 
     public AdminSseHub(ObjectMapper objectMapper) {
@@ -25,14 +27,16 @@ public class AdminSseHub {
     /** 一条连接默认 30 分钟。浏览器断开或超时后从列表里拿掉，避免一直往关闭的连接写。 */
     public SseEmitter connect() {
         SseEmitter emitter = new SseEmitter(30L * 60L * 1000L);
-        emitters.add(emitter);
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> emitters.remove(emitter));
-        emitter.onError(ex -> emitters.remove(emitter));
+        // 记下这条连接是不是老板。协议还款的事件只写给老板的连接。
+        Subscription subscription = new Subscription(emitter, StaffRoles.isBoss(UserContext.currentOrNull()));
+        emitters.add(subscription);
+        emitter.onCompletion(() -> emitters.remove(subscription));
+        emitter.onTimeout(() -> emitters.remove(subscription));
+        emitter.onError(ex -> emitters.remove(subscription));
         try {
             emitter.send(SseEmitter.event().comment("connected"));
         } catch (Exception ex) {
-            emitters.remove(emitter);
+            emitters.remove(subscription);
         }
         return emitter;
     }
@@ -44,12 +48,19 @@ public class AdminSseHub {
         } catch (Exception ex) {
             return;
         }
-        for (SseEmitter emitter : emitters) {
+        boolean bossOnly = notice != null && "BOSS".equals(notice.audience());
+        for (Subscription subscription : emitters) {
+            if (bossOnly && !subscription.boss()) {
+                continue;
+            }
             try {
-                emitter.send(SseEmitter.event().name(notice.eventType()).data(json));
+                subscription.emitter().send(SseEmitter.event().name(notice.eventType()).data(json));
             } catch (Exception ex) {
-                emitters.remove(emitter);
+                emitters.remove(subscription);
             }
         }
+    }
+
+    private record Subscription(SseEmitter emitter, boolean boss) {
     }
 }

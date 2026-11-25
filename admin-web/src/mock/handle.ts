@@ -23,6 +23,7 @@ import type {
 import { formatDateTime } from '@/domain/clock'
 import { ApiError, httpStatusFor } from '@/domain/errors'
 import { imageFileError } from '@/domain/image'
+import { isBossRole } from '@/domain/customer'
 import { decodeJwtPayload, isExpired, issueMockStaffToken } from '@/domain/jwt'
 import {
   addShipment,
@@ -46,6 +47,7 @@ import {
   updateStaff,
   type StaffSave,
 } from '@/domain/staff'
+import { dispatchCustomer } from './customers'
 import { db } from './db'
 
 export interface MockResult {
@@ -171,9 +173,13 @@ function listRepairs(query: Record<string, string>) {
   return paginate(filtered, num(query.page, 1), num(query.size, 20))
 }
 
-function listNotices(query: Record<string, string>) {
+function listNotices(query: Record<string, string>, token: string) {
   const unread = query.unread === '1' || query.unread === 'true'
-  const filtered = db.notices.filter((notice) => (unread ? !notice.readFlag : true))
+  const boss = isBossRole(decodeJwtPayload(token)?.role)
+  const filtered = db.notices.filter((notice) => {
+    if (!boss && notice.audience === 'BOSS') return false
+    return unread ? !notice.readFlag : true
+  })
   return paginate(filtered, num(query.page, 1), num(query.size, 20))
 }
 
@@ -391,20 +397,45 @@ function handleStaff(
   return undefined
 }
 
-/** Mock 不写磁盘。页面把图片读成 data URL 传来，详情里就能直接显示缩略图。 */
-function mockUpload(body: unknown): unknown {
+/** Mock 不写磁盘。页面把文件读成 data URL 传来。协议材料还可以是录音和文档。 */
+function mockUpload(body: unknown, biz?: string): unknown {
   const files = asRecord(body).files
   if (!Array.isArray(files) || files.length === 0) throw new ApiError(1001, '请选择图片')
   if (files.length > 9) throw new ApiError(1001, '一次最多上传 9 张')
+  const agreement = biz === 'agreement'
   return files.map((item) => {
     const file = asRecord(item)
     const name = String(file.name ?? '')
+    const type = String(file.type ?? '')
+    const size = Number(file.size ?? 0)
     const dataUrl = String(file.dataUrl ?? '')
-    const error = imageFileError(name, String(file.type ?? ''), Number(file.size ?? dataUrl.length))
-    if (error) throw new ApiError(1001, error)
-    const url = dataUrl.startsWith('data:image/') ? dataUrl : `/uploads/mock/${encodeURIComponent(name)}`
-    return { url, name, size: Number(file.size ?? dataUrl.length), contentType: String(file.type ?? 'image/jpeg') }
+    if (!agreement) {
+      const error = imageFileError(name, type, size || dataUrl.length)
+      if (error) throw new ApiError(1001, error)
+      const url = dataUrl.startsWith('data:image/') ? dataUrl : `/uploads/mock/${encodeURIComponent(name)}`
+      return { url, name, size: size || dataUrl.length, contentType: type || 'image/jpeg', kind: 'IMAGE' }
+    }
+    const kind = agreementKind(name, size)
+    const url = dataUrl || `/uploads/mock/${encodeURIComponent(name)}`
+    return { url, name, size, contentType: type || 'application/octet-stream', kind }
   })
+}
+
+function agreementKind(name: string, size: number): string {
+  const lower = name.toLowerCase()
+  if (/\.(jpe?g|png|webp)$/.test(lower)) {
+    if (size > 10 * 1024 * 1024) throw new ApiError(1001, '图片不能超过 10MB')
+    return 'IMAGE'
+  }
+  if (/\.(mp3|m4a|wav|amr)$/.test(lower)) {
+    if (size > 30 * 1024 * 1024) throw new ApiError(1001, '录音不能超过 30MB')
+    return 'AUDIO'
+  }
+  if (/\.(pdf|docx?|xlsx?)$/.test(lower)) {
+    if (size > 30 * 1024 * 1024) throw new ApiError(1001, '文档不能超过 30MB')
+    return 'DOCUMENT'
+  }
+  throw new ApiError(1001, '协议材料只支持图片、录音（mp3/m4a/wav/amr）和文档（pdf/doc/docx/xls/xlsx）')
 }
 
 function dispatch(method: string, path: string, query: Record<string, string>, body: unknown, token: string): unknown {
@@ -414,12 +445,22 @@ function dispatch(method: string, path: string, query: Record<string, string>, b
   const productHit = handleProduct(method, path, query, body)
   if (productHit !== undefined) return productHit
   const now = formatDateTime()
+  const customerHit = dispatchCustomer(method, path, query, body, {
+    name: operator.name,
+    boss: isBossRole(decodeJwtPayload(token)?.role),
+  })
+  if (customerHit !== undefined) return customerHit
 
   if (method === 'GET' && path === '/api/admin/orders') return listOrders(query)
   if (method === 'GET' && path === '/api/admin/repairs') return listRepairs(query)
-  if (method === 'GET' && path === '/api/admin/notices') return listNotices(query)
+  if (method === 'GET' && path === '/api/admin/notices') return listNotices(query, token)
   if (method === 'GET' && path === '/api/admin/receivables') return listReceivables(query)
-  if (method === 'POST' && path === '/api/admin/files') return mockUpload(body)
+  if (method === 'POST' && path === '/api/admin/files') {
+    if (query.biz === 'agreement' && !isBossRole(decodeJwtPayload(token)?.role)) {
+      throw new ApiError(2003, '只有老板可以上传协议材料')
+    }
+    return mockUpload(body, query.biz)
+  }
   const staffHit = handleStaff(method, path, query, body, token)
   if (staffHit !== undefined) return staffHit
   if (method === 'GET' && path === '/api/admin/technicians') {

@@ -24,6 +24,9 @@ public class ZhongbangProperties {
     private final Rabbitmq rabbitmq = new Rabbitmq();
     private final H2Console h2Console = new H2Console();
     private final Storage storage = new Storage();
+    private final Deepseek deepseek = new Deepseek();
+    private final CustomerModule customer = new CustomerModule();
+    private final Demo demo = new Demo();
 
     public Cors getCors() {
         return cors;
@@ -43,6 +46,18 @@ public class ZhongbangProperties {
 
     public Storage getStorage() {
         return storage;
+    }
+
+    public Deepseek getDeepseek() {
+        return deepseek;
+    }
+
+    public CustomerModule getCustomer() {
+        return customer;
+    }
+
+    public Demo getDemo() {
+        return demo;
     }
 
     public static class Cors {
@@ -95,6 +110,10 @@ public class ZhongbangProperties {
         private String localDir = "./uploads";
         private String publicPath = "/uploads";
         private long maxBytes = 10L * 1024 * 1024;
+        /** 录音上限，默认约 30MB。协议材料里的 mp3/m4a/wav/amr 用这个值。 */
+        private long audioMaxBytes = 30L * 1024 * 1024;
+        /** 文档上限，默认约 30MB。pdf/doc/docx/xls/xlsx 用这个值。 */
+        private long docMaxBytes = 30L * 1024 * 1024;
 
         public String getType() {
             return type;
@@ -128,6 +147,22 @@ public class ZhongbangProperties {
             this.maxBytes = maxBytes;
         }
 
+        public long getAudioMaxBytes() {
+            return audioMaxBytes;
+        }
+
+        public void setAudioMaxBytes(long audioMaxBytes) {
+            this.audioMaxBytes = audioMaxBytes;
+        }
+
+        public long getDocMaxBytes() {
+            return docMaxBytes;
+        }
+
+        public void setDocMaxBytes(long docMaxBytes) {
+            this.docMaxBytes = docMaxBytes;
+        }
+
         /** 配置里写相对路径时，按启动目录补成绝对路径。末尾不带斜杠。 */
         public java.nio.file.Path directory() {
             String raw = localDir == null || localDir.isBlank() ? "./uploads" : localDir.trim();
@@ -148,6 +183,101 @@ public class ZhongbangProperties {
                 path = path.substring(0, path.length() - 1);
             }
             return path;
+        }
+    }
+
+    /**
+     * DeepSeek 的 OpenAI 兼容接口。apiKey 只来自环境变量 DEEPSEEK_API_KEY，仓库里不放密钥。
+     */
+    public static class Deepseek {
+        private String baseUrl = "https://api.deepseek.com";
+        private String model = "deepseek-chat";
+        private String apiKey = "";
+        private int timeoutSeconds = 25;
+
+        public String getBaseUrl() {
+            return baseUrl;
+        }
+
+        public void setBaseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
+        }
+
+        public String getModel() {
+            return model;
+        }
+
+        public void setModel(String model) {
+            this.model = model;
+        }
+
+        public String getApiKey() {
+            return apiKey;
+        }
+
+        public void setApiKey(String apiKey) {
+            this.apiKey = apiKey;
+        }
+
+        public int getTimeoutSeconds() {
+            return timeoutSeconds;
+        }
+
+        public void setTimeoutSeconds(int timeoutSeconds) {
+            this.timeoutSeconds = timeoutSeconds;
+        }
+
+        public boolean configured() {
+            return apiKey != null && !apiKey.isBlank();
+        }
+    }
+
+    /** 客户模块里和协议还款提醒有关的配置。 */
+    public static class CustomerModule {
+        /** Spring 定时任务表达式，默认每天 9:00。时区在任务上写成上海。 */
+        private String remindCron = "0 0 9 * * *";
+        /** 到期前几天开始提醒。当天和已逾期另外判断。 */
+        private int remindDays = 3;
+
+        public String getRemindCron() {
+            return remindCron;
+        }
+
+        public void setRemindCron(String remindCron) {
+            this.remindCron = remindCron;
+        }
+
+        public int getRemindDays() {
+            return remindDays;
+        }
+
+        public void setRemindDays(int remindDays) {
+            this.remindDays = remindDays;
+        }
+    }
+
+    /**
+     * 演示客户开关。enabled 为 true 时，老板可以调用生成接口。
+     * 生产配置保持 false。autoSeed 为 true 且当前是 dev 时，启动后自动灌一份数据。
+     */
+    public static class Demo {
+        private boolean enabled = false;
+        private boolean autoSeed = false;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public boolean isAutoSeed() {
+            return autoSeed;
+        }
+
+        public void setAutoSeed(boolean autoSeed) {
+            this.autoSeed = autoSeed;
         }
     }
 
