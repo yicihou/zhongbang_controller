@@ -461,6 +461,7 @@ public class TradeImportService {
             bill.setStatus("SUCCESS");
             bill.setSortNo(1);
             bill.setPaidAt(when);
+            bill.setRegisteredAt(DateTimes.now());
             bill.setCreatedAt(when);
             bill.setUpdatedAt(when);
             paymentBillMapper.insert(bill);

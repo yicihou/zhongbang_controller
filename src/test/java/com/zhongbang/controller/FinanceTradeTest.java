@@ -2,14 +2,21 @@ package com.zhongbang.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhongbang.controller.common.util.DateTimes;
+import com.zhongbang.controller.service.report.MarginHistoryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -33,6 +40,12 @@ class FinanceTradeTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Autowired
+    private MarginHistoryService history;
 
     @Test
     void staffCannotReadCostMarginOrPayables() throws Exception {
@@ -249,6 +262,80 @@ class FinanceTradeTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":" + payable + ",\"method\":\"CASH\"}"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void marginComparesThroughTheSameDayAndUsesActualDateForBackfilledReceipts() throws Exception {
+        LocalDate today = DateTimes.now().toLocalDate();
+        LocalDate yesterday = today.minusDays(1);
+        YearMonth closedMonth = YearMonth.from(yesterday).minusMonths(2);
+        String boss = login("boss", "boss123");
+        String admin = login("admin", "admin123");
+        String auth = "Bearer " + boss;
+        long skuId = createSku(admin, "回看收款测试机", "标准", 5);
+        long orderId = place(loginCustomer("finance-backfill-buyer"), skuId, "finance-backfill");
+        jdbc.update("UPDATE orders SET created_at = ? WHERE id = ?", closedMonth.atDay(1).atStartOfDay(), orderId);
+
+        String reportUrl = "/api/admin/reports/margin";
+        mockMvc.perform(get(reportUrl).header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.current.through").value(today.toString()))
+                .andExpect(jsonPath("$.data.previous.through").value(
+                        YearMonth.from(today).minusMonths(1)
+                                .atDay(Math.min(today.getDayOfMonth(), YearMonth.from(today).minusMonths(1).lengthOfMonth()))
+                                .toString()));
+        mockMvc.perform(get(reportUrl + "/history").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isForbidden());
+
+        JsonNode order = read(mockMvc.perform(get("/api/admin/orders/" + orderId).header("Authorization", auth))
+                .andExpect(status().isOk()).andReturn()).path("data");
+        long firstBill = order.path("payments").get(0).path("id").asLong();
+        long payable = order.path("payableAmount").asLong();
+        LocalDateTime actual = closedMonth.atEndOfMonth().atTime(17, 15);
+        long partial = payable / 3;
+        mockMvc.perform(post("/api/admin/payments/" + firstBill + "/offline-confirm").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"amount":%d,"method":"CASH","paidAt":"%s"}
+                                """.formatted(partial, DateTimes.format(actual))))
+                .andExpect(status().isOk());
+        LocalDateTime registered = jdbc.queryForObject("SELECT registered_at FROM payment WHERE id = ?", LocalDateTime.class, firstBill);
+        assertThat(registered.toLocalDate()).isEqualTo(today);
+        assertThat(jdbc.queryForObject("SELECT paid_at FROM payment WHERE id = ?", LocalDateTime.class, firstBill)).isEqualTo(actual);
+
+        long remainingBill = jdbc.queryForObject("SELECT id FROM payment WHERE split_from_id = ?", Long.class, firstBill);
+        mockMvc.perform(post("/api/admin/payments/" + remainingBill + "/offline-confirm").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"amount":%d,"method":"CASH","paidAt":"%s"}
+                                """.formatted(payable - partial, DateTimes.format(closedMonth.plusMonths(1).atDay(1).atTime(12, 0)))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get(reportUrl).header("Authorization", auth).param("key", closedMonth.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.current.receivedAmount").value(partial))
+                .andExpect(jsonPath("$.data.current.unpaidAmount").value(payable - partial));
+        mockMvc.perform(get(reportUrl + "/history").header("Authorization", auth)
+                        .param("month", closedMonth.toString())
+                        .param("from", closedMonth.atDay(1).toString()).param("through", closedMonth.atEndOfMonth().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.monthlyAverage.receivedAmount").value(partial))
+                .andExpect(jsonPath("$.data.days[0].actual.receivedAmount").value(0))
+                .andExpect(jsonPath("$.data.days[%d].actual.receivedAmount".formatted(closedMonth.lengthOfMonth() - 1)).value(partial));
+
+        history.captureYesterday();
+        String snapshot = snapshotFor(yesterday);
+        history.captureYesterday();
+        assertThat(snapshotFor(yesterday)).isEqualTo(snapshot);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM margin_daily_snapshot WHERE report_date = ?", Integer.class, yesterday))
+                .isEqualTo(6);
+    }
+
+    private String snapshotFor(LocalDate date) {
+        return jdbc.queryForObject("""
+                SELECT totals_json FROM margin_daily_snapshot
+                WHERE report_date = ? AND period_type = 'MONTH' AND invoice_scope = 'ALL'
+                """, String.class, date);
     }
 
     @Test

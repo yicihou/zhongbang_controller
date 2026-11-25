@@ -71,6 +71,7 @@ export const paths = {
   stockAdjust: '/api/admin/stock-adjust',
   pendingInstalls: '/api/admin/technicians/pending-installs',
   margin: '/api/admin/reports/margin',
+  marginHistory: '/api/admin/reports/margin/history',
   marginProducts: '/api/admin/reports/margin/products',
   marginExport: '/api/admin/reports/margin/export',
   marginInsights: '/api/admin/reports/margin/insights',

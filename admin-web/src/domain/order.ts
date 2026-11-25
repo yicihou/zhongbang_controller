@@ -483,6 +483,7 @@ export function confirmOffline(
   payment.voucherUrls = (req.voucherUrls ?? []).map((item) => item.trim()).filter(Boolean)
   payment.remark = remark || undefined
   payment.paidAt = paidAt
+  payment.registeredAt = now
   payment.operatorId = operator.id
   payment.operatorName = operator.name
   payment.updatedAt = now

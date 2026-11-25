@@ -54,10 +54,10 @@ public class MarginInsightService {
         this.objectMapper = objectMapper;
     }
 
-    public ReportVo.Insight analyze(String periodType, String periodKey, String scope) {
+    public ReportVo.Insight analyze(String periodType, String periodKey, String scope, String compareType, String compareKey) {
         StaffRoles.requireBoss("只有老板可以生成毛利解读");
-        ReportVo.Report report = reportService.report(periodType, periodKey, scope);
-        ReportVo.Products products = reportService.products(periodType, periodKey, scope);
+        ReportVo.Report report = reportService.report(periodType, periodKey, scope, compareType, compareKey);
+        ReportVo.Products products = reportService.products(periodType, periodKey, scope, compareType, compareKey);
         if (!properties.getDeepseek().configured()) {
             return new ReportVo.Insight(false, false, MISSING_KEY, null);
         }
@@ -107,7 +107,7 @@ public class MarginInsightService {
         body.put("周期", report.periodType() + " " + report.periodKey());
         body.put("口径", report.scope());
         body.put("本期", numbers(report.current()));
-        body.put("上期", numbers(report.previous()));
+        body.put("对比期", numbers(report.previous()));
         if (report.yearAgo() != null) {
             body.put("去年同期", numbers(report.yearAgo()));
         }
@@ -131,6 +131,8 @@ public class MarginInsightService {
     private static Map<String, Object> numbers(ReportVo.Totals totals) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("期间", totals.periodKey());
+        map.put("起始日期", totals.from());
+        map.put("截止日期", totals.through());
         map.put("销售额分", totals.salesAmount());
         map.put("含税销售额分", totals.salesTaxIncluded());
         map.put("不含税销售额分", totals.salesTaxExcluded());

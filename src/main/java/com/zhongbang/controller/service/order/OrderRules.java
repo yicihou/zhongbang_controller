@@ -297,7 +297,8 @@ public final class OrderRules {
         payment.setPaidAt(LocalDateTime.parse(paidAt, DateTimes.FMT));
         payment.setOperatorId(operatorId);
         payment.setOperatorName(operatorName);
-        payment.setUpdatedAt(DateTimes.now());
+        payment.setRegisteredAt(LocalDateTime.parse(now, DateTimes.FMT));
+        payment.setUpdatedAt(payment.getRegisteredAt());
         syncStatus(bundle);
         return payment;
     }

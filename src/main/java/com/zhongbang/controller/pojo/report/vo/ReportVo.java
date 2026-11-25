@@ -1,6 +1,7 @@
 package com.zhongbang.controller.pojo.report.vo;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 销售毛利报表。只给老板。
@@ -12,7 +13,17 @@ public final class ReportVo {
     private ReportVo() {
     }
 
-    public record Report(String periodType, String periodKey, String scope, Totals current, Totals previous, Totals yearAgo) {
+    public record Report(String periodType, String periodKey, String scope, Totals current, Totals previous,
+                         Totals yearAgo, String comparePeriodType, Map<String, Number> differences) {
+    }
+
+    public record History(List<TrendPoint> months, List<TrendPoint> days, TrendValues monthlyAverage) {
+    }
+
+    public record TrendPoint(String date, TrendValues actual, TrendValues average) {
+    }
+
+    public record TrendValues(Long salesAmount, Long receivedAmount, Long unpaidAmount, Long grossProfit) {
     }
 
     public record Totals(
@@ -34,8 +45,17 @@ public final class ReportVo {
             long installTaxExcluded,
             long repairIncome,
             long repairTaxIncluded,
-            long repairTaxExcluded
+            long repairTaxExcluded,
+            String from,
+            String through,
+            boolean available
     ) {
+        public Totals withAvailability() {
+            return new Totals(periodKey, salesAmount, salesTaxIncluded, salesTaxExcluded, receivedAmount,
+                    receivedTaxIncluded, receivedTaxExcluded, unpaidAmount, goodsCost, grossProfit, grossMargin,
+                    unknownSalesAmount, unknownLineCount, installIncome, installTaxIncluded, installTaxExcluded,
+                    repairIncome, repairTaxIncluded, repairTaxExcluded, from, through, true);
+        }
     }
 
     public record Products(String periodType, String periodKey, String scope, int periodDays, List<SkuRow> list) {

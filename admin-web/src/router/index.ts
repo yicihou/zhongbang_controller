@@ -43,7 +43,7 @@ export const router = createRouter({
         { path: 'purchases', name: 'purchases', component: PurchaseView, meta: { title: '采购入库' } },
         { path: 'stock-alerts', name: 'stock-alerts', component: StockAlertView, meta: { title: '库存预警' } },
         { path: 'stock-logs', name: 'stock-logs', component: StockLogView, meta: { title: '库存流水' } },
-        { path: 'margin', name: 'margin', component: MarginView, meta: { title: '销售毛利', boss: true } },
+        { path: 'margin', name: 'margin', component: MarginView, meta: { title: '经营分析', boss: true } },
         { path: 'imports', name: 'imports', component: ImportView, meta: { title: '数据导入', boss: true } },
         { path: 'orders', name: 'orders', component: OrderListView, meta: { title: '订单' } },
         { path: 'orders/:id', name: 'order-detail', component: OrderDetailView, meta: { title: '订单详情' } },

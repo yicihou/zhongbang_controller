@@ -1,8 +1,9 @@
 /**
  * Mock 的进销存接口。规则和后端同一套：非老板看不到进价、应付和毛利。
  */
-import type { AdminOrder, AdminProduct, PageResult } from '@/api/types'
-import { formatDateTime, todayShanghai } from '@/domain/clock'
+import type { AdminOrder, AdminProduct, PageResult, Payment } from '@/api/types'
+import type { MarginPeriod, MarginTotals, MarginTrendPoint, MarginTrendValues } from '@/api/margin'
+import { addDays, formatDateTime, todayShanghai } from '@/domain/clock'
 import { ApiError } from '@/domain/errors'
 import { paginate } from '@/domain/page'
 import {
@@ -134,32 +135,90 @@ function alerts() {
   }
 }
 
-function monthKey(text: string): string {
-  return text.slice(0, 7)
+interface ReportRange {
+  key: string
+  from: string
+  through: string
 }
 
-function report(period: string, key: string, scope: InvoiceScope) {
-  const currentKey = key || (period === 'YEAR' ? '2026' : '2026-11')
-  const previousKey = period === 'YEAR' ? String(Number(currentKey) - 1) : shiftMonth(currentKey, -1)
-  const yearAgoKey = period === 'YEAR' ? '' : shiftMonth(currentKey, -12)
+function report(period: MarginPeriod, key: string, scope: InvoiceScope, comparePeriod?: string, compareKey?: string) {
+  let selected = reportRange(period, key)
+  const kind = compareKey ? periodOf(comparePeriod ?? period) : period
+  const previousKey = compareKey || (period === 'YEAR' ? String(Number(selected.key) - 1) : shiftMonth(selected.key, -1))
+  const previous = reportRange(kind, previousKey)
+  const sameType = period === kind
+  const aligned = sameType ? alignRange(period, selected, previous) : previous
+  if (sameType && aligned.through === todayShanghai()) selected = alignRange(period, aligned, selected)
+  const currentTotals = totals(selected, scope)
+  const prevTotals = totals(aligned, scope)
+  const differences: Record<string, number> = {}
+  if (sameType && currentTotals.available && prevTotals.available) {
+    for (const [field, value] of Object.entries(currentTotals)) {
+      if (field === 'unknownLineCount') continue
+      const previousValue = prevTotals[field as keyof MarginTotals]
+      if (typeof value === 'number' && typeof previousValue === 'number') differences[field] = value - previousValue
+    }
+    if (currentTotals.grossMargin != null && prevTotals.grossMargin != null) {
+      differences.grossMargin = Number((Number(currentTotals.grossMargin) - Number(prevTotals.grossMargin)).toFixed(2))
+    }
+  }
   return {
     periodType: period,
-    periodKey: currentKey,
+    periodKey: selected.key,
+    comparePeriodType: kind,
     scope,
-    current: totals(period, currentKey, scope),
-    previous: totals(period, previousKey, scope),
-    yearAgo: yearAgoKey ? totals(period, yearAgoKey, scope) : undefined,
+    current: currentTotals,
+    previous: prevTotals,
+    differences,
+    yearAgo: period === 'MONTH' ? totals(alignRange(period, selected, reportRange(period, shiftMonth(selected.key, -12))), scope) : undefined,
   }
 }
 
-function shiftMonth(key: string, delta: number): string {
-  const [yearText, monthText] = key.split('-')
-  const date = new Date(Number(yearText), Number(monthText) - 1 + delta, 1)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+function periodOf(value?: string): MarginPeriod {
+  return value === 'YEAR' ? 'YEAR' : 'MONTH'
 }
 
-function totals(period: string, key: string, scope: InvoiceScope) {
-  const orders = db.orders.filter((order) => order.status !== 'CANCELLED' && inPeriod(order.createdAt, period, key) && matchScope(scope, !!order.invoiced))
+function shiftMonth(key: string, delta: number): string {
+  const [year, month] = key.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1 + delta, 1)).toISOString().slice(0, 7)
+}
+
+function reportRange(period: MarginPeriod, key: string): ReportRange {
+  const today = todayShanghai()
+  const selected = key || today.slice(0, period === 'YEAR' ? 4 : 7)
+  const from = period === 'YEAR' ? selected + '-01-01' : selected + '-01'
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || from > today) throw new ApiError(1001, '请选择有效的报表期间')
+  const end = period === 'YEAR' ? String(Number(selected) + 1) + '-01-01' : shiftMonth(selected, 1) + '-01'
+  const last = addDays(end, -1)
+  return { key: selected, from, through: last < today ? last : today }
+}
+
+function alignRange(period: MarginPeriod, current: ReportRange, previous: ReportRange): ReportRange {
+  const last = period === 'YEAR' ? current.key + '-12-31' : addDays(shiftMonth(current.key, 1) + '-01', -1)
+  if (current.through === last && current.through !== todayShanghai()) return previous
+  const month = period === 'YEAR' ? previous.key + current.through.slice(4, 7) : previous.key
+  const monthEnd = addDays(shiftMonth(month, 1) + '-01', -1)
+  const sameDay = month + current.through.slice(7)
+  const through = sameDay > monthEnd ? monthEnd : sameDay
+  return { ...previous, through: through < previous.through ? through : previous.through }
+}
+
+function inRange(createdAt: string, updatedAt: string, status: string, range: ReportRange) {
+  const date = createdAt.slice(0, 10)
+  return date >= range.from && date <= range.through
+    && (status !== 'CANCELLED' || updatedAt.slice(0, 10) > range.through)
+}
+
+function paidThrough(payments: Payment[], through: string) {
+  const now = formatDateTime()
+  return payments.reduce((total, row) => row.status === 'SUCCESS' && row.paidAt && row.paidAt <= now
+    && row.paidAt.slice(0, 10) <= through ? total + row.amount : total, 0)
+}
+
+function totals(range: ReportRange, scope: InvoiceScope) {
+  const activeOrders = db.orders.filter((row) => inRange(row.createdAt, row.updatedAt, row.status, range))
+  const activeRepairs = db.repairs.filter((row) => inRange(row.createdAt, row.updatedAt, row.status, range))
+  const orders = activeOrders.filter((order) => matchScope(scope, !!order.invoiced))
   let sales = 0
   let salesIn = 0
   let salesEx = 0
@@ -176,11 +235,12 @@ function totals(period: string, key: string, scope: InvoiceScope) {
   let installIn = 0
   let installEx = 0
   for (const order of orders) {
-    const paidParts = splitTax(order.paidAmount, !!order.invoiced, order.taxIncluded, order.taxRate)
-    received += order.paidAmount
+    const paid = paidThrough(order.payments, range.through)
+    const paidParts = splitTax(paid, !!order.invoiced, order.taxIncluded, order.taxRate)
+    received += paid
     receivedIn += paidParts.included
     receivedEx += paidParts.excluded
-    unpaid += Math.max(0, order.payableAmount - order.paidAmount)
+    unpaid += Math.max(0, order.payableAmount - paid)
     const installParts = splitTax(order.installAmount, !!order.invoiced, order.taxIncluded, order.taxRate)
     install += order.installAmount
     installIn += installParts.included
@@ -203,9 +263,9 @@ function totals(period: string, key: string, scope: InvoiceScope) {
   let repair = 0
   let repairIn = 0
   let repairEx = 0
-  for (const ticket of db.repairs) {
-    if (ticket.status === 'CANCELLED' || !inPeriod(ticket.createdAt, period, key) || !matchScope(scope, !!ticket.invoiced)) continue
-    const paid = ticket.paidAmount ?? 0
+  for (const ticket of activeRepairs) {
+    if (!matchScope(scope, !!ticket.invoiced)) continue
+    const paid = paidThrough(ticket.payments, range.through)
     const parts = splitTax(paid, !!ticket.invoiced, ticket.taxIncluded, ticket.taxRate)
     repair += paid
     repairIn += parts.included
@@ -213,7 +273,10 @@ function totals(period: string, key: string, scope: InvoiceScope) {
   }
   const profit = known ? knownNet - cost : undefined
   return {
-    periodKey: key,
+    periodKey: range.key,
+    from: range.from,
+    through: range.through,
+    available: range.through === todayShanghai() || activeOrders.length > 0 || activeRepairs.length > 0,
     salesAmount: sales,
     salesTaxIncluded: salesIn,
     salesTaxExcluded: salesEx,
@@ -235,9 +298,56 @@ function totals(period: string, key: string, scope: InvoiceScope) {
   }
 }
 
-function inPeriod(createdAt: string, period: string, key: string): boolean {
-  if (period === 'YEAR') return createdAt.startsWith(key)
-  return monthKey(createdAt) === key
+function trendValues(row: MarginTotals): MarginTrendValues {
+  return { salesAmount: row.salesAmount, receivedAmount: row.receivedAmount, unpaidAmount: row.unpaidAmount, grossProfit: row.grossProfit ?? null }
+}
+
+function average(rows: MarginTrendValues[]): MarginTrendValues | null {
+  if (!rows.length) return null
+  const mean = (key: keyof MarginTrendValues) => {
+    const values = rows.flatMap((row) => row[key] == null ? [] : [row[key]])
+    return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null
+  }
+  return { salesAmount: mean('salesAmount'), receivedAmount: mean('receivedAmount'), unpaidAmount: mean('unpaidAmount'), grossProfit: mean('grossProfit') }
+}
+
+function history(query: Record<string, string>) {
+  const today = todayShanghai()
+  const from = query.from || today.slice(0, 4) + '-01-01'
+  const through = query.through || today
+  const scope = scopeOf(query.scope)
+  if (from > through || through > today) throw new ApiError(1001, '请选择有效的日期范围')
+  const selected = reportRange('MONTH', query.month ?? '')
+  const baseline: ReportRange[] = []
+  const months: MarginTrendPoint[] = []
+  const observations: MarginTrendValues[] = []
+  for (let key = from.slice(0, 7); key <= through.slice(0, 7); key = shiftMonth(key, 1)) {
+    const whole = reportRange('MONTH', key)
+    const start = whole.from < from ? from : whole.from
+    const end = whole.through > through ? through : whole.through
+    const row = totals({ key, from: start, through: end }, scope)
+    const actual = row.available ? trendValues(row) : null
+    months.push({ date: key, actual })
+    if (actual && start === whole.from && end === whole.through && end < today) {
+      observations.push(actual)
+      if (key !== selected.key) baseline.push(whole)
+    }
+  }
+
+  const days: MarginTrendPoint[] = []
+  const available = totals(selected, scope).available
+  for (let date = selected.from; date <= selected.through; date = addDays(date, 1)) {
+    const samples = baseline.flatMap((range) => {
+      const aligned = range.key + date.slice(7)
+      return aligned <= range.through ? [trendValues(totals({ ...range, through: aligned }, scope))] : []
+    })
+    days.push({
+      date,
+      actual: available ? trendValues(totals({ ...selected, through: date }, scope)) : null,
+      average: average(samples),
+    })
+  }
+  return { months, days, monthlyAverage: average(observations) }
 }
 
 function matchScope(scope: InvoiceScope, invoiced: boolean): boolean {
@@ -438,20 +548,30 @@ export function dispatchTrade(method: string, path: string, query: Record<string
 
   if (path === '/api/admin/reports/margin' && method === 'GET') {
     requireBoss(boss, '只有老板可以查看销售毛利')
-    return report(query.period === 'YEAR' ? 'YEAR' : 'MONTH', query.key ?? '', scopeOf(query.scope))
+    return report(periodOf(query.period), query.key ?? '', scopeOf(query.scope), query.comparePeriod, query.compareKey)
+  }
+  if (path === '/api/admin/reports/margin/history' && method === 'GET') {
+    requireBoss(boss, '只有老板可以查看经营分析')
+    return history(query)
   }
   if (path === '/api/admin/reports/margin/products' && method === 'GET') {
     requireBoss(boss, '只有老板可以查看销售毛利')
-    const data = report(query.period === 'YEAR' ? 'YEAR' : 'MONTH', query.key ?? '', scopeOf(query.scope))
+    const period = periodOf(query.period)
+    const scope = scopeOf(query.scope)
+    const selected = report(period, query.key ?? '', scope, query.comparePeriod, query.compareKey).current
+    const range = { key: selected.periodKey, from: selected.from, through: selected.through }
+    const days = Math.round((Date.parse(range.through) - Date.parse(range.from)) / 86400000) + 1
+    const orders = db.orders.filter((row) => inRange(row.createdAt, row.updatedAt, row.status, range) && matchScope(scope, !!row.invoiced))
     const list = db.products.flatMap((product) => product.skus.map((sku) => {
-      const sold = db.orders.flatMap((order) => order.items.filter((item) => item.skuId === sku.id && order.status !== 'CANCELLED'))
+      const sold = orders.flatMap((order) => order.items.filter((item) => item.skuId === sku.id).map((item) => ({ ...item, net: splitTax(item.lineAmount, !!order.invoiced, order.taxIncluded, order.taxRate).excluded })))
       const quantity = sold.reduce((sum, item) => sum + item.quantity, 0)
       const salesAmount = sold.reduce((sum, item) => sum + item.lineAmount, 0)
-      const turnover = turnoverDays(sku.stock, quantity, 30)
+      const turnover = turnoverDays(sku.stock, quantity, days)
       const flags = saleFlags(sku.stock, quantity, turnover, db.finance.hotTurnoverDays, db.finance.slowTurnoverDays)
       const known = sold.filter((item) => item.costKnown && item.costAmount != null)
       const costAmount = known.length ? known.reduce((sum, item) => sum + (item.costAmount ?? 0), 0) : undefined
-      const grossProfit = costAmount == null ? undefined : salesAmount - costAmount
+      const knownNet = known.reduce((sum, item) => sum + item.net, 0)
+      const grossProfit = costAmount == null ? undefined : knownNet - costAmount
       return {
         skuId: sku.id,
         productId: product.id,
@@ -460,10 +580,10 @@ export function dispatchTrade(method: string, path: string, query: Record<string
         skuName: sku.title,
         quantity,
         salesAmount,
-        salesTaxExcluded: salesAmount,
+        salesTaxExcluded: sold.reduce((sum, item) => sum + item.net, 0),
         costAmount,
         grossProfit,
-        grossMargin: grossProfit == null ? undefined : marginText(grossProfit, salesAmount),
+        grossMargin: grossProfit == null ? undefined : marginText(grossProfit, knownNet),
         unknownLineCount: sold.length - known.length,
         stock: sku.stock,
         turnoverDays: turnover,
@@ -472,11 +592,11 @@ export function dispatchTrade(method: string, path: string, query: Record<string
         suggestQty: suggestQty(sku.minStock ?? db.finance.defaultMinStock, db.finance.suggestMultiplier, sku.stock, inTransit(sku.id)),
       }
     }))
-    return { periodType: data.periodType, periodKey: data.periodKey, scope: data.scope, periodDays: 30, list }
+    return { periodType: period, periodKey: range.key, scope, periodDays: days, list }
   }
   if (path === '/api/admin/reports/margin/export' && method === 'GET') {
     requireBoss(boss, '只有老板可以导出毛利')
-    const data = report('MONTH', query.key ?? '2026-11', scopeOf(query.scope))
+    const data = report(periodOf(query.period), query.key ?? '', scopeOf(query.scope), query.comparePeriod, query.compareKey)
     return { text: `销售额,${data.current.salesAmount}\n毛利,${data.current.grossProfit ?? '未知成本'}\n`, filename: '毛利报表.csv' }
   }
   if (path === '/api/admin/reports/margin/insights' && method === 'POST') {

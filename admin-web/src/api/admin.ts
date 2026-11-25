@@ -39,6 +39,7 @@ import type { CustomerListItem, LevelRule } from '@/domain/customer'
 import { API_BASE, USE_MOCK } from '@/config'
 import { ApiError } from '@/domain/errors'
 import { paths } from './paths'
+import type { MarginHistory, MarginProduct, MarginQuery, MarginReport, MarginScope } from './margin'
 import { readToken, request, requestForm } from './http'
 
 export function staffLogin(username: string, password: string): Promise<StaffLoginResponse> {
@@ -378,15 +379,19 @@ export function listPendingInstalls() {
   return request<PendingInstall[]>('GET', paths.pendingInstalls)
 }
 
-export function marginReport(query: { period?: string; key?: string; scope?: string }) {
-  return request<Record<string, unknown>>('GET', paths.margin, { query })
+export function marginReport(query: MarginQuery) {
+  return request<MarginReport>('GET', paths.margin, { query })
 }
 
-export function marginProducts(query: { period?: string; key?: string; scope?: string }) {
-  return request<{ list: Record<string, unknown>[] }>('GET', paths.marginProducts, { query })
+export function marginProducts(query: MarginQuery) {
+  return request<{ list: MarginProduct[] }>('GET', paths.marginProducts, { query })
 }
 
-export function askMarginInsight(body: { period?: string; key?: string; scope?: string }) {
+export function marginTrend(query: { month: string; from?: string; through?: string; scope: MarginScope }) {
+  return request<MarginHistory>('GET', paths.marginHistory, { query })
+}
+
+export function askMarginInsight(body: MarginQuery) {
   return request<{ configured: boolean; saved: boolean; message: string; analysis?: { resultText: string } | null }>('POST', paths.marginInsights, { body })
 }
 
@@ -424,7 +429,7 @@ export async function downloadImportTemplate(kind: string): Promise<void> {
   await saveRemote(`${paths.importsTemplate}?kind=${kind}&format=csv`, `导入模板-${kind}.csv`)
 }
 
-export async function downloadMargin(query: { period?: string; key?: string; scope?: string }): Promise<void> {
+export async function downloadMargin(query: MarginQuery): Promise<void> {
   if (USE_MOCK) {
     const data = await request<{ text: string; filename: string }>('GET', paths.marginExport, { query })
     saveText(data.text, data.filename)

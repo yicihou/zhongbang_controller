@@ -144,7 +144,8 @@ public final class RepairRules {
         payment.setPaidAt(LocalDateTime.parse(paidAt, DateTimes.FMT));
         payment.setOperatorId(operatorId);
         payment.setOperatorName(operatorName);
-        payment.setUpdatedAt(DateTimes.now());
+        payment.setRegisteredAt(LocalDateTime.parse(now, DateTimes.FMT));
+        payment.setUpdatedAt(payment.getRegisteredAt());
         sync(bundle);
         return payment;
     }

@@ -25,6 +25,7 @@ public class PaymentBill {
     private String transactionId;
     private String prepayId;
     private LocalDateTime paidAt;
+    private LocalDateTime registeredAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String bizType;
@@ -61,6 +62,8 @@ public class PaymentBill {
     public void setPrepayId(String prepayId) { this.prepayId = prepayId; }
     public LocalDateTime getPaidAt() { return paidAt; }
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
+    public LocalDateTime getRegisteredAt() { return registeredAt; }
+    public void setRegisteredAt(LocalDateTime registeredAt) { this.registeredAt = registeredAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

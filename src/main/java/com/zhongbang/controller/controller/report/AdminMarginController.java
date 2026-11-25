@@ -2,6 +2,7 @@ package com.zhongbang.controller.controller.report;
 
 import com.zhongbang.controller.common.api.ApiResponse;
 import com.zhongbang.controller.pojo.report.vo.ReportVo;
+import com.zhongbang.controller.service.report.MarginHistoryService;
 import com.zhongbang.controller.service.report.MarginInsightService;
 import com.zhongbang.controller.service.report.MarginReportService;
 import org.springframework.http.ContentDisposition;
@@ -32,37 +33,46 @@ public class AdminMarginController {
 
     private final MarginReportService marginReportService;
     private final MarginInsightService marginInsightService;
+    private final MarginHistoryService marginHistoryService;
 
-    public AdminMarginController(MarginReportService marginReportService, MarginInsightService marginInsightService) {
+    public AdminMarginController(MarginReportService marginReportService, MarginInsightService marginInsightService,
+                                 MarginHistoryService marginHistoryService) {
         this.marginReportService = marginReportService;
         this.marginInsightService = marginInsightService;
+        this.marginHistoryService = marginHistoryService;
     }
 
     @GetMapping
     public ApiResponse<ReportVo.Report> report(
             @RequestParam(defaultValue = "MONTH") String period,
             @RequestParam(required = false) String key,
-            @RequestParam(defaultValue = "ALL") String scope
+            @RequestParam(defaultValue = "ALL") String scope,
+            @RequestParam(required = false) String comparePeriod,
+            @RequestParam(required = false) String compareKey
     ) {
-        return ApiResponse.ok(marginReportService.report(period, key, scope));
+        return ApiResponse.ok(marginReportService.report(period, key, scope, comparePeriod, compareKey));
     }
 
     @GetMapping("/products")
     public ApiResponse<ReportVo.Products> products(
             @RequestParam(defaultValue = "MONTH") String period,
             @RequestParam(required = false) String key,
-            @RequestParam(defaultValue = "ALL") String scope
+            @RequestParam(defaultValue = "ALL") String scope,
+            @RequestParam(required = false) String comparePeriod,
+            @RequestParam(required = false) String compareKey
     ) {
-        return ApiResponse.ok(marginReportService.products(period, key, scope));
+        return ApiResponse.ok(marginReportService.products(period, key, scope, comparePeriod, compareKey));
     }
 
     @GetMapping("/export")
     public ResponseEntity<byte[]> export(
             @RequestParam(defaultValue = "MONTH") String period,
             @RequestParam(required = false) String key,
-            @RequestParam(defaultValue = "ALL") String scope
+            @RequestParam(defaultValue = "ALL") String scope,
+            @RequestParam(required = false) String comparePeriod,
+            @RequestParam(required = false) String compareKey
     ) {
-        byte[] body = marginReportService.export(period, key, scope);
+        byte[] body = marginReportService.export(period, key, scope, comparePeriod, compareKey);
         String filename = "毛利报表.xlsx";
         ContentDisposition disposition = ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
         return ResponseEntity.ok()
@@ -71,10 +81,21 @@ public class AdminMarginController {
                 .body(body);
     }
 
+    @GetMapping("/history")
+    public ApiResponse<ReportVo.History> reportHistory(
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String through,
+            @RequestParam(defaultValue = "ALL") String scope
+    ) {
+        return ApiResponse.ok(marginHistoryService.history(month, from, through, scope));
+    }
+
     @PostMapping("/insights")
     public ApiResponse<ReportVo.Insight> insight(@RequestBody(required = false) Map<String, String> body) {
         Map<String, String> query = body == null ? Map.of() : body;
-        return ApiResponse.ok(marginInsightService.analyze(query.get("period"), query.get("key"), query.get("scope")));
+        return ApiResponse.ok(marginInsightService.analyze(query.get("period"), query.get("key"), query.get("scope"),
+                query.get("comparePeriod"), query.get("compareKey")));
     }
 
     @GetMapping("/insights")

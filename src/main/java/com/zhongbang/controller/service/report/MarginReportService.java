@@ -3,13 +3,16 @@ package com.zhongbang.controller.service.report;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zhongbang.controller.common.exception.BusinessException;
 import com.zhongbang.controller.common.exception.ErrorCode;
+import com.zhongbang.controller.common.util.DateTimes;
 import com.zhongbang.controller.mapper.order.OrderLineMapper;
 import com.zhongbang.controller.mapper.order.SalesOrderMapper;
+import com.zhongbang.controller.mapper.payment.PaymentBillMapper;
 import com.zhongbang.controller.mapper.product.ProductMapper;
 import com.zhongbang.controller.mapper.product.ProductSkuMapper;
 import com.zhongbang.controller.mapper.repair.RepairTicketMapper;
 import com.zhongbang.controller.pojo.order.entity.OrderLine;
 import com.zhongbang.controller.pojo.order.entity.SalesOrder;
+import com.zhongbang.controller.pojo.payment.entity.PaymentBill;
 import com.zhongbang.controller.pojo.product.entity.Product;
 import com.zhongbang.controller.pojo.product.entity.ProductSku;
 import com.zhongbang.controller.pojo.repair.entity.RepairTicket;
@@ -21,19 +24,25 @@ import com.zhongbang.controller.service.stock.StockAlertService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.time.ZoneId;
+import java.time.DateTimeException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 销售毛利月报和年报。数字都在这里算，不交给大模型。
@@ -43,59 +52,109 @@ import java.util.Map;
 @Service
 public class MarginReportService {
 
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
-
     private final SalesOrderMapper salesOrderMapper;
     private final OrderLineMapper orderLineMapper;
     private final RepairTicketMapper repairTicketMapper;
+    private final PaymentBillMapper paymentBillMapper;
     private final ProductMapper productMapper;
     private final ProductSkuMapper productSkuMapper;
     private final CostPriceService costPriceService;
     private final StockAlertService stockAlertService;
+    private final JdbcTemplate jdbc;
 
     public MarginReportService(
             SalesOrderMapper salesOrderMapper,
             OrderLineMapper orderLineMapper,
             RepairTicketMapper repairTicketMapper,
+            PaymentBillMapper paymentBillMapper,
             ProductMapper productMapper,
             ProductSkuMapper productSkuMapper,
             CostPriceService costPriceService,
-            StockAlertService stockAlertService
+            StockAlertService stockAlertService,
+            JdbcTemplate jdbc
     ) {
         this.salesOrderMapper = salesOrderMapper;
         this.orderLineMapper = orderLineMapper;
         this.repairTicketMapper = repairTicketMapper;
+        this.paymentBillMapper = paymentBillMapper;
         this.productMapper = productMapper;
         this.productSkuMapper = productSkuMapper;
         this.costPriceService = costPriceService;
         this.stockAlertService = stockAlertService;
+        this.jdbc = jdbc;
     }
 
-    public ReportVo.Report report(String periodType, String periodKey, String scope) {
+    @Transactional(readOnly = true)
+    public ReportVo.Report report(String periodType, String periodKey, String scope, String compareType, String compareKey) {
         StaffRoles.requireBoss("只有老板可以查看销售毛利");
-        Period period = period(periodType, periodKey);
+        LocalDateTime now = DateTimes.now();
+        LocalDate today = now.toLocalDate();
+        ReportPeriods periods = reportPeriods(periodType, periodKey, compareType, compareKey, today);
+        Period period = periods.current();
+        Period previous = periods.comparison();
+        Period yearAgo = "MONTH".equals(period.type()) ? shifted(period, 12, today) : null;
         String invoiceScope = scope(scope);
-        ReportVo.Totals current = totals(period, invoiceScope);
-        ReportVo.Totals previous = totals(period.previous(), invoiceScope);
-        ReportVo.Totals yearAgo = period.yearAgo() == null ? null : totals(period.yearAgo(), invoiceScope);
-        return new ReportVo.Report(period.type(), period.key(), invoiceScope, current, previous, yearAgo);
+        ReportVo.Totals currentTotals = totalsFor(period, invoiceScope, now);
+        ReportVo.Totals previousTotals = totalsFor(previous, invoiceScope, now);
+        ReportVo.Totals yearAgoTotals = yearAgo == null ? null : totalsFor(yearAgo, invoiceScope, now);
+        Map<String, Number> differences = period.type().equals(previous.type())
+                && currentTotals.available() && previousTotals.available()
+                ? differences(currentTotals, previousTotals) : Map.of();
+        return new ReportVo.Report(period.type(), period.key(), invoiceScope, currentTotals, previousTotals,
+                yearAgoTotals, previous.type(), differences);
     }
 
-    public ReportVo.Products products(String periodType, String periodKey, String scope) {
+    private ReportVo.Totals totalsFor(Period period, String scope, LocalDateTime now) {
+        ReportVo.Totals totals = totals(loadData(period.start(), period.end()), period, scope, now, false);
+        if (totals.available()) {
+            return totals;
+        }
+        Integer observed = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM margin_daily_snapshot
+                WHERE period_type = 'MONTH' AND invoice_scope = 'ALL' AND report_date >= ? AND report_date < ?
+                """, Integer.class, period.start().toLocalDate(), period.end().toLocalDate());
+        return observed != null && observed == period.days() ? totals.withAvailability() : totals;
+    }
+
+    private static Map<String, Number> differences(ReportVo.Totals current, ReportVo.Totals previous) {
+        Map<String, Number> values = new HashMap<>();
+        values.put("salesAmount", current.salesAmount() - previous.salesAmount());
+        values.put("receivedAmount", current.receivedAmount() - previous.receivedAmount());
+        values.put("unpaidAmount", current.unpaidAmount() - previous.unpaidAmount());
+        values.put("salesTaxIncluded", current.salesTaxIncluded() - previous.salesTaxIncluded());
+        values.put("salesTaxExcluded", current.salesTaxExcluded() - previous.salesTaxExcluded());
+        values.put("unknownSalesAmount", current.unknownSalesAmount() - previous.unknownSalesAmount());
+        values.put("installIncome", current.installIncome() - previous.installIncome());
+        values.put("repairIncome", current.repairIncome() - previous.repairIncome());
+        if (current.goodsCost() != null && previous.goodsCost() != null) {
+            values.put("goodsCost", current.goodsCost() - previous.goodsCost());
+        }
+        if (current.grossProfit() != null && previous.grossProfit() != null) {
+            values.put("grossProfit", current.grossProfit() - previous.grossProfit());
+        }
+        if (current.grossMargin() != null && previous.grossMargin() != null) {
+            values.put("grossMargin", new BigDecimal(current.grossMargin()).subtract(new BigDecimal(previous.grossMargin())));
+        }
+        return values;
+    }
+
+    @Transactional(readOnly = true)
+    public ReportVo.Products products(String periodType, String periodKey, String scope, String compareType, String compareKey) {
         StaffRoles.requireBoss("只有老板可以查看销售毛利");
-        Period period = period(periodType, periodKey);
+        Period period = reportPeriods(periodType, periodKey, compareType, compareKey, DateTimes.now().toLocalDate()).current();
         String invoiceScope = scope(scope);
         return new ReportVo.Products(period.type(), period.key(), invoiceScope, (int) period.days(), skuRows(period, invoiceScope));
     }
 
-    public byte[] export(String periodType, String periodKey, String scope) {
-        ReportVo.Report report = report(periodType, periodKey, scope);
-        ReportVo.Products products = products(periodType, periodKey, scope);
+    @Transactional(readOnly = true)
+    public byte[] export(String periodType, String periodKey, String scope, String compareType, String compareKey) {
+        ReportVo.Report report = report(periodType, periodKey, scope, compareType, compareKey);
+        ReportVo.Products products = products(periodType, periodKey, scope, compareType, compareKey);
         try (XSSFWorkbook book = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet summary = book.createSheet("汇总");
             int row = 0;
-            row = writeTotals(summary, row, "本期 " + report.current().periodKey(), report.current());
-            row = writeTotals(summary, row + 1, "对比 " + report.previous().periodKey(), report.previous());
+            row = writeTotals(summary, row, "本期 " + report.current().from() + " 至 " + report.current().through(), report.current());
+            row = writeTotals(summary, row + 1, "对比 " + report.previous().from() + " 至 " + report.previous().through(), report.previous());
             if (report.yearAgo() != null) {
                 writeTotals(summary, row + 1, "去年同期 " + report.yearAgo().periodKey(), report.yearAgo());
             }
@@ -158,13 +217,17 @@ public class MarginReportService {
         return cursor;
     }
 
-    private ReportVo.Totals totals(Period period, String scope) {
-        List<SalesOrder> orders = orders(period, scope);
-        Map<Long, SalesOrder> byId = new HashMap<>();
-        for (SalesOrder order : orders) {
-            byId.put(order.getId(), order);
-        }
-        List<OrderLine> lines = linesOf(byId.keySet());
+    ReportVo.Totals totals(ReportData data, Period period, String scope, LocalDateTime now, boolean original) {
+        LocalDateTime cutoff = period.end().isBefore(now) ? period.end() : now;
+        List<SalesOrder> activeOrders = data.orders().stream()
+                .filter(order -> contains(period, cutoff, order.getCreatedAt()))
+                .filter(order -> wasActive(order.getStatus(), order.getUpdatedAt(), cutoff))
+                .toList();
+        List<RepairTicket> activeRepairs = data.repairs().stream()
+                .filter(ticket -> contains(period, cutoff, ticket.getCreatedAt()))
+                .filter(ticket -> wasActive(ticket.getStatus(), ticket.getUpdatedAt(), cutoff))
+                .toList();
+        List<SalesOrder> orders = activeOrders.stream().filter(order -> matchScope(scope, invoiced(order))).toList();
         long sales = 0;
         long salesIn = 0;
         long salesEx = 0;
@@ -173,20 +236,21 @@ public class MarginReportService {
         long knownNet = 0;
         long cost = 0;
         boolean anyKnown = false;
-        for (OrderLine line : lines) {
-            SalesOrder order = byId.get(line.getOrderId());
-            long amount = line.getLineAmount() == null ? 0L : line.getLineAmount();
-            TradeMath.TaxParts parts = TradeMath.split(amount, invoiced(order), order.getTaxIncluded(), order.getTaxRate());
-            sales += amount;
-            salesIn += parts.included();
-            salesEx += parts.excluded();
-            if (line.getCostKnown() != null && line.getCostKnown() == 1 && line.getCostAmount() != null) {
-                anyKnown = true;
-                knownNet += parts.excluded();
-                cost += line.getCostAmount();
-            } else {
-                unknownSales += amount;
-                unknownLines += 1;
+        for (SalesOrder order : orders) {
+            for (OrderLine line : data.lines().getOrDefault(order.getId(), List.of())) {
+                long amount = line.getLineAmount() == null ? 0L : line.getLineAmount();
+                TradeMath.TaxParts parts = TradeMath.split(amount, invoiced(order), order.getTaxIncluded(), order.getTaxRate());
+                sales += amount;
+                salesIn += parts.included();
+                salesEx += parts.excluded();
+                if (line.getCostKnown() != null && line.getCostKnown() == 1 && line.getCostAmount() != null) {
+                    anyKnown = true;
+                    knownNet += parts.excluded();
+                    cost += line.getCostAmount();
+                } else {
+                    unknownSales += amount;
+                    unknownLines += 1;
+                }
             }
         }
         long received = 0;
@@ -197,7 +261,7 @@ public class MarginReportService {
         long installIn = 0;
         long installEx = 0;
         for (SalesOrder order : orders) {
-            long paid = order.getPaidAmount() == null ? 0L : order.getPaidAmount();
+            long paid = paidBefore(data.orderPayments(), order.getId(), cutoff, original);
             long payable = order.getPayableAmount() == null ? 0L : order.getPayableAmount();
             TradeMath.TaxParts paidParts = TradeMath.split(paid, invoiced(order), order.getTaxIncluded(), order.getTaxRate());
             received += paid;
@@ -213,9 +277,13 @@ public class MarginReportService {
         long repair = 0;
         long repairIn = 0;
         long repairEx = 0;
-        for (RepairTicket ticket : repairs(period, scope)) {
-            long paid = ticket.getPaidAmount() == null ? 0L : ticket.getPaidAmount();
-            TradeMath.TaxParts parts = TradeMath.split(paid, ticket.getInvoiced() != null && ticket.getInvoiced() == 1, ticket.getTaxIncluded(), ticket.getTaxRate());
+        for (RepairTicket ticket : activeRepairs) {
+            boolean invoice = ticket.getInvoiced() != null && ticket.getInvoiced() == 1;
+            if (!matchScope(scope, invoice)) {
+                continue;
+            }
+            long paid = paidBefore(data.repairPayments(), ticket.getId(), cutoff, original);
+            TradeMath.TaxParts parts = TradeMath.split(paid, invoice, ticket.getTaxIncluded(), ticket.getTaxRate());
             repair += paid;
             repairIn += parts.included();
             repairEx += parts.excluded();
@@ -226,12 +294,19 @@ public class MarginReportService {
         return new ReportVo.Totals(
                 period.key(), sales, salesIn, salesEx, received, receivedIn, receivedEx, unpaid,
                 goodsCost, profit, margin, unknownSales, unknownLines,
-                install, installIn, installEx, repair, repairIn, repairEx
+                install, installIn, installEx, repair, repairIn, repairEx,
+                period.start().toLocalDate().toString(), period.end().toLocalDate().minusDays(1).toString(),
+                period.end().isAfter(now) || !activeOrders.isEmpty() || !activeRepairs.isEmpty()
         );
     }
 
     private List<ReportVo.SkuRow> skuRows(Period period, String scope) {
-        List<SalesOrder> orders = orders(period, scope);
+        LocalDateTime now = DateTimes.now();
+        LocalDateTime cutoff = period.end().isBefore(now) ? period.end() : now;
+        List<SalesOrder> orders = orders(period.start(), cutoff).stream()
+                .filter(order -> wasActive(order.getStatus(), order.getUpdatedAt(), cutoff))
+                .filter(order -> matchScope(scope, invoiced(order)))
+                .toList();
         Map<Long, SalesOrder> byId = new HashMap<>();
         for (SalesOrder order : orders) {
             byId.put(order.getId(), order);
@@ -303,27 +378,69 @@ public class MarginReportService {
         return rows;
     }
 
-    private List<SalesOrder> orders(Period period, String scope) {
-        List<SalesOrder> orders = salesOrderMapper.selectList(new LambdaQueryWrapper<SalesOrder>()
-                .ge(SalesOrder::getCreatedAt, period.start())
-                .lt(SalesOrder::getCreatedAt, period.end())
-                .ne(SalesOrder::getStatus, "CANCELLED"));
-        return orders.stream().filter(order -> matchScope(scope, invoiced(order))).toList();
-    }
-
-    private List<RepairTicket> repairs(Period period, String scope) {
+    ReportData loadData(LocalDateTime start, LocalDateTime end) {
+        List<SalesOrder> orders = orders(start, end);
         List<RepairTicket> tickets = repairTicketMapper.selectList(new LambdaQueryWrapper<RepairTicket>()
-                .ge(RepairTicket::getCreatedAt, period.start())
-                .lt(RepairTicket::getCreatedAt, period.end())
-                .ne(RepairTicket::getStatus, "CANCELLED"));
-        return tickets.stream().filter(ticket -> matchScope(scope, ticket.getInvoiced() != null && ticket.getInvoiced() == 1)).toList();
+                .ge(RepairTicket::getCreatedAt, start).lt(RepairTicket::getCreatedAt, end));
+        List<Long> orderIds = orders.stream().map(SalesOrder::getId).toList();
+        List<Long> repairIds = tickets.stream().map(RepairTicket::getId).toList();
+        return new ReportData(orders, tickets, group(linesOf(orderIds), OrderLine::getOrderId),
+                group(payments("ORDER", orderIds, end), MarginReportService::paymentOwner),
+                group(payments("REPAIR", repairIds, end), MarginReportService::paymentOwner));
     }
 
-    private List<OrderLine> linesOf(java.util.Collection<Long> orderIds) {
-        if (orderIds.isEmpty()) {
-            return List.of();
+    private List<SalesOrder> orders(LocalDateTime start, LocalDateTime end) {
+        return salesOrderMapper.selectList(new LambdaQueryWrapper<SalesOrder>()
+                .ge(SalesOrder::getCreatedAt, start).lt(SalesOrder::getCreatedAt, end));
+    }
+
+    private List<OrderLine> linesOf(java.util.Collection<Long> ids) {
+        return inBatches(ids, batch -> orderLineMapper.selectList(new LambdaQueryWrapper<OrderLine>()
+                .in(OrderLine::getOrderId, batch)));
+    }
+
+    private List<PaymentBill> payments(String biz, List<Long> ids, LocalDateTime end) {
+        return inBatches(ids, batch -> paymentBillMapper.selectList(new LambdaQueryWrapper<PaymentBill>()
+                .eq(PaymentBill::getBizType, biz).eq(PaymentBill::getStatus, "SUCCESS")
+                .lt(PaymentBill::getPaidAt, end)
+                .and(owner -> owner.in(PaymentBill::getBizId, batch)
+                        .or(legacy -> legacy.isNull(PaymentBill::getBizId).in(PaymentBill::getOrderId, batch)))));
+    }
+
+    private static <T> List<T> inBatches(java.util.Collection<Long> ids, Function<List<Long>, List<T>> query) {
+        List<Long> list = List.copyOf(ids);
+        List<T> result = new ArrayList<>();
+        for (int from = 0; from < list.size(); from += 500) {
+            result.addAll(query.apply(list.subList(from, Math.min(from + 500, list.size()))));
         }
-        return orderLineMapper.selectList(new LambdaQueryWrapper<OrderLine>().in(OrderLine::getOrderId, orderIds));
+        return result;
+    }
+
+    private static <T> Map<Long, List<T>> group(List<T> rows, Function<T, Long> key) {
+        return rows.stream().collect(Collectors.groupingBy(key));
+    }
+
+    private static Long paymentOwner(PaymentBill row) {
+        return row.getBizId() == null ? row.getOrderId() : row.getBizId();
+    }
+
+    private static long paidBefore(Map<Long, List<PaymentBill>> byOwner, Long id, LocalDateTime cutoff, boolean original) {
+        return byOwner.getOrDefault(id, List.of()).stream()
+                .filter(row -> row.getPaidAt().isBefore(cutoff))
+                .filter(row -> !original || row.getRegisteredAt() == null || row.getRegisteredAt().isBefore(cutoff))
+                .map(PaymentBill::getAmount).filter(Objects::nonNull).mapToLong(Long::longValue).sum();
+    }
+
+    private static boolean contains(Period period, LocalDateTime cutoff, LocalDateTime createdAt) {
+        return !createdAt.isBefore(period.start()) && createdAt.isBefore(cutoff);
+    }
+
+    private static boolean wasActive(String status, LocalDateTime updatedAt, LocalDateTime cutoff) {
+        return !"CANCELLED".equals(status) || updatedAt != null && !updatedAt.isBefore(cutoff);
+    }
+
+    record ReportData(List<SalesOrder> orders, List<RepairTicket> repairs, Map<Long, List<OrderLine>> lines,
+                      Map<Long, List<PaymentBill>> orderPayments, Map<Long, List<PaymentBill>> repairPayments) {
     }
 
     private static boolean invoiced(SalesOrder order) {
@@ -351,39 +468,78 @@ public class MarginReportService {
         throw new BusinessException(ErrorCode.BAD_REQUEST, "口径只能是全部、开票或不开发票");
     }
 
-    public static Period period(String periodType, String periodKey) {
-        String type = periodType == null || periodType.isBlank() ? "MONTH" : periodType.trim().toUpperCase();
-        LocalDate today = LocalDate.now(SHANGHAI);
-        if ("YEAR".equals(type)) {
-            int year = periodKey == null || periodKey.isBlank() ? today.getYear() : parseYear(periodKey.trim());
-            LocalDateTime start = LocalDate.of(year, 1, 1).atStartOfDay();
-            return new Period("YEAR", Integer.toString(year), start, start.plusYears(1),
-                    new Period("YEAR", Integer.toString(year - 1), start.minusYears(1), start, null, null));
+    static Period period(String periodType, String periodKey, LocalDate today) {
+        String type = periodType == null || periodType.isBlank() ? "MONTH" : periodType.trim().toUpperCase(java.util.Locale.ROOT);
+        String key = periodKey == null ? "" : periodKey.trim();
+        try {
+            LocalDate start = switch (type) {
+                case "MONTH" -> (key.isEmpty() ? YearMonth.from(today) : YearMonth.parse(key)).atDay(1);
+                case "YEAR" -> LocalDate.of(key.isEmpty() ? today.getYear() : java.time.Year.parse(key).getValue(), 1, 1);
+                default -> throw new BusinessException(ErrorCode.BAD_REQUEST, "周期只能是月或年");
+            };
+            if (start.isAfter(today) || start.getYear() < 1) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "请选择有效的报表期间");
+            }
+            LocalDate end = min(naturalEnd(type, start), today.plusDays(1));
+            return range(type, start, end);
+        } catch (DateTimeException ex) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "请选择有效的报表期间");
         }
-        if (!"MONTH".equals(type)) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "周期只能是月或年");
-        }
-        YearMonth month = periodKey == null || periodKey.isBlank() ? YearMonth.from(today) : parseMonth(periodKey.trim());
-        LocalDateTime start = month.atDay(1).atStartOfDay();
-        YearMonth prev = month.minusMonths(1);
-        YearMonth ago = month.minusYears(1);
-        return new Period("MONTH", month.toString(), start, start.plusMonths(1),
-                new Period("MONTH", prev.toString(), prev.atDay(1).atStartOfDay(), prev.plusMonths(1).atDay(1).atStartOfDay(), null, null),
-                new Period("MONTH", ago.toString(), ago.atDay(1).atStartOfDay(), ago.plusMonths(1).atDay(1).atStartOfDay(), null, null));
     }
 
-    private static int parseYear(String key) {
-        if (!key.matches("\\d{4}")) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "年份请写成 2026");
-        }
-        return Integer.parseInt(key);
+    static Period range(String type, LocalDate start, LocalDate end) {
+        String key = "YEAR".equals(type) ? Integer.toString(start.getYear()) : YearMonth.from(start).toString();
+        return new Period(type, key, start.atStartOfDay(), end.atStartOfDay());
     }
 
-    private static YearMonth parseMonth(String key) {
-        if (!key.matches("\\d{4}-\\d{2}")) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "月份请写成 2026-11");
+    private static ReportPeriods reportPeriods(String type, String key, String compareType, String compareKey, LocalDate today) {
+        Period current = period(type, key, today);
+        Period previous = comparison(current, compareType, compareKey, today);
+        if (current.type().equals(previous.type()) && previous.end().toLocalDate().equals(today.plusDays(1))) {
+            current = align(previous, current, today);
         }
-        return YearMonth.parse(key);
+        return new ReportPeriods(current, previous);
+    }
+
+    private record ReportPeriods(Period current, Period comparison) {
+    }
+
+    private static Period comparison(Period period, String compareType, String compareKey, LocalDate today) {
+        if (compareKey == null || compareKey.isBlank()) {
+            return shifted(period, "YEAR".equals(period.type()) ? 12 : 1, today);
+        }
+        Period candidate = period(compareType == null ? period.type() : compareType, compareKey, today);
+        return align(period, candidate, today);
+    }
+
+    private static Period shifted(Period period, int months, LocalDate today) {
+        LocalDate start = period.start().toLocalDate().minusMonths(months);
+        return align(period, range(period.type(), start, naturalEnd(period.type(), start)), today);
+    }
+
+    private static Period align(Period period, Period candidate, LocalDate today) {
+        LocalDate start = candidate.start().toLocalDate();
+        LocalDate end = min(candidate.end().toLocalDate(), today.plusDays(1));
+        if (period.type().equals(candidate.type())) {
+            LocalDate currentStart = period.start().toLocalDate();
+            LocalDate currentEnd = period.end().toLocalDate();
+            if (currentEnd.equals(today.plusDays(1)) || currentEnd.isBefore(naturalEnd(period.type(), currentStart))) {
+                LocalDate through = currentEnd.minusDays(1);
+                LocalDate aligned = "YEAR".equals(period.type())
+                        ? through.withYear(start.getYear())
+                        : start.withDayOfMonth(Math.min(through.getDayOfMonth(), start.lengthOfMonth()));
+                end = min(end, aligned.plusDays(1));
+            }
+        }
+        return range(candidate.type(), start, end);
+    }
+
+    private static LocalDate naturalEnd(String type, LocalDate start) {
+        return "YEAR".equals(type) ? start.plusYears(1) : start.plusMonths(1);
+    }
+
+    static LocalDate min(LocalDate first, LocalDate second) {
+        return first.isBefore(second) ? first : second;
     }
 
     private static String yuan(long fen) {
@@ -396,11 +552,7 @@ public class MarginReportService {
         return value == null ? "" : value;
     }
 
-    public record Period(String type, String key, LocalDateTime start, LocalDateTime end, Period previous, Period yearAgo) {
-        Period(String type, String key, LocalDateTime start, LocalDateTime end, Period previous) {
-            this(type, key, start, end, previous, null);
-        }
-
+    public record Period(String type, String key, LocalDateTime start, LocalDateTime end) {
         long days() {
             return Math.max(1, ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()));
         }

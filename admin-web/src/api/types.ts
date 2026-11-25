@@ -125,6 +125,7 @@ export interface Payment {
   /** 线下收款方式，channel=OFFLINE 且已收时有值 */
   offlineMethod?: OfflinePayMethod
   paidAt?: string
+  registeredAt?: string
   operatorId?: number
   operatorName?: string
   remark?: string
