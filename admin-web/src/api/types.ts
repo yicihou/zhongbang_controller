@@ -56,6 +56,7 @@ export type StreamEventType =
   | 'REPAY_SOON'
   | 'REPAY_TODAY'
   | 'REPAY_OVERDUE'
+  | 'STOCK_LOW'
 
 export interface Shipment {
   id: number
@@ -101,6 +102,10 @@ export interface OrderItem {
   shipment?: Shipment
   /** 展示用工单号，来源于 work_order.work_no */
   workOrderNo?: string
+  /** 只有老板能看到。未知成本时不出现。 */
+  costPrice?: number
+  costAmount?: number
+  costKnown?: boolean
 }
 
 export interface Payment {
@@ -166,6 +171,12 @@ export interface AdminOrder {
   items: OrderItem[]
   payments: Payment[]
   priceLogs: PriceLog[]
+  invoiced?: boolean
+  invoiceType?: string
+  taxRate?: number
+  taxIncluded?: boolean
+  goodsCost?: number
+  grossProfit?: number
 }
 
 export interface RepairLine {
@@ -203,6 +214,10 @@ export interface RepairTicket {
   payableAmount?: number
   paidAmount?: number
   inWarranty?: boolean
+  invoiced?: boolean
+  invoiceType?: string
+  taxRate?: number
+  taxIncluded?: boolean
   createdAt: string
   updatedAt: string
   lines: RepairLine[]
@@ -213,7 +228,7 @@ export interface AdminNotice {
   id: number
   title: string
   body: string
-  bizType: 'ORDER' | 'REPAIR' | 'PAYMENT' | 'CUSTOMER'
+  bizType: 'ORDER' | 'REPAIR' | 'PAYMENT' | 'CUSTOMER' | 'STOCK'
   bizId: number
   eventType: StreamEventType
   readFlag: boolean
@@ -285,6 +300,9 @@ export interface AdminProductSku {
   title: string
   price: number
   stock: number
+  /** 进价。非老板的接口里没有这个字段。 */
+  costPrice?: number
+  minStock?: number
 }
 
 export interface AdminProduct {

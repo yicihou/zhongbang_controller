@@ -77,7 +77,11 @@ public final class ProductVo {
     ) {
     }
 
-    public record AdminSku(Long id, String title, long price, int stock) {
+    /**
+     * costPrice 只有老板能看到。其他角色这个字段是空的，响应里不会出现。
+     * minStock 为空表示用全店默认最低库存。
+     */
+    public record AdminSku(Long id, String title, long price, int stock, Long costPrice, Integer minStock) {
     }
 
     public record Category(int id, String name, long count) {

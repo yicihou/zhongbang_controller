@@ -49,6 +49,7 @@ import {
 } from '@/domain/staff'
 import { dispatchCustomer } from './customers'
 import { db } from './db'
+import { dispatchTrade, presentOrders, presentProduct } from './trade'
 
 export interface MockResult {
   status: number
@@ -143,7 +144,7 @@ function login(body: unknown): StaffLoginResponse {
   }
 }
 
-function listOrders(query: Record<string, string>) {
+function listOrders(query: Record<string, string>, boss: boolean) {
   const status = query.status?.trim()
   const keyword = query.keyword?.trim().toLowerCase()
   const filtered = db.orders.filter((order) => {
@@ -153,7 +154,8 @@ function listOrders(query: Record<string, string>) {
       field.toLowerCase().includes(keyword),
     )
   })
-  return paginate(filtered, num(query.page, 1), num(query.size, 20))
+  const page = paginate(filtered, num(query.page, 1), num(query.size, 20))
+  return { ...page, list: presentOrders(page.list, boss) }
 }
 
 function listRepairs(query: Record<string, string>) {
@@ -442,8 +444,9 @@ function dispatch(method: string, path: string, query: Record<string, string>, b
   if (method === 'POST' && path === '/api/auth/staff/login') return login(body)
 
   const operator = requireStaff(token)
+  const boss = isBossRole(decodeJwtPayload(token)?.role)
   const productHit = handleProduct(method, path, query, body)
-  if (productHit !== undefined) return productHit
+  if (productHit !== undefined) return hideProductCost(productHit, boss)
   const now = formatDateTime()
   const customerHit = dispatchCustomer(method, path, query, body, {
     name: operator.name,
@@ -451,7 +454,9 @@ function dispatch(method: string, path: string, query: Record<string, string>, b
   })
   if (customerHit !== undefined) return customerHit
 
-  if (method === 'GET' && path === '/api/admin/orders') return listOrders(query)
+  if (method === 'GET' && path === '/api/admin/orders') return listOrders(query, boss)
+  const tradeHit = dispatchTrade(method, path, query, body, boss)
+  if (tradeHit !== undefined) return tradeHit
   if (method === 'GET' && path === '/api/admin/repairs') return listRepairs(query)
   if (method === 'GET' && path === '/api/admin/notices') return listNotices(query, token)
   if (method === 'GET' && path === '/api/admin/receivables') return listReceivables(query)
@@ -473,7 +478,7 @@ function dispatch(method: string, path: string, query: Record<string, string>, b
     const orderId = Number(orderMatch[1])
     const action = orderMatch[2]
     const order = findOrder(orderId)
-    if (!action && method === 'GET') return order
+    if (!action && method === 'GET') return presentOrders([order], boss)[0]
     if (action === 'adjust-price' && method === 'POST') {
       const next = adjustPrice(order, body as AdjustPriceRequest, operator.name, now, ids())
       saveOrder(orderId, next)
@@ -569,6 +574,16 @@ function dispatch(method: string, path: string, query: Record<string, string>, b
   }
 
   throw new ApiError(4040, '接口不存在')
+}
+
+function hideProductCost(value: unknown, boss: boolean): unknown {
+  if (!value || typeof value !== 'object') return value
+  const record = value as { list?: AdminProduct[]; skus?: AdminProduct['skus'] }
+  if (Array.isArray(record.list)) {
+    return { ...record, list: record.list.map((item) => presentProduct(item, boss)) }
+  }
+  if (Array.isArray(record.skus)) return presentProduct(value as AdminProduct, boss)
+  return value
 }
 
 export function handle(

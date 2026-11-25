@@ -34,7 +34,9 @@ import com.zhongbang.controller.pojo.workorder.entity.WorkOrder;
 import com.zhongbang.controller.security.LoginUser;
 import com.zhongbang.controller.security.UserContext;
 import com.zhongbang.controller.security.UserType;
+import com.zhongbang.controller.service.cost.CostPriceService;
 import com.zhongbang.controller.service.notice.NoticeService;
+import com.zhongbang.controller.service.stock.StockAlertService;
 import com.zhongbang.controller.service.technician.TechnicianRules;
 import com.zhongbang.controller.support.idempotency.IdempotencyService;
 import org.springframework.stereotype.Service;
@@ -79,6 +81,8 @@ public class OrderService {
     private final NoticeService noticeService;
     private final IdempotencyService idempotencyService;
     private final IdentifierGenerator idGenerator;
+    private final CostPriceService costPriceService;
+    private final StockAlertService stockAlertService;
 
     public OrderService(
             SalesOrderMapper salesOrderMapper,
@@ -94,7 +98,9 @@ public class OrderService {
             WorkOrderMapper workOrderMapper,
             NoticeService noticeService,
             IdempotencyService idempotencyService,
-            IdentifierGenerator idGenerator
+            IdentifierGenerator idGenerator,
+            CostPriceService costPriceService,
+            StockAlertService stockAlertService
     ) {
         this.salesOrderMapper = salesOrderMapper;
         this.orderLineMapper = orderLineMapper;
@@ -110,6 +116,8 @@ public class OrderService {
         this.noticeService = noticeService;
         this.idempotencyService = idempotencyService;
         this.idGenerator = idGenerator;
+        this.costPriceService = costPriceService;
+        this.stockAlertService = stockAlertService;
     }
 
     /**
@@ -285,6 +293,7 @@ public class OrderService {
         }
         OrderBundle bundle = load(id);
         OrderRules.addShipment(bundle, request, this::nextId);
+        costPriceService.fillOnShip(bundle);
         save(bundle);
         return OrderAssembler.admin(bundle);
     }
@@ -446,6 +455,7 @@ public class OrderService {
         if (productSkuMapper.deductStock(sku.getId(), quantity) != 1) {
             throw new BusinessException(ErrorCode.STOCK_INSUFFICIENT, "库存不足");
         }
+        stockAlertService.evaluate(sku.getId());
         OrderLine item = new OrderLine();
         item.setId(nextId());
         item.setOrderId(order.getId());
@@ -470,6 +480,7 @@ public class OrderService {
         } else {
             item.setInstallFee(0L);
         }
+        costPriceService.snapshot(item, sku);
         return item;
     }
 
@@ -494,6 +505,7 @@ public class OrderService {
         OrderRules.cancel(bundle, reason);
         for (OrderLine line : bundle.getItems()) {
             productSkuMapper.restoreStock(line.getSkuId(), line.getQuantity() == null ? 0 : line.getQuantity());
+            stockAlertService.evaluate(line.getSkuId());
         }
         save(bundle);
         return OrderAssembler.mine(bundle);

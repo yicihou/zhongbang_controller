@@ -8,6 +8,9 @@ import com.zhongbang.controller.pojo.order.entity.SalesOrder;
 import com.zhongbang.controller.pojo.order.entity.Shipment;
 import com.zhongbang.controller.pojo.order.vo.OrderVo;
 import com.zhongbang.controller.pojo.payment.entity.PaymentBill;
+import com.zhongbang.controller.security.StaffRoles;
+import com.zhongbang.controller.security.UserContext;
+import com.zhongbang.controller.service.cost.TradeMath;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +26,26 @@ public final class OrderAssembler {
 
     public static OrderVo.Admin admin(OrderBundle bundle) {
         SalesOrder order = bundle.getOrder();
+        boolean boss = StaffRoles.isBoss(UserContext.currentOrNull());
+        Long goodsCost = null;
+        Long grossProfit = null;
+        if (boss) {
+            long cost = 0;
+            long knownNet = 0;
+            boolean any = false;
+            for (OrderLine line : bundle.getItems()) {
+                if (line.getCostKnown() != null && line.getCostKnown() == 1 && line.getCostAmount() != null) {
+                    any = true;
+                    cost += line.getCostAmount();
+                    knownNet += TradeMath.split(nz(line.getLineAmount()), order.getInvoiced() != null && order.getInvoiced() == 1,
+                            order.getTaxIncluded(), order.getTaxRate()).excluded();
+                }
+            }
+            if (any) {
+                goodsCost = cost;
+                grossProfit = knownNet - cost;
+            }
+        }
         return new OrderVo.Admin(
                 order.getId(),
                 order.getOrderNo(),
@@ -43,9 +66,15 @@ public final class OrderAssembler {
                 order.getAddressText(),
                 DateTimes.format(order.getCreatedAt()),
                 DateTimes.format(order.getUpdatedAt()),
-                bundle.getItems().stream().map(OrderAssembler::item).toList(),
+                bundle.getItems().stream().map(line -> item(line, boss)).toList(),
                 bundle.getPayments().stream().map(OrderAssembler::payment).toList(),
-                bundle.getPriceLogs().stream().map(OrderAssembler::log).toList()
+                bundle.getPriceLogs().stream().map(OrderAssembler::log).toList(),
+                order.getInvoiced() != null && order.getInvoiced() == 1,
+                order.getInvoiceType(),
+                order.getTaxRate(),
+                order.getTaxIncluded() == null ? null : order.getTaxIncluded() == 1,
+                goodsCost,
+                grossProfit
         );
     }
 
@@ -152,7 +181,8 @@ public final class OrderAssembler {
         };
     }
 
-    private static OrderVo.Item item(OrderLine line) {
+    private static OrderVo.Item item(OrderLine line, boolean boss) {
+        boolean known = line.getCostKnown() != null && line.getCostKnown() == 1;
         return new OrderVo.Item(
                 line.getId(),
                 line.getOrderId(),
@@ -172,7 +202,10 @@ public final class OrderAssembler {
                 line.getAddressSnapshotJson(),
                 line.getShipmentId(),
                 shipment(line.getShipment()),
-                line.getWorkOrderNo()
+                line.getWorkOrderNo(),
+                boss && known ? line.getCostPrice() : null,
+                boss && known ? line.getCostAmount() : null,
+                boss ? known : null
         );
     }
 

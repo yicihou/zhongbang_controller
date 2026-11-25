@@ -35,7 +35,13 @@ public final class OrderVo {
             String updatedAt,
             List<Item> items,
             List<Payment> payments,
-            List<PriceLog> priceLogs
+            List<PriceLog> priceLogs,
+            boolean invoiced,
+            String invoiceType,
+            Integer taxRate,
+            Boolean taxIncluded,
+            Long goodsCost,
+            Long grossProfit
     ) {
     }
 
@@ -58,7 +64,10 @@ public final class OrderVo {
             String addressSnapshotJson,
             Long shipmentId,
             Shipment shipment,
-            String workOrderNo
+            String workOrderNo,
+            Long costPrice,
+            Long costAmount,
+            Boolean costKnown
     ) {
     }
 

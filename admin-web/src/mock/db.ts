@@ -15,6 +15,7 @@ import type {
 } from '@/api/types'
 import type { LoginAccount } from '@/domain/staff'
 import { buildCustomerBundle, type CustomerBundle } from '@/domain/customer'
+import { buildTradeBundle, type FinanceSetting, type InsightRow, type LedgerRow, type PurchaseRow, type SupplierRow } from './tradeSeed'
 
 export type StaffAccount = LoginAccount
 
@@ -37,6 +38,11 @@ export interface Database {
   preferences: CustomerBundle['preferences']
   levelRules: CustomerBundle['levelRules']
   analyses: CustomerBundle['analyses']
+  suppliers: SupplierRow[]
+  ledgers: LedgerRow[]
+  purchases: PurchaseRow[]
+  finance: FinanceSetting
+  insights: InsightRow[]
 }
 
 function payment(partial: Payment): Payment {
@@ -747,7 +753,29 @@ export function createSeed(): Database {
   const customers = buildCustomerBundle()
   orders.push(...customers.extraOrders)
   repairs.push(...customers.extraRepairs)
-
+  const products: AdminProduct[] = [
+    {
+      id: 101,
+      name: '电脑平缝机 A5',
+      brand: '标准牌',
+      category: '工业平缝',
+      categoryId: 2,
+      model: 'A5-5000',
+      subtitle: '直驱 · 自动剪线',
+      coverImage: '',
+      tags: '含上门安装,现货',
+      status: 'ON',
+      price: 328000,
+      stock: 12,
+      createdAt: '2026-11-24 09:00:00',
+      updatedAt: '2026-11-24 09:00:00',
+      skus: [
+        { id: 1011, title: '标准台板 + 伺服电机', price: 328000, stock: 8 },
+        { id: 1012, title: '加厚台板 + 伺服电机', price: 336000, stock: 4 },
+      ],
+    },
+  ]
+  const trade = buildTradeBundle(products, orders, repairs)
   return {
     seq: 100000,
     dailySeq: 30,
@@ -770,28 +798,12 @@ export function createSeed(): Database {
     preferences: customers.preferences,
     levelRules: customers.levelRules,
     analyses: customers.analyses,
-    products: [
-      {
-        id: 101,
-        name: '电脑平缝机 A5',
-        brand: '标准牌',
-        category: '工业平缝',
-        categoryId: 2,
-        model: 'A5-5000',
-        subtitle: '直驱 · 自动剪线',
-        coverImage: '',
-        tags: '含上门安装,现货',
-        status: 'ON',
-        price: 328000,
-        stock: 12,
-        createdAt: '2026-11-24 09:00:00',
-        updatedAt: '2026-11-24 09:00:00',
-        skus: [
-          { id: 1011, title: '标准台板 + 伺服电机', price: 328000, stock: 8 },
-          { id: 1012, title: '加厚台板 + 伺服电机', price: 336000, stock: 4 },
-        ],
-      },
-    ],
+    products,
+    suppliers: trade.suppliers,
+    ledgers: trade.ledgers,
+    purchases: trade.purchases,
+    finance: trade.setting,
+    insights: trade.insights,
   }
 }
 

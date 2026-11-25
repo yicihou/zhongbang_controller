@@ -22,6 +22,10 @@ public class OrderLine {
     private Integer quantity;
     private Long unitPrice;
     private Long lineAmount;
+    /** 下单或发货时抄下的进价。空并且 costKnown=0 表示未知成本。 */
+    private Long costPrice;
+    private Integer costKnown;
+    private Long costAmount;
     private String deliveryMethod;
     private Long installFee;
     private String installDate;
@@ -53,6 +57,12 @@ public class OrderLine {
     public void setUnitPrice(Long unitPrice) { this.unitPrice = unitPrice; }
     public Long getLineAmount() { return lineAmount; }
     public void setLineAmount(Long lineAmount) { this.lineAmount = lineAmount; }
+    public Long getCostPrice() { return costPrice; }
+    public void setCostPrice(Long costPrice) { this.costPrice = costPrice; }
+    public Integer getCostKnown() { return costKnown; }
+    public void setCostKnown(Integer costKnown) { this.costKnown = costKnown; }
+    public Long getCostAmount() { return costAmount; }
+    public void setCostAmount(Long costAmount) { this.costAmount = costAmount; }
     public String getDeliveryMethod() { return deliveryMethod; }
     public void setDeliveryMethod(String deliveryMethod) { this.deliveryMethod = deliveryMethod; }
     public Long getInstallFee() { return installFee; }

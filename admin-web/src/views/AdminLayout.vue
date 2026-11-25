@@ -14,6 +14,26 @@
           <el-icon><Goods /></el-icon>
           <span>商品</span>
         </el-menu-item>
+        <el-menu-item index="/suppliers">
+          <el-icon><Van /></el-icon>
+          <span>供应商</span>
+        </el-menu-item>
+        <el-menu-item index="/purchases">
+          <el-icon><Box /></el-icon>
+          <span>采购入库</span>
+        </el-menu-item>
+        <el-menu-item index="/stock-alerts">
+          <el-icon><Warning /></el-icon>
+          <span>库存预警</span>
+        </el-menu-item>
+        <el-menu-item v-if="session.isBoss" index="/margin">
+          <el-icon><TrendCharts /></el-icon>
+          <span>销售毛利</span>
+        </el-menu-item>
+        <el-menu-item v-if="session.isBoss" index="/imports">
+          <el-icon><Upload /></el-icon>
+          <span>数据导入</span>
+        </el-menu-item>
         <el-menu-item index="/orders">
           <el-icon><List /></el-icon>
           <span>订单</span>
@@ -98,7 +118,7 @@
  */
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Avatar, Bell, Calendar, Goods, List, Odometer, Tools, User, Wallet } from '@element-plus/icons-vue'
+import { Avatar, Bell, Box, Calendar, Goods, List, Odometer, Tools, TrendCharts, Upload, User, Van, Wallet, Warning } from '@element-plus/icons-vue'
 import { USE_MOCK } from '@/config'
 import { useAdminStream } from '@/composables/useAdminStream'
 import type { AdminNotice } from '@/api/types'
@@ -115,6 +135,11 @@ const mockMode = USE_MOCK
 const mockLabel = USE_MOCK ? '数据：Mock' : '数据：真实 API'
 const active = computed(() => {
   if (route.path.startsWith('/products')) return '/products'
+  if (route.path.startsWith('/suppliers')) return '/suppliers'
+  if (route.path.startsWith('/purchases')) return '/purchases'
+  if (route.path.startsWith('/stock-alerts')) return '/stock-alerts'
+  if (route.path.startsWith('/margin')) return '/margin'
+  if (route.path.startsWith('/imports')) return '/imports'
   if (route.path.startsWith('/orders')) return '/orders'
   if (route.path.startsWith('/repairs')) return '/repairs'
   if (route.path.startsWith('/customers/reminders')) return '/customers/reminders'
@@ -141,6 +166,7 @@ function openNotice(item: AdminNotice) {
   if (item.bizType === 'ORDER') void router.push(`/orders/${item.bizId}`)
   else if (item.bizType === 'REPAIR') void router.push(`/repairs/${item.bizId}`)
   else if (item.bizType === 'CUSTOMER' && session.isBoss) void router.push(`/customers/${item.bizId}`)
+  else if (item.bizType === 'STOCK') void router.push('/stock-alerts')
 }
 
 function logout() {

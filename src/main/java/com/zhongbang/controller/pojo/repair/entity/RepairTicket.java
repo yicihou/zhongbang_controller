@@ -28,6 +28,11 @@ public class RepairTicket {
     private Long payableAmount;
     private Long paidAmount;
     private Integer inWarranty;
+    /** 0 不开票，1 开票。和订单用同一套税率：1300 表示 13%。 */
+    private Integer invoiced;
+    private String invoiceType;
+    private Integer taxRate;
+    private Integer taxIncluded;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -59,6 +64,14 @@ public class RepairTicket {
     public void setPaidAmount(Long paidAmount) { this.paidAmount = paidAmount; }
     public Integer getInWarranty() { return inWarranty; }
     public void setInWarranty(Integer inWarranty) { this.inWarranty = inWarranty; }
+    public Integer getInvoiced() { return invoiced; }
+    public void setInvoiced(Integer invoiced) { this.invoiced = invoiced; }
+    public String getInvoiceType() { return invoiceType; }
+    public void setInvoiceType(String invoiceType) { this.invoiceType = invoiceType; }
+    public Integer getTaxRate() { return taxRate; }
+    public void setTaxRate(Integer taxRate) { this.taxRate = taxRate; }
+    public Integer getTaxIncluded() { return taxIncluded; }
+    public void setTaxIncluded(Integer taxIncluded) { this.taxIncluded = taxIncluded; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

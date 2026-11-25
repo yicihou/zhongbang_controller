@@ -35,6 +35,24 @@
         <div><span>应付</span><b class="money">¥{{ formatYuan(order.payableAmount) }}</b></div>
         <div><span>已付</span><b>¥{{ formatYuan(order.paidAmount) }}</b></div>
       </div>
+      <div class="panel invoice-bar">
+        <span>{{ order.invoiced ? '开票' : '不开票' }}</span>
+        <span v-if="order.invoiced" class="muted">{{ order.invoiceType || '未填类型' }} · 税率 {{ ((order.taxRate ?? 0) / 100).toFixed(2) }}%</span>
+        <span v-if="session.isBoss && order.items.some((item) => item.costKnown === false)" class="muted">有未知成本，毛利不把它们当成 0</span>
+        <span v-else-if="session.isBoss && order.grossProfit != null">毛利 ¥{{ formatYuan(order.grossProfit) }}</span>
+        <el-button link type="primary" @click="openInvoice">标记开票</el-button>
+      </div>
+      <el-dialog v-model="invoiceVisible" title="开票" width="420px">
+        <el-form label-width="88px">
+          <el-form-item label="开票"><el-switch v-model="invoiceForm.invoiced" /></el-form-item>
+          <el-form-item v-if="invoiceForm.invoiced" label="类型"><el-input v-model="invoiceForm.invoiceType" /></el-form-item>
+          <el-form-item v-if="invoiceForm.invoiced" label="税率(%)"><el-input-number v-model="invoiceForm.taxPercent" :min="0" :precision="2" /></el-form-item>
+          <el-form-item v-if="invoiceForm.invoiced" label="含税"><el-switch v-model="invoiceForm.taxIncluded" /></el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button type="primary" @click="saveInvoice">保存</el-button>
+        </template>
+      </el-dialog>
 
       <div class="grid">
         <section class="panel">
@@ -334,6 +352,7 @@ import {
   createShipment,
   getOrder,
   listTechnicians,
+  markOrderInvoice,
   setOrderFreight,
   updatePayment,
 } from '@/api/admin'
@@ -353,7 +372,10 @@ import {
   paymentStatusText,
   paymentTypeText,
 } from '@/domain/labels'
+import { useSessionStore } from '@/stores/session'
 import { run } from '@/utils/feedback'
+
+const session = useSessionStore()
 
 const route = useRoute()
 const loading = ref(false)
@@ -432,6 +454,32 @@ function shipmentText(item: OrderItem): string {
 
 function canShip(item: OrderItem): boolean {
   return !!order.value && canShipItem(order.value, item)
+}
+
+const invoiceVisible = ref(false)
+const invoiceForm = reactive({ invoiced: false, invoiceType: '', taxPercent: 13, taxIncluded: true })
+
+function openInvoice() {
+  if (!order.value) return
+  invoiceForm.invoiced = !!order.value.invoiced
+  invoiceForm.invoiceType = order.value.invoiceType || ''
+  invoiceForm.taxPercent = (order.value.taxRate ?? 1300) / 100
+  invoiceForm.taxIncluded = order.value.taxIncluded !== false
+  invoiceVisible.value = true
+}
+
+async function saveInvoice() {
+  if (!order.value) return
+  await run(async () => {
+    await markOrderInvoice(order.value!.id, {
+      invoiced: invoiceForm.invoiced,
+      invoiceType: invoiceForm.invoiceType,
+      taxRate: invoiceForm.invoiced ? Math.round(invoiceForm.taxPercent * 100) : undefined,
+      taxIncluded: invoiceForm.invoiced ? invoiceForm.taxIncluded : undefined,
+    })
+    invoiceVisible.value = false
+    await load()
+  })
 }
 
 async function load() {
