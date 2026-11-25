@@ -57,14 +57,15 @@ VITE_API_BASE=http://127.0.0.1:8080
 | 页面 | 路由 | 决策 / 阶段 | 接口 |
 | --- | --- | --- | --- |
 | 登录 | `/login` | D8；JWT `STAFF` | `POST /api/auth/staff/login`（admin / admin123） |
-| 商品 | `/products` | 上下架、改价、图片地址 | `GET/POST /api/admin/products`，以及 `on-shelf` / `off-shelf` / `price` |
+| 商品 | `/products` | 上下架、改价、图片地址。库存只读，要改走「盘点」 | `GET/POST /api/admin/products`，以及 `on-shelf` / `off-shelf` / `price` / `POST /api/admin/stock-adjust` |
 | 工作台 | `/` | 待付款 / 待发货 / 待派工 / 待报价 | 用订单、报修列表的 `total` 汇总，§4.2 没有单独的汇总接口 |
 | 订单列表 | `/orders` | D2、D7、D8；P1a | `GET /api/admin/orders?status&keyword&page&size` |
 | 实时新订单 | 顶栏 | D8；§5 | `GET /api/admin/stream`（SSE）。连续失败 3 次后，每 30 秒 `GET /api/admin/notices?unread=1` |
 | 订单详情 | `/orders/:id` | D3、D4、D7、D9、D10、D11；P1b | 见下表 |
 | 报修列表 | `/repairs` | D5、D6；P1c | `GET /api/admin/repairs` |
 | 报修详情 | `/repairs/:id` | D5、D6、D9；P1c | 报价、按行派工、线下收维修费 |
-| 师傅排期 | `/technicians` | §2.5 `technician` / `technician_schedule` | `GET /api/admin/technicians`、`GET /api/admin/technicians/schedules?from&to` |
+| 师傅排期 | `/technicians` | §2.5 `technician` / `technician_schedule`。整月月历，点格子或师傅名字直接排单 | `GET /api/admin/technicians`、`GET /api/admin/technicians/schedules?from&to`、`GET /api/admin/technicians/pending-installs`，写用 `POST /api/admin/orders/{id}/assign` |
+| 库存流水 | `/stock-logs` | 期初 + 进货 − 销售 ± 盘点 = 结存 | `GET /api/admin/stock-logs?skuId&bizType&from&to&page&size` |
 | 待收款 | `/receivables` | D9 | `GET /api/admin/receivables` |
 
 订单详情里的写操作：

@@ -49,8 +49,6 @@
         <el-table-column prop="unpaidAmount" label="待付款金额" width="120" sortable="custom">
           <template #default="{ row }">{{ formatYuan(row.unpaidAmount) }}</template>
         </el-table-column>
-        <el-table-column prop="orderCount" label="订单数" width="90" sortable="custom" />
-        <el-table-column prop="lastOrderAt" label="最近下单" width="170" sortable="custom" />
         <el-table-column prop="tags" label="标签" min-width="120" />
       </el-table>
       <div class="pager">
@@ -117,6 +115,11 @@ const loading = ref(false)
 const unpaidOnly = ref(false)
 const visible = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
+/**
+ * 默认按最近下单倒序：老板习惯最新的客户排在最上面。
+ * 这一列不在表格里显示（老板要求去掉订单数和最近下单两列），但排序口径保留，
+ * 所以取消排序时仍然回到 lastOrderAt，而不是悄悄换成别的字段。
+ */
 const query = reactive<CustomerQuery>({ sort: 'lastOrderAt', direction: 'desc' })
 const form = reactive({ name: '', mobile: '', customerType: 'PERSONAL', source: 'PHONE', region: '', shopName: '', tags: '' })
 

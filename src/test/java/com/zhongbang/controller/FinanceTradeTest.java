@@ -39,7 +39,8 @@ class FinanceTradeTest {
         mockMvc.perform(get("/api/admin/reports/margin")).andExpect(status().isUnauthorized());
 
         String admin = login("admin", "admin123");
-        String sales = createSales(admin);
+        // 员工管理只有老板能开，所以开账号这一步用 boss；下面校验权限仍然用 admin 和销售两个令牌。
+        String sales = createSales(login("boss", "boss123"));
         for (String token : new String[]{admin, sales}) {
             mockMvc.perform(get("/api/admin/costs/settings").header("Authorization", "Bearer " + token))
                     .andExpect(status().isForbidden())

@@ -37,6 +37,7 @@ import com.zhongbang.controller.security.UserType;
 import com.zhongbang.controller.service.cost.CostPriceService;
 import com.zhongbang.controller.service.notice.NoticeService;
 import com.zhongbang.controller.service.stock.StockAlertService;
+import com.zhongbang.controller.service.stock.StockLogService;
 import com.zhongbang.controller.service.technician.TechnicianRules;
 import com.zhongbang.controller.support.idempotency.IdempotencyService;
 import org.springframework.stereotype.Service;
@@ -83,6 +84,7 @@ public class OrderService {
     private final IdentifierGenerator idGenerator;
     private final CostPriceService costPriceService;
     private final StockAlertService stockAlertService;
+    private final StockLogService stockLogService;
 
     public OrderService(
             SalesOrderMapper salesOrderMapper,
@@ -100,7 +102,8 @@ public class OrderService {
             IdempotencyService idempotencyService,
             IdentifierGenerator idGenerator,
             CostPriceService costPriceService,
-            StockAlertService stockAlertService
+            StockAlertService stockAlertService,
+            StockLogService stockLogService
     ) {
         this.salesOrderMapper = salesOrderMapper;
         this.orderLineMapper = orderLineMapper;
@@ -118,6 +121,7 @@ public class OrderService {
         this.idGenerator = idGenerator;
         this.costPriceService = costPriceService;
         this.stockAlertService = stockAlertService;
+        this.stockLogService = stockLogService;
     }
 
     /**
@@ -455,6 +459,8 @@ public class OrderService {
         if (productSkuMapper.deductStock(sku.getId(), quantity) != 1) {
             throw new BusinessException(ErrorCode.STOCK_INSUFFICIENT, "库存不足");
         }
+        // 卖出去也算一笔库存变动，流水里记负数。少了这一笔，老板按进货流水对库存会对不上。
+        stockLogService.record(sku.getId(), StockLogService.SALE_OUT, order.getId(), -quantity, sku.getCostPrice());
         stockAlertService.evaluate(sku.getId());
         OrderLine item = new OrderLine();
         item.setId(nextId());
@@ -504,7 +510,10 @@ public class OrderService {
     private OrderVo.Mine cancelAndRestore(OrderBundle bundle, String reason) {
         OrderRules.cancel(bundle, reason);
         for (OrderLine line : bundle.getItems()) {
-            productSkuMapper.restoreStock(line.getSkuId(), line.getQuantity() == null ? 0 : line.getQuantity());
+            int quantity = line.getQuantity() == null ? 0 : line.getQuantity();
+            productSkuMapper.restoreStock(line.getSkuId(), quantity);
+            // 取消把货退回来，流水记正数，和下单时的 SALE_OUT 对冲。
+            stockLogService.record(line.getSkuId(), StockLogService.SALE_CANCEL, bundle.getOrder().getId(), quantity, null);
             stockAlertService.evaluate(line.getSkuId());
         }
         save(bundle);

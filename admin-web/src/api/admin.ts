@@ -27,6 +27,8 @@ import type {
   StaffLoginResponse,
   Technician,
   TechnicianSchedule,
+  PendingInstall,
+  StockLogRow,
   AdminProduct,
   ChangeProductPriceRequest,
   SaveProductRequest,
@@ -355,6 +357,25 @@ export function listStockAlerts() {
 
 export function setMinStock(skuId: number, minStock: number | null) {
   return request('PUT', paths.stockMin(skuId), { body: { minStock } })
+}
+
+/** 库存流水。所有的进出都记在这里，老板按它对库存。 */
+export function listStockLogs(query: { skuId?: number; bizType?: string; from?: string; to?: string; page?: number; size?: number }) {
+  return request<PageResult<StockLogRow>>('GET', paths.stockLogs, { query: query as Record<string, unknown> })
+}
+
+/** 盘点调整：填实际数量，系统算差额记一笔 ADJUST。只有老板能用。 */
+export function adjustStock(body: { skuId: number; actualStock: number; reason?: string }) {
+  return request<{ skuId: number; beforeStock: number; actualStock: number; delta: number; reason: string }>(
+    'POST',
+    paths.stockAdjust,
+    { body },
+  )
+}
+
+/** 还没排师傅的安装行，排期页的排单弹窗用它挑订单。 */
+export function listPendingInstalls() {
+  return request<PendingInstall[]>('GET', paths.pendingInstalls)
 }
 
 export function marginReport(query: { period?: string; key?: string; scope?: string }) {

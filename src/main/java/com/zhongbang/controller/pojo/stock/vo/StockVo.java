@@ -29,4 +29,35 @@ public final class StockVo {
             boolean alerting
     ) {
     }
+
+    /**
+     * 一条库存流水。bizType 见 StockLogService 上的常量：
+     * INIT、PURCHASE_IN、PURCHASE_VOID、SALE_OUT、SALE_CANCEL、ADJUST。
+     * quantity 正数是增加，负数是减少；stockAfter 是这一笔之后的余额。
+     */
+    public record LogRow(
+            Long id,
+            Long skuId,
+            String productName,
+            String model,
+            String skuName,
+            String bizType,
+            Long bizId,
+            int quantity,
+            int stockAfter,
+            Long unitCost,
+            String operatorName,
+            String createdAt
+    ) {
+    }
+
+    /** 盘点调整的结果。beforeStock 和 actualStock 的差就是这一笔流水的数量。 */
+    public record AdjustResult(
+            Long skuId,
+            int beforeStock,
+            int actualStock,
+            int delta,
+            String reason
+    ) {
+    }
 }

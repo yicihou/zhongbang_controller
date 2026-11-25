@@ -58,6 +58,8 @@ export const NAV_ITEMS: NavItem[] = [
     tabs: [
       { path: '/products', routeName: 'products', label: '商品' },
       { path: '/stock-alerts', routeName: 'stock-alerts', label: '库存预警' },
+      // 进货、销售、取消和盘点都记在这一页，老板按它对库存。
+      { path: '/stock-logs', routeName: 'stock-logs', label: '库存流水' },
       // 数据导入一直只有老板能看，路由守卫里也有同样的 boss 标记。
       { path: '/imports', routeName: 'imports', label: '数据导入', bossOnly: true },
     ],

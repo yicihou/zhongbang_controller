@@ -42,8 +42,8 @@ describe('侧栏分组可见性', () => {
   it('组内标签也按角色过滤，数据导入只给老板', () => {
     const bossInventory = take(visibleNavItems(true), 'inventory')
     const adminInventory = take(visibleNavItems(false), 'inventory')
-    expect(bossInventory.tabs.map((tab) => tab.label)).toEqual(['商品', '库存预警', '数据导入'])
-    expect(adminInventory.tabs.map((tab) => tab.label)).toEqual(['商品', '库存预警'])
+    expect(bossInventory.tabs.map((tab) => tab.label)).toEqual(['商品', '库存预警', '库存流水', '数据导入'])
+    expect(adminInventory.tabs.map((tab) => tab.label)).toEqual(['商品', '库存预警', '库存流水'])
     // 侧栏点击进入组内第一个当前角色能看的标签。
     expect(bossInventory.path).toBe('/products')
     expect(adminInventory.path).toBe('/products')
@@ -95,6 +95,7 @@ describe('标签和旧地址的对应关系', () => {
     expect(paths).toEqual([
       '/products',
       '/stock-alerts',
+      '/stock-logs',
       '/imports',
       '/orders',
       '/receivables',

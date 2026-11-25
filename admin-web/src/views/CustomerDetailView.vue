@@ -24,7 +24,7 @@
           <el-form-item label="主营产品"><el-input v-model="detail.profile.mainProducts" /></el-form-item>
           <el-form-item label="来源"><el-input v-model="detail.profile.sourceLabel" disabled /></el-form-item>
           <el-form-item label="介绍人"><el-input v-model="detail.profile.referrer" /></el-form-item>
-          <el-form-item label="生日"><el-input v-model="detail.profile.birthday" placeholder="yyyy-MM-dd" /></el-form-item>
+          <el-form-item label="生日"><el-date-picker v-model="detail.profile.birthday" type="date" value-format="YYYY-MM-DD" placeholder="选择生日" style="width: 200px" /></el-form-item>
           <el-form-item label="地区"><el-input v-model="detail.profile.region" /></el-form-item>
           <el-form-item label="备注"><el-input v-model="detail.profile.remark" type="textarea" /></el-form-item>
           <el-form-item label="标签"><el-input v-model="detail.profile.tags" /></el-form-item>
@@ -54,7 +54,11 @@
           距今 {{ detail.stats.daysSinceLast ?? '—' }} 天。
         </p>
         <h3>买过的机型</h3>
-        <el-table :data="detail.models">
+        <div class="table-tools">
+          <el-input v-model="modelKeyword" placeholder="搜型号或品牌" clearable style="width: 220px" />
+          <span class="hint">共 {{ filteredModels.length }} 条</span>
+        </div>
+        <el-table :data="filteredModels">
           <el-table-column prop="model" label="型号" />
           <el-table-column prop="brand" label="品牌" width="120" />
           <el-table-column prop="times" label="次数" width="80" />
@@ -63,11 +67,17 @@
           <el-table-column prop="lastAt" label="最后购买" width="180" />
         </el-table>
         <h3>过往订单</h3>
-        <el-table :data="detail.orders">
+        <div class="table-tools">
+          <el-input v-model="orderKeyword" placeholder="搜单号或状态" clearable style="width: 220px" />
+          <span class="hint">共 {{ filteredOrders.length }} 条</span>
+        </div>
+        <el-table :data="filteredOrders">
           <el-table-column prop="orderNo" label="订单">
             <template #default="{ row }"><router-link :to="`/orders/${row.id}`">{{ row.orderNo }}</router-link></template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="140" />
+          <el-table-column label="状态" width="140">
+            <template #default="{ row }">{{ orderStatusText(row.status) }}</template>
+          </el-table-column>
           <el-table-column label="应付" width="120"><template #default="{ row }">{{ formatYuan(row.payableAmount) }}</template></el-table-column>
           <el-table-column label="已付" width="120"><template #default="{ row }">{{ formatYuan(row.paidAmount) }}</template></el-table-column>
           <el-table-column prop="createdAt" label="下单时间" width="180" />
@@ -78,7 +88,7 @@
           <el-table-column prop="brand" label="品牌" />
           <el-table-column prop="model" label="型号" />
           <el-table-column prop="sn" label="机身码" />
-          <el-table-column prop="source" label="来源" width="110" />
+          <el-table-column label="来源" width="110"><template #default="{ row }">{{ assetSourceText(row.source) }}</template></el-table-column>
           <el-table-column prop="warrantyEnd" label="保修到期" width="120" />
           <el-table-column label="已过保" width="90"><template #default="{ row }">{{ row.warrantyExpired ? '是' : '否' }}</template></el-table-column>
           <el-table-column prop="repairCount" label="报修次数" width="100" />
@@ -88,7 +98,7 @@
           <el-table-column prop="ticketNo" label="单号">
             <template #default="{ row }"><router-link :to="`/repairs/${row.id}`">{{ row.ticketNo }}</router-link></template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" />
+          <el-table-column label="状态"><template #default="{ row }">{{ repairStatusText(row.status) }}</template></el-table-column>
           <el-table-column label="待付"><template #default="{ row }">{{ formatYuan(row.unpaidAmount) }}</template></el-table-column>
           <el-table-column prop="createdAt" label="时间" />
         </el-table>
@@ -104,7 +114,14 @@
         </el-table>
         <el-form inline style="margin-top: 12px">
           <el-input v-model="follow.content" placeholder="跟进内容" style="width: 280px" />
-          <el-input v-model="follow.nextDate" placeholder="下次 yyyy-MM-dd" style="width: 160px" />
+          <el-date-picker
+            v-model="follow.nextDate"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="下次跟进日期"
+            :disabled-date="beforeToday"
+            style="width: 180px"
+          />
           <el-button type="primary" @click="saveFollow">记一笔</el-button>
         </el-form>
       </el-tab-pane>
@@ -112,7 +129,9 @@
         <el-table :data="detail.agreements">
           <el-table-column prop="dueDate" label="约定日" width="120" />
           <el-table-column label="金额" width="120"><template #default="{ row }">{{ formatYuan(row.agreedAmount) }}</template></el-table-column>
-          <el-table-column prop="status" label="状态" width="110" />
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }">{{ agreementStatusText(row.status) }}</template>
+          </el-table-column>
           <el-table-column prop="note" label="说明" />
           <el-table-column label="材料">
             <template #default="{ row }">
@@ -142,7 +161,16 @@
               <el-option v-for="order in detail.orders" :key="order.id" :label="order.orderNo" :value="order.id" />
             </el-select>
           </el-form-item>
-          <el-form-item label="约定日"><el-input v-model="agreement.dueDate" placeholder="yyyy-MM-dd" /></el-form-item>
+          <el-form-item label="约定日">
+            <el-date-picker
+              v-model="agreement.dueDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="选择约定还款日"
+              :disabled-date="beforeToday"
+              style="width: 100%"
+            />
+          </el-form-item>
           <el-form-item label="金额（元）"><el-input v-model.number="agreement.yuan" /></el-form-item>
           <el-form-item label="说明"><el-input v-model="agreement.note" type="textarea" /></el-form-item>
           <el-form-item label="材料">
@@ -163,7 +191,7 @@
 
 <script setup lang="ts">
 /** 客户详情。资料、地址、订单、设备、偏好、协议和分析分在不同标签里。 */
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   addCustomerAddress,
@@ -178,6 +206,7 @@ import {
   voidAgreement,
 } from '@/api/admin'
 import { CUSTOMER_TYPE_LABEL } from '@/domain/customer'
+import { agreementStatusText, assetSourceText, orderStatusText, repairStatusText } from '@/domain/labels'
 import { formatYuan, yuanToFen } from '@/domain/money'
 import { run } from '@/utils/feedback'
 
@@ -235,6 +264,34 @@ const address = reactive({ detail: '' })
 const follow = reactive({ content: '', nextDate: '' })
 const agreement = reactive({ scope: 'CUSTOMER', orderId: undefined as number | undefined, dueDate: '', yuan: 0, note: '' })
 const materials = ref<{ kind?: string; url: string; name: string; contentType?: string }[]>([])
+
+/** 两张表的本地搜索。数据是一次拉全的，所以在前端过滤，不用再打接口。 */
+const modelKeyword = ref('')
+const orderKeyword = ref('')
+
+const filteredModels = computed(() => {
+  const key = modelKeyword.value.trim().toLowerCase()
+  const rows = detail.value?.models ?? []
+  if (!key) return rows
+  return rows.filter((row) => `${row.model ?? ''} ${row.brand ?? ''}`.toLowerCase().includes(key))
+})
+
+const filteredOrders = computed(() => {
+  const key = orderKeyword.value.trim().toLowerCase()
+  const rows = detail.value?.orders ?? []
+  if (!key) return rows
+  return rows.filter((row) => {
+    const status = orderStatusText(row.status)
+    return `${row.orderNo ?? ''} ${status}`.toLowerCase().includes(key)
+  })
+})
+
+/** 约定日和下次跟进都是往后定的日期，过去的日期不让点。 */
+function beforeToday(date: Date): boolean {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return date.getTime() < today.getTime()
+}
 
 async function load() {
   loading.value = true
@@ -311,4 +368,6 @@ onMounted(() => void load())
 
 <style scoped>
 .insight { white-space: pre-wrap; background: #fafafa; padding: 12px; }
+.table-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.hint { color: var(--zb-muted); font-size: 12px; }
 </style>

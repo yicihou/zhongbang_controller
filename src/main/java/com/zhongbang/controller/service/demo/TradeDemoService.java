@@ -37,6 +37,7 @@ import com.zhongbang.controller.security.StaffRoles;
 import com.zhongbang.controller.service.cost.CostPriceService;
 import com.zhongbang.controller.service.purchase.PurchaseService;
 import com.zhongbang.controller.service.stock.StockAlertService;
+import com.zhongbang.controller.service.stock.StockLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,6 +71,7 @@ public class TradeDemoService {
     private final CostPriceService costPriceService;
     private final PurchaseService purchaseService;
     private final StockAlertService stockAlertService;
+    private final StockLogService stockLogService;
     private final IdentifierGenerator idGenerator;
 
     public TradeDemoService(
@@ -90,6 +92,7 @@ public class TradeDemoService {
             CostPriceService costPriceService,
             PurchaseService purchaseService,
             StockAlertService stockAlertService,
+            StockLogService stockLogService,
             IdentifierGenerator idGenerator
     ) {
         this.properties = properties;
@@ -109,6 +112,7 @@ public class TradeDemoService {
         this.costPriceService = costPriceService;
         this.purchaseService = purchaseService;
         this.stockAlertService = stockAlertService;
+        this.stockLogService = stockLogService;
         this.idGenerator = idGenerator;
     }
 
@@ -212,7 +216,9 @@ public class TradeDemoService {
         for (SalesOrder order : orders) {
             List<OrderLine> lines = orderLineMapper.selectList(new LambdaQueryWrapper<OrderLine>().eq(OrderLine::getOrderId, order.getId()));
             for (OrderLine line : lines) {
-                productSkuMapper.restoreStock(line.getSkuId(), line.getQuantity() == null ? 0 : line.getQuantity());
+                int quantity = line.getQuantity() == null ? 0 : line.getQuantity();
+                productSkuMapper.restoreStock(line.getSkuId(), quantity);
+                stockLogService.record(line.getSkuId(), StockLogService.SALE_CANCEL, order.getId(), quantity, null);
                 orderLineMapper.deleteById(line.getId());
             }
             paymentBillMapper.delete(new LambdaQueryWrapper<PaymentBill>().eq(PaymentBill::getBizId, order.getId()).eq(PaymentBill::getBizType, "ORDER"));
@@ -314,6 +320,7 @@ public class TradeDemoService {
         order.setUpdatedAt(now);
         salesOrderMapper.insert(order);
         productSkuMapper.deductStock(skuId, 1);
+        stockLogService.record(skuId, StockLogService.SALE_OUT, order.getId(), -1, null);
         OrderLine line = new OrderLine();
         line.setId(nextId());
         line.setOrderId(order.getId());

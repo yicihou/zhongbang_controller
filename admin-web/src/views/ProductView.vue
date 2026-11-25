@@ -48,11 +48,12 @@
             <el-tag :type="row.status === 'ON' ? 'success' : 'info'">{{ row.status === 'ON' ? '上架' : '下架' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button link type="primary" @click="openPrice(row)">改价</el-button>
             <el-button v-if="session.isBoss" link type="primary" @click="openCost(row)">进价</el-button>
+            <el-button v-if="session.isBoss" link type="primary" @click="openAdjust(row)">盘点</el-button>
             <el-button link type="primary" @click="toggle(row)">{{ row.status === 'ON' ? '下架' : '上架' }}</el-button>
             <el-button link type="danger" @click="remove(row)">删除</el-button>
           </template>
@@ -105,8 +106,12 @@
           <div class="sku" v-for="(sku, index) in form.skus" :key="index">
             <el-input v-model="sku.title" placeholder="规格名" />
             <el-input-number v-model="sku.priceYuan" :min="0" :precision="2" :step="10" />
-            <el-input-number v-model="sku.stock" :min="0" :step="1" />
+            <el-input-number v-model="sku.stock" :min="0" :step="1" :disabled="!!sku.id" />
             <el-button link type="danger" @click="form.skus.splice(index, 1)">删除</el-button>
+          </div>
+          <div class="muted">
+            库存只能由进货入库、销售出库、取消回滚和盘点调整来变。已经存在的规格这里只读，
+            新建商品时填的是期初库存。
           </div>
           <el-button @click="form.skus.push({ title: '', priceYuan: 0, stock: 0 })">加一条规格</el-button>
         </el-form-item>
@@ -132,6 +137,36 @@
       <template #footer>
         <el-button @click="priceVisible = false">取消</el-button>
         <el-button type="primary" @click="submitPrice">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="adjustVisible" title="盘点调整" width="460px">
+      <p class="muted">
+        填实际数出来的数量，系统按差额记一笔盘点流水。库存不让人直接改，
+        进货、销售和盘点才对得上账。
+      </p>
+      <el-form label-width="88px">
+        <el-form-item label="规格">
+          <el-select v-model="adjustForm.skuId" style="width: 100%">
+            <el-option
+              v-for="sku in adjustForm.skus"
+              :key="sku.id"
+              :label="`${sku.title}（账面 ${sku.stock}）`"
+              :value="sku.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="实际库存">
+          <el-input-number v-model="adjustForm.actualStock" :min="0" :step="1" />
+          <span class="muted"> 台</span>
+        </el-form-item>
+        <el-form-item label="原因">
+          <el-input v-model="adjustForm.reason" placeholder="例如盘亏、样机出库、上次录错" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="adjustVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitAdjust">保存</el-button>
       </template>
     </el-dialog>
 
@@ -163,7 +198,17 @@
  */
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import { changeProductPrice, createProduct, deleteProduct, listProducts, listStockAlerts, setSkuCost, shelveProduct, updateProduct } from '@/api/admin'
+import {
+  adjustStock,
+  changeProductPrice,
+  createProduct,
+  deleteProduct,
+  listProducts,
+  listStockAlerts,
+  setSkuCost,
+  shelveProduct,
+  updateProduct,
+} from '@/api/admin'
 import type { AdminProduct, ProductStatus } from '@/api/types'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
 import { useSessionStore } from '@/stores/session'
@@ -209,6 +254,8 @@ const form = reactive({
 })
 const priceVisible = ref(false)
 const costVisible = ref(false)
+const adjustVisible = ref(false)
+const adjustForm = reactive({ skuId: 0, actualStock: 0, reason: '', skus: [] as AdminProduct['skus'] })
 const costForm = reactive({ skuId: 0, costYuan: 0, skus: [] as AdminProduct['skus'] })
 const priceForm = reactive({
   productId: 0,
@@ -337,6 +384,25 @@ function openCost(row: AdminProduct) {
   costForm.skuId = row.skus[0]?.id ?? 0
   costForm.costYuan = fenToYuanNumber(row.skus[0]?.costPrice ?? 0)
   costVisible.value = true
+}
+
+/** 盘点：先把账面数当默认值填进去，老板改成实际数，差额由后端记流水。 */
+function openAdjust(row: AdminProduct) {
+  adjustForm.skus = row.skus
+  adjustForm.skuId = row.skus[0]?.id ?? 0
+  adjustForm.actualStock = row.skus[0]?.stock ?? 0
+  adjustForm.reason = ''
+  adjustVisible.value = true
+}
+
+async function submitAdjust() {
+  if (!adjustForm.skuId) return
+  const ok = await run(async () => {
+    await adjustStock({ skuId: adjustForm.skuId, actualStock: Math.trunc(adjustForm.actualStock), reason: adjustForm.reason.trim() })
+  })
+  if (!ok) return
+  adjustVisible.value = false
+  await load()
 }
 
 async function submitCost() {

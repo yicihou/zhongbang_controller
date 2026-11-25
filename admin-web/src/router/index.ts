@@ -25,6 +25,7 @@ import CustomerLevelView from '@/views/CustomerLevelView.vue'
 import SupplierView from '@/views/SupplierView.vue'
 import PurchaseView from '@/views/PurchaseView.vue'
 import StockAlertView from '@/views/StockAlertView.vue'
+import StockLogView from '@/views/StockLogView.vue'
 import MarginView from '@/views/MarginView.vue'
 import ImportView from '@/views/ImportView.vue'
 
@@ -41,6 +42,7 @@ export const router = createRouter({
         { path: 'suppliers', name: 'suppliers', component: SupplierView, meta: { title: '供应商' } },
         { path: 'purchases', name: 'purchases', component: PurchaseView, meta: { title: '采购入库' } },
         { path: 'stock-alerts', name: 'stock-alerts', component: StockAlertView, meta: { title: '库存预警' } },
+        { path: 'stock-logs', name: 'stock-logs', component: StockLogView, meta: { title: '库存流水' } },
         { path: 'margin', name: 'margin', component: MarginView, meta: { title: '销售毛利', boss: true } },
         { path: 'imports', name: 'imports', component: ImportView, meta: { title: '数据导入', boss: true } },
         { path: 'orders', name: 'orders', component: OrderListView, meta: { title: '订单' } },

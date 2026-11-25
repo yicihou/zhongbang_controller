@@ -1,6 +1,7 @@
 package com.zhongbang.controller.controller.technician;
 
 import com.zhongbang.controller.common.api.ApiResponse;
+import com.zhongbang.controller.pojo.technician.vo.PendingInstallVo;
 import com.zhongbang.controller.pojo.technician.vo.ScheduleVo;
 import com.zhongbang.controller.pojo.technician.vo.TechnicianVo;
 import com.zhongbang.controller.service.technician.TechnicianService;
@@ -43,5 +44,14 @@ public class TechnicianController {
             @RequestParam(required = false) String to
     ) {
         return ApiResponse.ok(technicianService.schedules(from, to));
+    }
+
+    /**
+     * 还没排师傅的安装行。排期页的「给师傅排单」弹窗用它挑订单，
+     * 真正写档期仍然走 {@code POST /api/admin/orders/{id}/assign}，这里只读。
+     */
+    @GetMapping("/api/admin/technicians/pending-installs")
+    public ApiResponse<List<PendingInstallVo>> pendingInstalls() {
+        return ApiResponse.ok(technicianService.pendingInstalls());
     }
 }

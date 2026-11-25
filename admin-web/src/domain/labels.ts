@@ -119,12 +119,35 @@ export const STAFF_STATUS_LABEL: Record<string, string> = {
   DISABLED: '停用',
 }
 
-export function orderStatusText(status: OrderStatus): string {
-  return ORDER_STATUS_LABEL[status]
+/** 协议还款单的状态。生效中才能「已履约」和「作废」。 */
+export const AGREEMENT_STATUS_LABEL: Record<string, string> = {
+  ACTIVE: '生效中',
+  FULFILLED: '已履约',
+  VOID: '已作废',
 }
 
-export function repairStatusText(status: RepairStatus): string {
-  return REPAIR_STATUS_LABEL[status]
+/** 设备来源。MANUAL 老板手填，ORDER 从订单导入，EXTERNAL 报修时的外购机器。 */
+export const ASSET_SOURCE_LABEL: Record<string, string> = {
+  MANUAL: '手工录入',
+  ORDER: '订单转入',
+  EXTERNAL: '外购机',
+}
+
+export function agreementStatusText(status: string): string {
+  return AGREEMENT_STATUS_LABEL[status] ?? status
+}
+
+export function assetSourceText(source: string): string {
+  return ASSET_SOURCE_LABEL[source] ?? source
+}
+
+/** 接口偶尔会给出表里没有的新状态，这时原样显示英文，不要显示成空白。 */
+export function orderStatusText(status: string): string {
+  return ORDER_STATUS_LABEL[status as OrderStatus] ?? status
+}
+
+export function repairStatusText(status: string): string {
+  return REPAIR_STATUS_LABEL[status as RepairStatus] ?? status
 }
 
 export function deliveryText(method: DeliveryMethod): string {

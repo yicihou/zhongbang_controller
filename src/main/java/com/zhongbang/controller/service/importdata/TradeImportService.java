@@ -27,6 +27,7 @@ import com.zhongbang.controller.security.UserContext;
 import com.zhongbang.controller.service.cost.CostPriceService;
 import com.zhongbang.controller.service.purchase.PurchaseService;
 import com.zhongbang.controller.service.stock.StockAlertService;
+import com.zhongbang.controller.service.stock.StockLogService;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -74,6 +75,7 @@ public class TradeImportService {
     private final PurchaseService purchaseService;
     private final CostPriceService costPriceService;
     private final StockAlertService stockAlertService;
+    private final StockLogService stockLogService;
     private final IdentifierGenerator idGenerator;
 
     public TradeImportService(
@@ -87,6 +89,7 @@ public class TradeImportService {
             PurchaseService purchaseService,
             CostPriceService costPriceService,
             StockAlertService stockAlertService,
+            StockLogService stockLogService,
             IdentifierGenerator idGenerator
     ) {
         this.productMapper = productMapper;
@@ -99,6 +102,7 @@ public class TradeImportService {
         this.purchaseService = purchaseService;
         this.costPriceService = costPriceService;
         this.stockAlertService = stockAlertService;
+        this.stockLogService = stockLogService;
         this.idGenerator = idGenerator;
     }
 
@@ -251,6 +255,8 @@ public class TradeImportService {
             sku.setPrice(price);
         }
         Integer stock = parseInt(values.get("stock"));
+        // 导入会把库存直接改成表里的数，这是老数据的期初。记一条流水，别让余额凭空变化。
+        int beforeStock = sku.getStock() == null ? 0 : sku.getStock();
         if (stock != null) {
             if (stock < 0) {
                 throw new BusinessException(ErrorCode.BAD_REQUEST, "库存不能为负");
@@ -266,6 +272,10 @@ public class TradeImportService {
             productSkuMapper.insert(sku);
         } else {
             productSkuMapper.updateById(sku);
+        }
+        int afterStock = sku.getStock() == null ? 0 : sku.getStock();
+        if (afterStock != beforeStock) {
+            stockLogService.record(sku.getId(), StockLogService.ADJUST, product.getId(), afterStock - beforeStock, null);
         }
         Long cost = parseYuan(values.get("costPrice"));
         if (cost != null) {

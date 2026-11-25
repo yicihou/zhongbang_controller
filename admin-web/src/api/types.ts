@@ -471,3 +471,31 @@ export interface ScheduleQuery {
   from?: string
   to?: string
 }
+
+/** 一条库存流水。数量正数是增加（进货、取消回滚），负数是减少（销售、入库单作废）。 */
+export interface StockLogRow {
+  id: number
+  skuId: number
+  productName: string
+  model: string
+  skuName: string
+  bizType: 'INIT' | 'PURCHASE_IN' | 'PURCHASE_VOID' | 'SALE_OUT' | 'SALE_CANCEL' | 'ADJUST'
+  bizId: number | null
+  quantity: number
+  stockAfter: number
+  unitCost: number | null
+  operatorName: string
+  createdAt: string
+}
+
+/** 还没排师傅的上门安装行。orderItemId 是派工接口要的 id。 */
+export interface PendingInstall {
+  orderItemId: number
+  orderId: number
+  orderNo: string
+  customerName: string
+  productName: string
+  skuName: string
+  quantity: number
+  addressText: string
+}

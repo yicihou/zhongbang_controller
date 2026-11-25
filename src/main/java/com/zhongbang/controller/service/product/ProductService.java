@@ -16,6 +16,7 @@ import com.zhongbang.controller.pojo.product.vo.ProductVo;
 import com.zhongbang.controller.security.StaffRoles;
 import com.zhongbang.controller.security.UserContext;
 import com.zhongbang.controller.service.stock.StockAlertService;
+import com.zhongbang.controller.service.stock.StockLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,11 +45,18 @@ public class ProductService {
     private final ProductMapper productMapper;
     private final ProductSkuMapper productSkuMapper;
     private final StockAlertService stockAlertService;
+    private final StockLogService stockLogService;
 
-    public ProductService(ProductMapper productMapper, ProductSkuMapper productSkuMapper, StockAlertService stockAlertService) {
+    public ProductService(
+            ProductMapper productMapper,
+            ProductSkuMapper productSkuMapper,
+            StockAlertService stockAlertService,
+            StockLogService stockLogService
+    ) {
         this.productMapper = productMapper;
         this.productSkuMapper = productSkuMapper;
         this.stockAlertService = stockAlertService;
+        this.stockLogService = stockLogService;
     }
 
     /** 公开列表。下架和已删除的不会出现。可按分类编号、关键字筛选。 */
@@ -271,13 +279,18 @@ public class ProductService {
                 sku.setCreatedAt(DateTimes.now());
                 sku.setTitle(request.getTitle().trim());
                 sku.setPrice(request.getPrice());
+                // 期初库存只在新建规格时填。之后库存只认单据，见下面的 else 分支。
                 sku.setStock(request.getStock());
                 sku.setUpdatedAt(DateTimes.now());
                 productSkuMapper.insert(sku);
+                if (request.getStock() > 0) {
+                    stockLogService.record(sku.getId(), StockLogService.INIT, productId, request.getStock(), null);
+                }
             } else {
                 sku.setTitle(request.getTitle().trim());
                 sku.setPrice(request.getPrice());
-                sku.setStock(request.getStock());
+                // 库存不跟着表单走：能改库存的只有进货入库、销售出库、取消回滚和盘点调整，
+                // 这样流水和余额才对得上。前端把库存显示成只读也是这个原因。
                 sku.setUpdatedAt(DateTimes.now());
                 productSkuMapper.updateById(sku);
             }
@@ -286,6 +299,14 @@ public class ProductService {
         if (!creating) {
             for (ProductSku sku : existing) {
                 if (!kept.contains(sku.getId())) {
+                    // 删规格前先把库存清平并记一笔，否则这部分库存就凭空消失了，流水对不上。
+                    int stock = sku.getStock() == null ? 0 : sku.getStock();
+                    if (stock != 0) {
+                        sku.setStock(0);
+                        sku.setUpdatedAt(DateTimes.now());
+                        productSkuMapper.updateById(sku);
+                        stockLogService.record(sku.getId(), StockLogService.ADJUST, productId, -stock, sku.getCostPrice());
+                    }
                     productSkuMapper.deleteById(sku.getId());
                 }
             }
