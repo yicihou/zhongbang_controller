@@ -5,66 +5,11 @@
         <b>众邦缝纫机</b>
         <span>商家管理后台</span>
       </div>
-      <el-menu :default-active="active" router class="menu">
-        <el-menu-item index="/">
-          <el-icon><Odometer /></el-icon>
-          <span>工作台</span>
-        </el-menu-item>
-        <el-menu-item index="/products">
-          <el-icon><Goods /></el-icon>
-          <span>商品</span>
-        </el-menu-item>
-        <el-menu-item index="/suppliers">
-          <el-icon><Van /></el-icon>
-          <span>供应商</span>
-        </el-menu-item>
-        <el-menu-item index="/purchases">
-          <el-icon><Box /></el-icon>
-          <span>采购入库</span>
-        </el-menu-item>
-        <el-menu-item index="/stock-alerts">
-          <el-icon><Warning /></el-icon>
-          <span>库存预警</span>
-        </el-menu-item>
-        <el-menu-item v-if="session.isBoss" index="/margin">
-          <el-icon><TrendCharts /></el-icon>
-          <span>销售毛利</span>
-        </el-menu-item>
-        <el-menu-item v-if="session.isBoss" index="/imports">
-          <el-icon><Upload /></el-icon>
-          <span>数据导入</span>
-        </el-menu-item>
-        <el-menu-item index="/orders">
-          <el-icon><List /></el-icon>
-          <span>订单</span>
-          <el-badge v-if="inbox.orderFlashes" :value="inbox.orderFlashes" class="menu-badge" />
-        </el-menu-item>
-        <el-menu-item index="/repairs">
-          <el-icon><Tools /></el-icon>
-          <span>报修</span>
-          <el-badge v-if="inbox.repairFlashes" :value="inbox.repairFlashes" class="menu-badge" />
-        </el-menu-item>
-        <el-menu-item index="/technicians">
-          <el-icon><Calendar /></el-icon>
-          <span>师傅排期</span>
-        </el-menu-item>
-        <el-menu-item index="/receivables">
-          <el-icon><Wallet /></el-icon>
-          <span>待收款</span>
-        </el-menu-item>
-        <el-sub-menu v-if="session.isBoss" index="/customers">
-          <template #title>
-            <el-icon><Avatar /></el-icon>
-            <span>客户</span>
-          </template>
-          <el-menu-item index="/customers">客户列表</el-menu-item>
-          <el-menu-item index="/customers/reminders">还款提醒</el-menu-item>
-          <el-menu-item index="/customers/analysis">客户分析</el-menu-item>
-          <el-menu-item index="/customers/levels">等级规则</el-menu-item>
-        </el-sub-menu>
-        <el-menu-item v-if="session.isBoss" index="/staff">
-          <el-icon><User /></el-icon>
-          <span>员工管理</span>
+      <el-menu :default-active="activeMenuPath" router class="menu">
+        <el-menu-item v-for="item in navItems" :key="item.key" :index="item.path">
+          <el-icon><component :is="iconMap[item.icon]" /></el-icon>
+          <span>{{ item.label }}</span>
+          <el-badge v-if="badgeCount(item)" :value="badgeCount(item)" class="menu-badge" />
         </el-menu-item>
       </el-menu>
       <div class="side-foot">{{ mockLabel }}</div>
@@ -99,11 +44,22 @@
               </button>
             </div>
           </el-popover>
-          <span class="who">{{ session.displayName }}</span>
-          <el-button link type="primary" @click="logout">退出</el-button>
+          <el-dropdown trigger="click" @command="onUserCommand">
+            <span class="who user-trigger">
+              {{ session.displayName }}
+              <el-icon><ArrowDown /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="session.isBoss" command="staff">员工管理</el-dropdown-item>
+                <el-dropdown-item command="logout" :divided="session.isBoss">退出</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
       <el-main class="main">
+        <PageTabs />
         <router-view />
       </el-main>
     </el-container>
@@ -116,12 +72,14 @@
  * 子页面由路由填进 main。角标数字来自 inbox，连接由 useAdminStream 维护。
  * 退出只清前端令牌，没有调用后端注销接口（后端也没有会话可注销）。
  */
-import { computed } from 'vue'
+import { computed, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Avatar, Bell, Box, Calendar, Goods, List, Odometer, Tools, TrendCharts, Upload, User, Van, Wallet, Warning } from '@element-plus/icons-vue'
+import { ArrowDown, Avatar, Bell, Box, Goods, Odometer, Tools, TrendCharts, Wallet } from '@element-plus/icons-vue'
 import { USE_MOCK } from '@/config'
+import PageTabs from '@/components/PageTabs.vue'
 import { useAdminStream } from '@/composables/useAdminStream'
 import type { AdminNotice } from '@/api/types'
+import { navItemForPath, visibleNavItems, type NavIcon, type NavItem } from '@/domain/navigation'
 import { useInboxStore } from '@/stores/inbox'
 import { useSessionStore } from '@/stores/session'
 
@@ -133,21 +91,37 @@ const { status, reconnect, simulateDrop, pollNow } = useAdminStream()
 
 const mockMode = USE_MOCK
 const mockLabel = USE_MOCK ? '数据：Mock' : '数据：真实 API'
-const active = computed(() => {
-  if (route.path.startsWith('/products')) return '/products'
-  if (route.path.startsWith('/suppliers')) return '/suppliers'
-  if (route.path.startsWith('/purchases')) return '/purchases'
-  if (route.path.startsWith('/stock-alerts')) return '/stock-alerts'
-  if (route.path.startsWith('/margin')) return '/margin'
-  if (route.path.startsWith('/imports')) return '/imports'
-  if (route.path.startsWith('/orders')) return '/orders'
-  if (route.path.startsWith('/repairs')) return '/repairs'
-  if (route.path.startsWith('/customers/reminders')) return '/customers/reminders'
-  if (route.path.startsWith('/customers/analysis')) return '/customers/analysis'
-  if (route.path.startsWith('/customers/levels')) return '/customers/levels'
-  if (route.path.startsWith('/customers')) return '/customers'
-  return route.path
+
+/** 侧栏配置里的图标名换成真正的组件。 */
+const iconMap: Record<NavIcon, Component> = {
+  Odometer,
+  Goods,
+  Wallet,
+  Box,
+  Tools,
+  Avatar,
+  TrendCharts,
+}
+
+/** 侧栏只显示当前角色能看的组。老板 7 项，管理员 5 项，员工管理在右上角菜单里。 */
+const navItems = computed(() => visibleNavItems(session.isBoss))
+
+/**
+ * el-menu 的 index 是分组的第一个标签地址。
+ * 当前在 /stock-alerts 这类第二个标签时，也要高亮「商品库存」这一项。
+ */
+const activeMenuPath = computed(() => {
+  const item = navItemForPath(route.path)
+  if (!item) return route.path
+  return navItems.value.find((candidate) => candidate.key === item.key)?.path ?? route.path
 })
+
+/** 订单和报修的未读角标，其他分组没有角标。 */
+function badgeCount(item: NavItem): number {
+  if (item.badge === 'order') return inbox.orderFlashes
+  if (item.badge === 'repair') return inbox.repairFlashes
+  return 0
+}
 const linkText = computed(() => {
   if (status.value === 'live') return '实时连接'
   if (status.value === 'polling') return '轮询中 · 30 秒'
@@ -167,6 +141,13 @@ function openNotice(item: AdminNotice) {
   else if (item.bizType === 'REPAIR') void router.push(`/repairs/${item.bizId}`)
   else if (item.bizType === 'CUSTOMER' && session.isBoss) void router.push(`/customers/${item.bizId}`)
   else if (item.bizType === 'STOCK') void router.push('/stock-alerts')
+}
+
+/** 右上角用户名菜单：员工管理只给老板看，退出所有人都有。 */
+function onUserCommand(command: string | number | object) {
+  const action = String(command)
+  if (action === 'staff') void router.push('/staff')
+  else if (action === 'logout') logout()
 }
 
 function logout() {
@@ -257,6 +238,16 @@ function logout() {
 .who {
   color: var(--zb-muted);
   font-size: 13px;
+}
+.user-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  outline: none;
+}
+.user-trigger:hover {
+  color: var(--zb-red);
 }
 .bell {
   margin-right: 4px;

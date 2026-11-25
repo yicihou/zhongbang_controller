@@ -31,7 +31,12 @@
         <el-table-column label="售价" width="120">
           <template #default="{ row }"><span class="money">¥{{ formatYuan(row.price) }}</span></template>
         </el-table-column>
-        <el-table-column prop="stock" label="库存" width="80" />
+        <el-table-column label="库存" width="120">
+          <template #default="{ row }">
+            <span>{{ row.stock }}</span>
+            <el-tag v-if="isLowStock(row)" type="danger" effect="dark" size="small" class="low-stock-tag">低库存</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column v-if="session.isBoss" label="进价" width="120">
           <template #default="{ row }">
             <span v-if="row.skus?.[0]?.costPrice != null">¥{{ formatYuan(row.skus[0].costPrice) }}</span>
@@ -158,7 +163,7 @@
  */
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import { changeProductPrice, createProduct, deleteProduct, listProducts, setSkuCost, shelveProduct, updateProduct } from '@/api/admin'
+import { changeProductPrice, createProduct, deleteProduct, listProducts, listStockAlerts, setSkuCost, shelveProduct, updateProduct } from '@/api/admin'
 import type { AdminProduct, ProductStatus } from '@/api/types'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
 import { useSessionStore } from '@/stores/session'
@@ -187,6 +192,8 @@ const size = ref(10)
 const total = ref(0)
 const rows = ref<AdminProduct[]>([])
 const loading = ref(false)
+/** 有规格低于预警线的商品 id。数据来自库存预警接口的 alerting 标记。 */
+const lowStockProductIds = ref<Set<number>>(new Set())
 const editorVisible = ref(false)
 const editingId = ref<number | null>(null)
 const form = reactive({
@@ -225,16 +232,30 @@ function resetForm() {
 async function load() {
   loading.value = true
   await run(async () => {
-    const data = await listProducts({
-      keyword: keyword.value || undefined,
-      status: status.value || undefined,
-      page: page.value,
-      size: size.value,
-    })
+    const [data, alerts] = await Promise.all([
+      listProducts({
+        keyword: keyword.value || undefined,
+        status: status.value || undefined,
+        page: page.value,
+        size: size.value,
+      }),
+      // 预警接口失败时不影响商品列表，只是这一次不显示低库存标记。
+      listStockAlerts().catch(() => null),
+    ])
     rows.value = data.list
     total.value = data.total
+    lowStockProductIds.value = new Set(
+      (alerts?.list ?? [])
+        .filter((row) => Boolean(row.alerting))
+        .map((row) => Number(row.productId)),
+    )
   })
   loading.value = false
+}
+
+/** 任意一个规格低于自己的预警线，就认为这个商品要补货。 */
+function isLowStock(row: AdminProduct): boolean {
+  return lowStockProductIds.value.has(row.id)
 }
 
 function reload() {
@@ -385,5 +406,8 @@ onMounted(() => {
   gap: 8px;
   margin-bottom: 8px;
   width: 100%;
+}
+.low-stock-tag {
+  margin-left: 6px;
 }
 </style>
