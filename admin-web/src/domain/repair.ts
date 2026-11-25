@@ -117,6 +117,7 @@ export function assignRepair(
   }
   const technician = technicians.find((item) => item.id === req.technicianId)
   if (!technician) throw new ApiError(4040, '师傅不存在')
+  if (technician.status === 'DISABLED') throw new ApiError(3003, '师傅已停用，不能派工')
   if (!req.appointAt?.trim()) throw new ApiError(1001, '请填写上门时间')
   const next = cloneData(ticket)
   const nextSchedules = cloneData(schedules)

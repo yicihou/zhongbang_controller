@@ -30,9 +30,12 @@ import type {
   AdminProduct,
   ChangeProductPriceRequest,
   SaveProductRequest,
+  UploadedImage,
 } from './types'
+import type { StaffMember, StaffSave } from '@/domain/staff'
+import { USE_MOCK } from '@/config'
 import { paths } from './paths'
-import { request } from './http'
+import { request, requestForm } from './http'
 
 export function staffLogin(username: string, password: string): Promise<StaffLoginResponse> {
   return request<StaffLoginResponse>('POST', paths.staffLogin, {
@@ -115,6 +118,48 @@ export function listReceivables(query: PageQuery = {}): Promise<PageResult<Recei
 
 export function listTechnicians(): Promise<Technician[]> {
   return request('GET', paths.technicians)
+}
+
+export function listStaffMembers(query: { keyword?: string; role?: string; status?: string; page?: number; size?: number } = {}): Promise<PageResult<StaffMember>> {
+  return request('GET', paths.staff, { query })
+}
+
+export function createStaff(body: StaffSave): Promise<StaffMember> {
+  return request('POST', paths.staff, { body })
+}
+
+export function updateStaff(ref: string, body: StaffSave): Promise<StaffMember> {
+  return request('PUT', paths.staffOne(ref), { body })
+}
+
+export function changeStaffStatus(ref: string, status: 'ENABLED' | 'DISABLED'): Promise<StaffMember> {
+  return request('POST', paths.staffStatus(ref), { body: { status } })
+}
+
+export function resetStaffPassword(ref: string, password: string): Promise<void> {
+  return request('POST', paths.staffPassword(ref), { body: { password } })
+}
+
+/** 一次可传多张。Mock 用 data URL，真实后端用 multipart，字段名 file。 */
+export async function uploadImages(files: File[], biz = 'payment'): Promise<UploadedImage[]> {
+  if (USE_MOCK) {
+    const payload = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<{ name: string; type: string; size: number; dataUrl: string }>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () =>
+              resolve({ name: file.name, type: file.type, size: file.size, dataUrl: String(reader.result ?? '') })
+            reader.onerror = () => reject(new Error('读取图片失败'))
+            reader.readAsDataURL(file)
+          }),
+      ),
+    )
+    return request('POST', paths.uploads, { query: { biz }, body: { files: payload } })
+  }
+  const form = new FormData()
+  for (const file of files) form.append('file', file)
+  return requestForm(paths.uploads, form, { biz })
 }
 
 export function listSchedules(query: ScheduleQuery = {}): Promise<TechnicianSchedule[]> {

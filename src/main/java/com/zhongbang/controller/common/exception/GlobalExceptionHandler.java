@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -73,6 +74,13 @@ public class GlobalExceptionHandler {
      * 如果不单独接住，会被下面的 {@code Exception} 收成 500「服务内部错误」。
      * 这里只记一行警告，不打堆栈：路径打错很常见，不是服务故障。
      */
+    /** 文件比 Spring 允许的整包还大时，在进业务校验前就会到这里。文案和 10MB 的业务限制一致。 */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTooLarge(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.fail(ErrorCode.BAD_REQUEST.getCode(), "图片不能超过 10MB"));
+    }
+
     @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
     public ResponseEntity<ApiResponse<Void>> handleMissing(Exception ex) {
         log.warn("接口不存在: {}", ex.getMessage());

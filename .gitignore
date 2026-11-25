@@ -35,6 +35,9 @@ logs/
 application-local.yml
 application-local.yaml
 
+# 上传的凭证和报修图片，留在本机目录，不进仓库
+/uploads/
+
 # H2 / local DB
 *.db
 *.mv.db

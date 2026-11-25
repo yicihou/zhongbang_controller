@@ -42,12 +42,19 @@
           />
         </el-form-item>
         <el-form-item label="凭证">
-          <el-input
-            v-model="voucherText"
-            type="textarea"
-            :rows="2"
-            placeholder="转账单号或图片 URL，一行一条（选填）"
-          />
+          <el-upload
+            v-model:file-list="fileList"
+            list-type="picture-card"
+            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+            multiple
+            :limit="9"
+            :before-upload="beforeUpload"
+            :http-request="doUpload"
+            :on-remove="onRemove"
+          >
+            <el-icon><Plus /></el-icon>
+          </el-upload>
+          <div class="muted">可传多张转账截图或收据，jpg / png / webp，单张不超过 10MB。</div>
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="remark" placeholder="例如：对公账户已到账" />
@@ -79,14 +86,19 @@
  * 订单详情、报修详情、待收款页共用的线下收款弹窗。
  * 打开时金额默认等于这一笔剩余应付（页面上是元），方式默认银行转账，时间默认现在。
  * 金额可以改小：小于剩余时，确认后本笔按实收记已收，差额由 domain/order.ts 拆成新的待付。
- * 凭证和备注可以空着。这里不调起微信支付。提交走 POST /api/admin/payments/{id}/offline-confirm，默认由 Mock 处理。
+ * 凭证可以上传多张图片，也可以空着。这里不调起微信支付。
+ * 提交走 POST /api/admin/payments/{id}/offline-confirm，图片先走 POST /api/admin/files。
  */
 import { computed, ref, watch } from 'vue'
-import { offlineConfirm } from '@/api/admin'
+import type { UploadFile, UploadRequestOptions } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
+import { offlineConfirm, uploadImages } from '@/api/admin'
 import type { OfflinePayMethod, Payment } from '@/api/types'
 import { formatDateTime } from '@/domain/clock'
 import { OFFLINE_METHOD_LABEL, OFFLINE_METHOD_OPTIONS } from '@/domain/labels'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
+import { imageFileError } from '@/domain/image'
 import { offlineAmountError, splitTitle } from '@/domain/order'
 import { run } from '@/utils/feedback'
 
@@ -106,7 +118,8 @@ const emit = defineEmits<{
 const yuan = ref<number | undefined>()
 const method = ref<OfflinePayMethod>('BANK_TRANSFER')
 const paidAt = ref('')
-const voucherText = ref('')
+const voucherUrls = ref<string[]>([])
+const fileList = ref<UploadFile[]>([])
 const remark = ref('')
 const saving = ref(false)
 
@@ -124,7 +137,8 @@ watch(
     yuan.value = fenToYuanNumber(props.payment.amount)
     method.value = 'BANK_TRANSFER'
     paidAt.value = formatDateTime()
-    voucherText.value = ''
+    voucherUrls.value = []
+    fileList.value = []
     remark.value = ''
   },
   { immediate: true },
@@ -132,6 +146,35 @@ watch(
 
 function isFuture(date: Date): boolean {
   return date.getTime() > Date.now()
+}
+
+function beforeUpload(file: File): boolean {
+  const error = imageFileError(file.name, file.type, file.size)
+  if (error) {
+    ElMessage.error(error)
+    return false
+  }
+  return true
+}
+
+async function doUpload(options: UploadRequestOptions) {
+  const file = options.file as File
+  try {
+    const [saved] = await uploadImages([file], 'payment')
+    if (!saved) throw new Error('上传失败')
+    ;(file as File & { voucherUrl?: string }).voucherUrl = saved.url
+    voucherUrls.value = [...voucherUrls.value, saved.url]
+    options.onSuccess?.(saved)
+  } catch (error) {
+    options.onError?.(error as never)
+    ElMessage.error(error instanceof Error ? error.message : '上传失败')
+  }
+}
+
+function onRemove(file: UploadFile) {
+  const url = (file.raw as (File & { voucherUrl?: string }) | undefined)?.voucherUrl
+  if (!url) return
+  voucherUrls.value = voucherUrls.value.filter((item) => item !== url)
 }
 
 async function submit() {
@@ -144,10 +187,7 @@ async function submit() {
         amount: amountFen.value,
         method: method.value,
         paidAt: paidAt.value,
-        voucherUrls: voucherText.value
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean),
+        voucherUrls: voucherUrls.value,
         remark: remark.value,
       })
     },

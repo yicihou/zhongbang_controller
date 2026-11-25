@@ -90,3 +90,36 @@ export async function request<T>(method: string, path: string, options: RequestO
   }
   return unwrap(payload, response.status)
 }
+
+/**
+ * 上传图片。不要自己设 Content-Type，否则浏览器不会带上 multipart 的边界，后端收不到文件。
+ * Mock 不走这里，上传函数会把文件读成 data URL 再调用普通 request。
+ */
+export async function requestForm<T>(path: string, form: FormData, query?: object): Promise<T> {
+  const token = readToken()
+  const params = new URLSearchParams()
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (value != null && value !== '') params.set(key, String(value))
+    }
+  }
+  const qs = params.toString()
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}${qs ? `?${qs}` : ''}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+  } catch {
+    throw new ApiError(-1, '网络异常，请检查网络后重试')
+  }
+  let payload: ApiResponse<T> | null = null
+  try {
+    payload = (await response.json()) as ApiResponse<T>
+  } catch {
+    if (response.status === 401) throw new ApiError(2001, '未登录或 token 已过期')
+    throw new ApiError(5000, '响应格式错误')
+  }
+  return unwrap(payload, response.status)
+}

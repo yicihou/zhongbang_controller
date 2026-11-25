@@ -65,6 +65,8 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
+                        // 凭证图片用普通 img 打开，浏览器不会带 Authorization，所以 GET 放行。文件名是随机串。
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("STAFF")
                         .requestMatchers("/api/tech/**").hasRole("TECHNICIAN")
                         .requestMatchers("/actuator/**").denyAll()

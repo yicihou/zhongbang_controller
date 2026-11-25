@@ -106,6 +106,9 @@ public class AuthService {
         if (staff == null || staff.getPassword() == null || !passwordEncoder.matches(request.password(), staff.getPassword())) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "账号或密码错误");
         }
+        if ("DISABLED".equalsIgnoreCase(staff.getStatus())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "账号已停用");
+        }
         String name = staff.getName() == null || staff.getName().isBlank() ? staff.getUsername() : staff.getName();
         String roleName = staff.getRole() == null || staff.getRole().isBlank() ? "STAFF" : staff.getRole().trim();
         String role = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName;

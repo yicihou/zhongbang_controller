@@ -114,7 +114,8 @@
           </el-table-column>
           <el-table-column label="凭证 / 时间" min-width="220">
             <template #default="{ row }">
-              <div>{{ [...(row.voucherUrls || []), row.remark].filter(Boolean).join('；') || '—' }}</div>
+              <VoucherList :urls="row.voucherUrls" />
+              <div v-if="row.remark">{{ row.remark }}</div>
               <div class="muted">{{ row.paidAt || '' }} {{ row.operatorName || '' }}</div>
             </template>
           </el-table-column>
@@ -338,6 +339,7 @@ import {
 } from '@/api/admin'
 import type { AdminOrder, OrderItem, Payment, PaymentType, Technician } from '@/api/types'
 import OfflineConfirmDialog from '@/components/OfflineConfirmDialog.vue'
+import VoucherList from '@/components/VoucherList.vue'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
 import { canShipItem, fulfillmentProgress, installFeeState } from '@/domain/order'
 import {

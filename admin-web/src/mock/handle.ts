@@ -22,6 +22,7 @@ import type {
 } from '@/api/types'
 import { formatDateTime } from '@/domain/clock'
 import { ApiError, httpStatusFor } from '@/domain/errors'
+import { imageFileError } from '@/domain/image'
 import { decodeJwtPayload, isExpired, issueMockStaffToken } from '@/domain/jwt'
 import {
   addShipment,
@@ -37,6 +38,14 @@ import {
 } from '@/domain/order'
 import { paginate } from '@/domain/page'
 import { assignRepair, cancelRepair, completeRepair, offlineConfirmRepair, quoteRepair } from '@/domain/repair'
+import {
+  changeStaffStatus,
+  createStaff,
+  listStaff,
+  resetStaffPassword,
+  updateStaff,
+  type StaffSave,
+} from '@/domain/staff'
 import { db } from './db'
 
 export interface MockResult {
@@ -78,6 +87,16 @@ function requireStaff(token: string): { id: number; name: string } {
   return { id: Number(payload.sub) || 0, name: payload.name || '员工' }
 }
 
+/** 员工管理只允许管理员。其他后台接口仍然只要 STAFF。 */
+function requireAdmin(token: string): { id: number; name: string } {
+  const staff = requireStaff(token)
+  const payload = decodeJwtPayload(token)
+  if (payload?.role !== 'ROLE_ADMIN' && payload?.role !== 'ADMIN') {
+    throw new ApiError(2003, '只有管理员可以管理员工')
+  }
+  return staff
+}
+
 function num(value: string | undefined, fallback?: number): number | undefined {
   if (value == null || value === '') return fallback
   const parsed = Number(value)
@@ -112,10 +131,13 @@ function login(body: unknown): StaffLoginResponse {
   const password = String(record.password ?? '')
   const user = db.staff.find((item) => item.username === username && item.password === password)
   if (!user) throw new ApiError(2001, '账号或密码错误')
+  if (user.status === 'DISABLED') throw new ApiError(2003, '账号已停用')
+  const roleName = user.role || 'STAFF'
+  const role = roleName.startsWith('ROLE_') ? roleName : `ROLE_${roleName}`
   return {
-    token: issueMockStaffToken(user),
+    token: issueMockStaffToken({ id: user.id, name: user.name, role: roleName }),
     expiresIn: 7 * 24 * 3600,
-    staff: { id: user.id, name: user.name, type: 'STAFF', role: 'ROLE_STAFF' },
+    staff: { id: user.id, name: user.name, type: 'STAFF', role },
   }
 }
 
@@ -324,6 +346,67 @@ function saveProduct(id: number | undefined, record: Record<string, unknown>, no
   return summarizeProduct(current)
 }
 
+function staffStore() {
+  return {
+    users: db.staff,
+    technicians: db.technicians,
+    nextId: () => ++db.seq,
+  }
+}
+
+function handleStaff(
+  method: string,
+  path: string,
+  query: Record<string, string>,
+  body: unknown,
+  token: string,
+): unknown | undefined {
+  if (path !== '/api/admin/staff' && !path.startsWith('/api/admin/staff/')) return undefined
+  const operator = requireAdmin(token)
+  if (method === 'GET' && path === '/api/admin/staff') {
+    return listStaff(db.staff, db.technicians, {
+      keyword: query.keyword,
+      role: query.role,
+      status: query.status,
+      page: num(query.page, 1),
+      size: num(query.size, 20),
+    })
+  }
+  if (method === 'POST' && path === '/api/admin/staff') {
+    return createStaff(staffStore(), asRecord(body) as StaffSave)
+  }
+  const match = path.match(/^\/api\/admin\/staff\/(user-\d+|tech-\d+)(?:\/(status|password))?$/)
+  if (!match) return undefined
+  const ref = match[1]
+  const action = match[2]
+  const record = asRecord(body)
+  if (!action && method === 'PUT') return updateStaff(staffStore(), ref, record as StaffSave, operator.id)
+  if (action === 'status' && method === 'POST') {
+    return changeStaffStatus(staffStore(), ref, String(record.status ?? ''), operator.id)
+  }
+  if (action === 'password' && method === 'POST') {
+    resetStaffPassword(staffStore(), ref, String(record.password ?? ''))
+    return null
+  }
+  return undefined
+}
+
+/** Mock 不写磁盘。页面把图片读成 data URL 传来，详情里就能直接显示缩略图。 */
+function mockUpload(body: unknown): unknown {
+  const files = asRecord(body).files
+  if (!Array.isArray(files) || files.length === 0) throw new ApiError(1001, '请选择图片')
+  if (files.length > 9) throw new ApiError(1001, '一次最多上传 9 张')
+  return files.map((item) => {
+    const file = asRecord(item)
+    const name = String(file.name ?? '')
+    const dataUrl = String(file.dataUrl ?? '')
+    const error = imageFileError(name, String(file.type ?? ''), Number(file.size ?? dataUrl.length))
+    if (error) throw new ApiError(1001, error)
+    const url = dataUrl.startsWith('data:image/') ? dataUrl : `/uploads/mock/${encodeURIComponent(name)}`
+    return { url, name, size: Number(file.size ?? dataUrl.length), contentType: String(file.type ?? 'image/jpeg') }
+  })
+}
+
 function dispatch(method: string, path: string, query: Record<string, string>, body: unknown, token: string): unknown {
   if (method === 'POST' && path === '/api/auth/staff/login') return login(body)
 
@@ -336,7 +419,12 @@ function dispatch(method: string, path: string, query: Record<string, string>, b
   if (method === 'GET' && path === '/api/admin/repairs') return listRepairs(query)
   if (method === 'GET' && path === '/api/admin/notices') return listNotices(query)
   if (method === 'GET' && path === '/api/admin/receivables') return listReceivables(query)
-  if (method === 'GET' && path === '/api/admin/technicians') return db.technicians
+  if (method === 'POST' && path === '/api/admin/files') return mockUpload(body)
+  const staffHit = handleStaff(method, path, query, body, token)
+  if (staffHit !== undefined) return staffHit
+  if (method === 'GET' && path === '/api/admin/technicians') {
+    return db.technicians.filter((item) => item.status !== 'DISABLED')
+  }
   if (method === 'GET' && path === '/api/admin/technicians/schedules') return listSchedules(query)
 
   const orderMatch = path.match(/^\/api\/admin\/orders\/(\d+)(?:\/([a-z-]+))?$/)

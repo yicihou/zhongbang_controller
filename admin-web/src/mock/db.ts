@@ -1,7 +1,7 @@
 /**
  * 浏览器内存里的假数据库。刷新页面会回到 createSeed() 的初始数据，改价、发货不会留下。
  * resetDb 给单元测试用，把单例恢复成种子。
- * 员工：admin / admin123（李敏），clerk / clerk123（周晓）。密码是明文，只存在于这份种子里。
+ * 员工：admin / admin123（李敏，管理员），clerk / clerk123（周晓，业务员）。密码是明文，只存在于这份种子里。
  * 金额是分。这些行不是 Flyway 建的表，也没有和 Java 同步。
  */
 import type {
@@ -13,13 +13,9 @@ import type {
   Technician,
   TechnicianSchedule,
 } from '@/api/types'
+import type { LoginAccount } from '@/domain/staff'
 
-export interface StaffAccount {
-  id: number
-  username: string
-  password: string
-  name: string
-}
+export type StaffAccount = LoginAccount
 
 export interface Database {
   seq: number
@@ -40,9 +36,9 @@ function payment(partial: Payment): Payment {
 
 export function createSeed(): Database {
   const technicians: Technician[] = [
-    { id: 88, name: '王建国', mobile: '13800001001', skills: ['平缝机', '包缝机'], region: '城东', rating: 4.9 },
-    { id: 89, name: '刘洋', mobile: '13800001002', skills: ['厚料机', '花样机'], region: '城西', rating: 4.7 },
-    { id: 90, name: '陈静', mobile: '13800001003', skills: ['电控维修'], region: '全市', rating: 4.8 },
+    { id: 88, name: '王建国', mobile: '13800001001', skills: ['平缝机', '包缝机'], region: '城东', rating: 4.9, status: 'ENABLED' },
+    { id: 89, name: '刘洋', mobile: '13800001002', skills: ['厚料机', '花样机'], region: '城西', rating: 4.7, status: 'ENABLED' },
+    { id: 90, name: '陈静', mobile: '13800001003', skills: ['电控维修'], region: '全市', rating: 4.8, status: 'ENABLED' },
   ]
 
   const orders: AdminOrder[] = [
@@ -744,8 +740,8 @@ export function createSeed(): Database {
     dailySeq: 30,
     simCursor: 0,
     staff: [
-      { id: 1, username: 'admin', password: 'admin123', name: '李敏' },
-      { id: 2, username: 'clerk', password: 'clerk123', name: '周晓' },
+      { id: 1, username: 'admin', password: 'admin123', name: '李敏', mobile: '13800000001', role: 'ADMIN', status: 'ENABLED', remark: '初始管理员' },
+      { id: 2, username: 'clerk', password: 'clerk123', name: '周晓', mobile: '13800000002', role: 'SALES', status: 'ENABLED', remark: '业务员' },
     ],
     technicians,
     schedules,
