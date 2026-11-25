@@ -53,16 +53,27 @@ export function isStaffPayload(payload: JwtPayload | null, nowSec = Date.now() /
   return payload.type === 'STAFF' || payload.role === 'ROLE_STAFF' || payload.role === 'STAFF'
 }
 
-export function issueMockStaffToken(user: { id: number; name: string }, nowSec = Date.now() / 1000): string {
+export function issueMockStaffToken(
+  user: { id: number; name: string; role?: string },
+  nowSec = Date.now() / 1000,
+): string {
+  const raw = user.role?.trim() || 'STAFF'
+  const role = raw.startsWith('ROLE_') ? raw : `ROLE_${raw}`
   const header = toBase64Url(JSON.stringify({ alg: 'none', typ: 'JWT' }))
   const payload = toBase64Url(
     JSON.stringify({
       sub: String(user.id),
       type: 'STAFF',
-      role: 'ROLE_STAFF',
+      role,
       name: user.name,
       exp: Math.floor(nowSec) + 7 * 24 * 3600,
     }),
   )
   return `${header}.${payload}.mock`
+}
+
+/** 员工管理页面只给管理员。type 仍是 STAFF，角色声明是 ROLE_ADMIN。 */
+export function isAdminPayload(payload: JwtPayload | null, nowSec = Date.now() / 1000): boolean {
+  if (!isStaffPayload(payload, nowSec)) return false
+  return payload?.role === 'ROLE_ADMIN' || payload?.role === 'ADMIN'
 }

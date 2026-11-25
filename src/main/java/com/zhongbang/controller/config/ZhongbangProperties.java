@@ -23,6 +23,7 @@ public class ZhongbangProperties {
     private final Redis redis = new Redis();
     private final Rabbitmq rabbitmq = new Rabbitmq();
     private final H2Console h2Console = new H2Console();
+    private final Storage storage = new Storage();
 
     public Cors getCors() {
         return cors;
@@ -38,6 +39,10 @@ public class ZhongbangProperties {
 
     public H2Console getH2Console() {
         return h2Console;
+    }
+
+    public Storage getStorage() {
+        return storage;
     }
 
     public static class Cors {
@@ -78,6 +83,71 @@ public class ZhongbangProperties {
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+    }
+
+    /**
+     * 图片存在哪。type=local 时写到本机目录；以后换成 oss 只需要新的存储实现和这里的 type。
+     * localDir 默认 ./uploads，相对启动程序时的工作目录，不放进 src，也不会打进 jar。
+     */
+    public static class Storage {
+        private String type = "local";
+        private String localDir = "./uploads";
+        private String publicPath = "/uploads";
+        private long maxBytes = 10L * 1024 * 1024;
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public String getLocalDir() {
+            return localDir;
+        }
+
+        public void setLocalDir(String localDir) {
+            this.localDir = localDir;
+        }
+
+        public String getPublicPath() {
+            return publicPath;
+        }
+
+        public void setPublicPath(String publicPath) {
+            this.publicPath = publicPath;
+        }
+
+        public long getMaxBytes() {
+            return maxBytes;
+        }
+
+        public void setMaxBytes(long maxBytes) {
+            this.maxBytes = maxBytes;
+        }
+
+        /** 配置里写相对路径时，按启动目录补成绝对路径。末尾不带斜杠。 */
+        public java.nio.file.Path directory() {
+            String raw = localDir == null || localDir.isBlank() ? "./uploads" : localDir.trim();
+            java.nio.file.Path path = java.nio.file.Path.of(raw);
+            if (!path.isAbsolute()) {
+                path = java.nio.file.Path.of("").toAbsolutePath().resolve(path);
+            }
+            return path.normalize();
+        }
+
+        /** 浏览器访问用的前缀，例如 /uploads。保证以 / 开头、不以 / 结尾。 */
+        public String publicPath() {
+            String path = publicPath == null || publicPath.isBlank() ? "/uploads" : publicPath.trim();
+            if (!path.startsWith("/")) {
+                path = "/" + path;
+            }
+            if (path.length() > 1 && path.endsWith("/")) {
+                path = path.substring(0, path.length() - 1);
+            }
+            return path;
         }
     }
 

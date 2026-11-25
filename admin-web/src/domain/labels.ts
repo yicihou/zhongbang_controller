@@ -104,6 +104,20 @@ export const REPAIR_STATUS_OPTIONS: RepairStatus[] = [
   'CANCELLED',
 ]
 
+export const STAFF_ROLE_LABEL: Record<string, string> = {
+  ADMIN: '管理员',
+  SALES: '业务员',
+  TECHNICIAN: '师傅',
+  STAFF: '员工',
+}
+
+export const STAFF_ROLE_OPTIONS = ['ADMIN', 'SALES', 'TECHNICIAN'] as const
+
+export const STAFF_STATUS_LABEL: Record<string, string> = {
+  ENABLED: '启用',
+  DISABLED: '停用',
+}
+
 export function orderStatusText(status: OrderStatus): string {
   return ORDER_STATUS_LABEL[status]
 }

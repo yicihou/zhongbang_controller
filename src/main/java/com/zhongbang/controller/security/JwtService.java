@@ -73,7 +73,8 @@ public class JwtService {
         Long userId = Long.valueOf(claims.getSubject());
         UserType type = UserType.valueOf(claims.get("type", String.class));
         String name = claims.get("name", String.class);
-        return new LoginUser(userId, type, name);
+        String role = claims.get("role", String.class);
+        return new LoginUser(userId, type, name, role);
     }
 
     public long expiresSeconds() {

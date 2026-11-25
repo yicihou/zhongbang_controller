@@ -32,6 +32,10 @@
           <el-icon><Wallet /></el-icon>
           <span>待收款</span>
         </el-menu-item>
+        <el-menu-item v-if="session.isAdmin" index="/staff">
+          <el-icon><User /></el-icon>
+          <span>员工管理</span>
+        </el-menu-item>
       </el-menu>
       <div class="side-foot">{{ mockLabel }}</div>
     </el-aside>
@@ -84,7 +88,7 @@
  */
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Bell, Calendar, Goods, List, Odometer, Tools, Wallet } from '@element-plus/icons-vue'
+import { Bell, Calendar, Goods, List, Odometer, Tools, User, Wallet } from '@element-plus/icons-vue'
 import { USE_MOCK } from '@/config'
 import { useAdminStream } from '@/composables/useAdminStream'
 import type { AdminNotice } from '@/api/types'

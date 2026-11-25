@@ -3,10 +3,13 @@ package com.zhongbang.controller.config;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.nio.file.Path;
+
 /**
- * Web 层的少量自定义。目前只做跨域。
+ * Web 层的少量自定义：跨域，以及把上传目录映射成 /uploads。
  *
  * <p>{@code @EnableConfigurationProperties} 让 {@code zhongbang.*} 绑定到 {@code ZhongbangProperties}。
  * 不写这行，yml 里的 cors 列表不会进这个类。
@@ -39,5 +42,20 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
+    }
+
+    /**
+     * 把 /uploads/** 映射到本机上传目录，这样收款凭证的 img 地址能直接打开。
+     * 目录不存在时也不报错，等第一次上传再创建。
+     */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        Path dir = properties.getStorage().directory();
+        String location = dir.toUri().toString();
+        if (!location.endsWith("/")) {
+            location = location + "/";
+        }
+        registry.addResourceHandler(properties.getStorage().publicPath() + "/**")
+                .addResourceLocations(location);
     }
 }

@@ -27,9 +27,11 @@ public class TechnicianService {
         this.scheduleMapper = scheduleMapper;
     }
 
+    /** 只返回启用中的师傅。报修派工、安装派工和小程序选师傅都用这份名单。 */
     public List<TechnicianVo> list() {
         return technicianMapper.selectList(new LambdaQueryWrapper<Technician>().orderByAsc(Technician::getId))
                 .stream()
+                .filter(TechnicianRules::enabled)
                 .map(this::toVo)
                 .toList();
     }

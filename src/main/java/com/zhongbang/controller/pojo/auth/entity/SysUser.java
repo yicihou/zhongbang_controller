@@ -7,7 +7,10 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 
 /**
- * 后台员工。密码列存 BCrypt 哈希。role 为 ADMIN 或 STAFF，签发的 JWT 类型都是 STAFF。
+ * 后台员工。密码列存 BCrypt 哈希，不是明文。
+ * role 可以是 ADMIN（管理员）、SALES（业务员）、TECHNICIAN（师傅）或旧数据里的 STAFF。
+ * 签发的 JWT 类型都是 STAFF，另外带上这个角色，这样普通员工进得了后台，但管不了员工。
+ * status 为 ENABLED 或 DISABLED。停用不是删除，列表里还能看到。
  */
 @TableName("sys_user")
 public class SysUser {
@@ -19,6 +22,10 @@ public class SysUser {
     private String password;
     private String role;
     private String name;
+    private String mobile;
+    private String status;
+    private String remark;
+    private Long technicianId;
     private Integer deleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -35,6 +42,14 @@ public class SysUser {
     public void setRole(String role) { this.role = role; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public String getMobile() { return mobile; }
+    public void setMobile(String mobile) { this.mobile = mobile; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getRemark() { return remark; }
+    public void setRemark(String remark) { this.remark = remark; }
+    public Long getTechnicianId() { return technicianId; }
+    public void setTechnicianId(Long technicianId) { this.technicianId = technicianId; }
     public Integer getDeleted() { return deleted; }
     public void setDeleted(Integer deleted) { this.deleted = deleted; }
     public LocalDateTime getCreatedAt() { return createdAt; }

@@ -35,6 +35,7 @@ import com.zhongbang.controller.security.LoginUser;
 import com.zhongbang.controller.security.UserContext;
 import com.zhongbang.controller.security.UserType;
 import com.zhongbang.controller.service.notice.NoticeService;
+import com.zhongbang.controller.service.technician.TechnicianRules;
 import com.zhongbang.controller.support.idempotency.IdempotencyService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -299,10 +300,7 @@ public class OrderService {
                 || request.getInstallSlot() == null || request.getInstallSlot().isBlank()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "请填写安装日期和时段");
         }
-        Technician technician = technicianMapper.selectById(request.getTechnicianId());
-        if (technician == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "师傅不存在");
-        }
+        Technician technician = TechnicianRules.requireAssignable(technicianMapper.selectById(request.getTechnicianId()));
         OrderBundle bundle = load(id);
         OrderRules.assertFulfillable(bundle.getOrder(), "派工");
         OrderLine item = bundle.getItems().stream()
@@ -464,10 +462,7 @@ public class OrderService {
             item.setInstallDate(blankToNull(line.getInstallDate()));
             item.setInstallSlot(line.getInstallSlot() == null ? null : normalizeSlot(line.getInstallSlot()));
             if (line.getTechnicianId() != null) {
-                Technician technician = technicianMapper.selectById(line.getTechnicianId());
-                if (technician == null) {
-                    throw new BusinessException(ErrorCode.NOT_FOUND, "师傅不存在");
-                }
+                Technician technician = TechnicianRules.requireAssignable(technicianMapper.selectById(line.getTechnicianId()));
                 item.setTechnicianId(technician.getId());
                 item.setTechnicianName(technician.getName());
             }

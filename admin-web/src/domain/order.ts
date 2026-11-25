@@ -649,6 +649,7 @@ export function assignInstall(
 ): { order: AdminOrder; schedules: TechnicianSchedule[] } {
   const technician = technicians.find((item) => item.id === req.technicianId)
   if (!technician) throw new ApiError(4040, '师傅不存在')
+  if (technician.status === 'DISABLED') throw new ApiError(3003, '师傅已停用，不能派工')
   if (!req.installDate?.trim() || !req.installSlot?.trim()) {
     throw new ApiError(1001, '请填写安装日期和时段')
   }

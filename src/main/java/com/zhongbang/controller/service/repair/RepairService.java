@@ -32,6 +32,7 @@ import com.zhongbang.controller.security.LoginUser;
 import com.zhongbang.controller.security.UserContext;
 import com.zhongbang.controller.security.UserType;
 import com.zhongbang.controller.service.notice.NoticeService;
+import com.zhongbang.controller.service.technician.TechnicianRules;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -250,10 +251,7 @@ public class RepairService {
         if (request == null || request.getTechnicianId() == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "师傅不存在");
         }
-        Technician technician = technicianMapper.selectById(request.getTechnicianId());
-        if (technician == null || (technician.getDeleted() != null && technician.getDeleted() == 1)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "师傅不存在");
-        }
+        Technician technician = TechnicianRules.requireAssignable(technicianMapper.selectById(request.getTechnicianId()));
         if (request.getAppointAt() == null || request.getAppointAt().isBlank()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "请填写上门时间");
         }

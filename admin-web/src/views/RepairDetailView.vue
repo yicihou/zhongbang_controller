@@ -70,15 +70,11 @@
           <el-table-column label="状态" width="90">
             <template #default="{ row }">{{ paymentStatusText(row.status) }}</template>
           </el-table-column>
-          <el-table-column label="收款方式 / 凭证" min-width="200">
+          <el-table-column label="收款方式 / 凭证" min-width="220">
             <template #default="{ row }">
-              <div>
-                {{
-                  [offlineMethodText(row.offlineMethod), ...(row.voucherUrls || []), row.remark]
-                    .filter(Boolean)
-                    .join('；') || '—'
-                }}
-              </div>
+              <div>{{ offlineMethodText(row.offlineMethod) || '—' }}</div>
+              <VoucherList :urls="row.voucherUrls" />
+              <div v-if="row.remark">{{ row.remark }}</div>
               <div class="muted">{{ row.paidAt || '' }} {{ row.operatorName || '' }}</div>
             </template>
           </el-table-column>
@@ -157,6 +153,7 @@ import {
 } from '@/api/admin'
 import type { Payment, RepairLine, RepairTicket, Technician } from '@/api/types'
 import OfflineConfirmDialog from '@/components/OfflineConfirmDialog.vue'
+import VoucherList from '@/components/VoucherList.vue'
 import { formatYuan, yuanToFen } from '@/domain/money'
 import { REPAIR_STATUS_LABEL, offlineMethodText, paymentStatusText, repairTagType } from '@/domain/labels'
 import { run } from '@/utils/feedback'

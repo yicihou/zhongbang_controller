@@ -7,7 +7,7 @@
 import { defineStore } from 'pinia'
 import { staffLogin } from '@/api/admin'
 import { readToken, writeToken } from '@/api/http'
-import { decodeJwtPayload, isStaffPayload } from '@/domain/jwt'
+import { decodeJwtPayload, isAdminPayload, isStaffPayload } from '@/domain/jwt'
 
 export const useSessionStore = defineStore('session', {
   state: () => ({
@@ -19,6 +19,9 @@ export const useSessionStore = defineStore('session', {
     },
     isStaff(state): boolean {
       return isStaffPayload(decodeJwtPayload(state.token))
+    },
+    isAdmin(state): boolean {
+      return isAdminPayload(decodeJwtPayload(state.token))
     },
     displayName(): string {
       return this.payload?.name || '员工'

@@ -221,6 +221,10 @@ export interface Technician {
   skills: string[]
   region: string
   rating: number
+  /** 停用后不能再派工。没写时当成启用，方便旧的测试数据。 */
+  status?: 'ENABLED' | 'DISABLED'
+  remark?: string
+  userId?: number
 }
 
 /** 对应 technician_schedule：一人一天一时段。 */
@@ -253,7 +257,15 @@ export interface StaffBrief {
   id: number
   name: string
   type: 'STAFF'
-  role: 'ROLE_STAFF'
+  /** ROLE_ADMIN、ROLE_SALES、ROLE_TECHNICIAN，或旧令牌里的 ROLE_STAFF。 */
+  role: string
+}
+
+export interface UploadedImage {
+  url: string
+  name: string
+  size: number
+  contentType?: string
 }
 
 export type ProductStatus = 'ON' | 'OFF'
