@@ -26,7 +26,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 图片上传和员工管理：员工才能上传，管理员才能改员工，停用的师傅不能再派工。
+ * 图片上传和员工管理：员工才能上传，只有老板能改员工，停用的师傅不能再派工。
+ * 管理员访问员工管理要 403，但报修和安装用的启用中师傅名单仍然能查。
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -93,21 +94,42 @@ class StaffAndUploadTest {
     }
 
     @Test
-    void onlyAdminManagesStaffAndDisabledTechnicianCannotBeAssigned() throws Exception {
+    void onlyBossManagesStaffAndDisabledTechnicianCannotBeAssigned() throws Exception {
         String admin = login("admin", "admin123");
+        String boss = login("boss", "boss123");
         mockMvc.perform(get("/api/admin/staff").header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.list[?(@.username=='admin')].role", hasItem("ADMIN")));
-
-        mockMvc.perform(post("/api/admin/staff/user-1/status")
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(2003));
+        mockMvc.perform(post("/api/admin/staff")
                         .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"不该建成","mobile":"13900001111","role":"SALES","username":"nope1","password":"sales123"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(2003));
+
+        mockMvc.perform(get("/api/admin/staff").header("Authorization", "Bearer " + boss))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.list[?(@.username=='boss')].role", hasItem("BOSS")));
+
+        mockMvc.perform(post("/api/admin/staff/user-2/status")
+                        .header("Authorization", "Bearer " + boss)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"DISABLED\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.msg").value("不能停用自己的账号"));
+        mockMvc.perform(put("/api/admin/staff/user-2")
+                        .header("Authorization", "Bearer " + boss)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"老板","mobile":"13900000000","role":"ADMIN","status":"ENABLED"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.msg").value("不能改掉自己的老板角色"));
 
         JsonNode sales = read(mockMvc.perform(post("/api/admin/staff")
-                        .header("Authorization", "Bearer " + admin)
+                        .header("Authorization", "Bearer " + boss)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"周业务","mobile":"13911112222","role":"SALES","username":"sales1","password":"sales123"}
@@ -117,7 +139,7 @@ class StaffAndUploadTest {
                 .andReturn());
         String salesRef = sales.path("data").path("ref").asText();
         mockMvc.perform(post("/api/admin/staff/" + salesRef + "/password")
-                        .header("Authorization", "Bearer " + admin)
+                        .header("Authorization", "Bearer " + boss)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"password\":\"newpass1\"}"))
                 .andExpect(status().isOk());
@@ -133,7 +155,7 @@ class StaffAndUploadTest {
                 .andExpect(status().isOk());
 
         JsonNode tech = read(mockMvc.perform(post("/api/admin/staff")
-                        .header("Authorization", "Bearer " + admin)
+                        .header("Authorization", "Bearer " + boss)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"赵师傅","mobile":"13922223333","role":"TECHNICIAN","region":"城南","skills":["平缝机"]}
@@ -148,7 +170,7 @@ class StaffAndUploadTest {
                 .andExpect(jsonPath("$.data[?(@.id==" + technicianId + ")].name", hasItem("赵师傅")));
 
         mockMvc.perform(post("/api/admin/staff/" + techRef + "/status")
-                        .header("Authorization", "Bearer " + admin)
+                        .header("Authorization", "Bearer " + boss)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"DISABLED\"}"))
                 .andExpect(status().isOk())
@@ -187,7 +209,7 @@ class StaffAndUploadTest {
                 .andExpect(jsonPath("$.msg").value("师傅已停用，不能派工"));
 
         mockMvc.perform(put("/api/admin/staff/" + techRef)
-                        .header("Authorization", "Bearer " + admin)
+                        .header("Authorization", "Bearer " + boss)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"赵师傅","mobile":"13922223333","role":"TECHNICIAN","status":"ENABLED","region":"城南","skills":["平缝机"]}

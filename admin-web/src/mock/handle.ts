@@ -89,12 +89,12 @@ function requireStaff(token: string): { id: number; name: string } {
   return { id: Number(payload.sub) || 0, name: payload.name || '员工' }
 }
 
-/** 员工管理只允许管理员。其他后台接口仍然只要 STAFF。 */
-function requireAdmin(token: string): { id: number; name: string } {
+/** 员工管理只允许老板。其他后台接口仍然只要 STAFF。派工用的师傅名单不走这里。 */
+function requireBoss(token: string): { id: number; name: string } {
   const staff = requireStaff(token)
   const payload = decodeJwtPayload(token)
-  if (payload?.role !== 'ROLE_ADMIN' && payload?.role !== 'ADMIN') {
-    throw new ApiError(2003, '只有管理员可以管理员工')
+  if (payload?.role !== 'ROLE_BOSS' && payload?.role !== 'BOSS') {
+    throw new ApiError(2003, '只有老板可以管理员工')
   }
   return staff
 }
@@ -368,7 +368,7 @@ function handleStaff(
   token: string,
 ): unknown | undefined {
   if (path !== '/api/admin/staff' && !path.startsWith('/api/admin/staff/')) return undefined
-  const operator = requireAdmin(token)
+  const operator = requireBoss(token)
   if (method === 'GET' && path === '/api/admin/staff') {
     return listStaff(db.staff, db.technicians, {
       keyword: query.keyword,

@@ -104,6 +104,7 @@ export function changeStaffStatus(store: Store, ref: string, status: string, ope
   const next = normalizeStatus(status)
   const located = locate(store, ref)
   if (located.user) {
+    // 老板停用自己后，就没有人能再进员工管理。
     if (next === 'DISABLED' && located.user.id === operatorId) {
       throw new ApiError(3003, '不能停用自己的账号')
     }
@@ -130,6 +131,7 @@ function updateUser(store: Store, located: Located, parsed: Parsed, operatorId: 
     throw new ApiError(3003, '不能停用自己的账号')
   }
   assertKeepsAdmin(store.users, user, parsed.role, parsed.status)
+  assertKeepsOwnBoss(user, parsed.role, operatorId)
   if (parsed.username && parsed.username !== user.username) {
     assertUsernameFree(store.users, parsed.username)
     user.username = parsed.username
@@ -359,6 +361,12 @@ function assertKeepsAdmin(users: LoginAccount[], user: LoginAccount, nextRole: S
   if (!was || still) return
   const others = users.filter((item) => item.id !== user.id && item.role === 'ADMIN' && item.status === 'ENABLED')
   if (others.length === 0) throw new ApiError(3003, '不能停用或改掉最后一位管理员')
+}
+
+/** 当前登录的老板不能把自己改成别的角色，否则没有人能再管员工。停用自己在调用方已经拒绝。 */
+function assertKeepsOwnBoss(user: LoginAccount, nextRole: StaffRole, operatorId: number): void {
+  if (user.id !== operatorId || user.role !== 'BOSS' || nextRole === 'BOSS') return
+  throw new ApiError(3003, '不能改掉自己的老板角色')
 }
 
 function normalizeStatus(status: string): StaffStatus {

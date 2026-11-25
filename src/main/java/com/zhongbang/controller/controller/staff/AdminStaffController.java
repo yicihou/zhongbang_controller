@@ -19,13 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 员工管理。路径虽然在 {@code /api/admin/**} 里（员工令牌就能进别的管理接口），
- * 但类上的 {@code @PreAuthorize} 再要求角色是管理员。业务员和师傅登录后调用会得到 403。
+ * 但类上的 {@code @PreAuthorize} 再要求角色是老板。管理员、业务员和师傅调用会得到 403。
  *
- * <p>{@code ref} 形如 {@code user-1} 或 {@code tech-88}，对应列表里的那一列。
+ * <p>报修和安装派工用的「启用中师傅」不在这里，走 {@code GET /api/admin/technicians}，管理员仍可查。
+ * {@code ref} 形如 {@code user-1} 或 {@code tech-88}，对应列表里的那一列。
  */
 @RestController
 @RequestMapping("/api/admin/staff")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasRole('BOSS')")
 public class AdminStaffController {
 
     private final StaffService staffService;

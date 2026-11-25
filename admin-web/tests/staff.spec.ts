@@ -1,8 +1,8 @@
-/** 员工管理的 Mock 规则：管理员能增改停用，业务员不能，停用师傅不能派工。 */
+/** 员工管理的 Mock 规则：老板能增改停用，管理员和业务员不能，停用师傅不能派工。管理员仍能拿启用中的师傅名单。 */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { paths } from '../src/api/paths'
 import type { PageResult, RepairTicket, StaffLoginResponse, Technician } from '../src/api/types'
-import { isAdminPayload, decodeJwtPayload } from '../src/domain/jwt'
+import { isBossPayload, decodeJwtPayload } from '../src/domain/jwt'
 import { imageFileError, isImageUrl } from '../src/domain/image'
 import type { StaffMember } from '../src/domain/staff'
 import { assignRepair } from '../src/domain/repair'
@@ -12,12 +12,19 @@ import { resetDb } from '../src/mock/db'
 describe('staff and voucher images', () => {
   beforeEach(() => resetDb())
 
-  it('lets an admin manage staff and hides disabled technicians from dispatch', () => {
+  it('lets a boss manage staff and still lets an admin list technicians for dispatch', () => {
+    const bossLogin = handle('POST', paths.staffLogin, {}, { username: 'boss', password: 'boss123' }, '')
+    expect(bossLogin.body.code).toBe(0)
+    const boss = bossLogin.body.data as StaffLoginResponse
+    expect(boss.staff.role).toBe('ROLE_BOSS')
+    expect(isBossPayload(decodeJwtPayload(boss.token))).toBe(true)
+
     const adminLogin = handle('POST', paths.staffLogin, {}, { username: 'admin', password: 'admin123' }, '')
-    expect(adminLogin.body.code).toBe(0)
     const admin = adminLogin.body.data as StaffLoginResponse
-    expect(admin.staff.role).toBe('ROLE_ADMIN')
-    expect(isAdminPayload(decodeJwtPayload(admin.token))).toBe(true)
+    expect(handle('GET', paths.staff, {}, null, admin.token).body.code).toBe(2003)
+    expect(
+      handle('POST', paths.staff, {}, { name: '不该建成', mobile: '13900001111', role: 'SALES', username: 'nope1', password: 'sales123' }, admin.token).body.code,
+    ).toBe(2003)
 
     const clerkLogin = handle('POST', paths.staffLogin, {}, { username: 'clerk', password: 'clerk123' }, '')
     const clerk = (clerkLogin.body.data as StaffLoginResponse).token
@@ -28,7 +35,7 @@ describe('staff and voucher images', () => {
       paths.staff,
       {},
       { name: '赵师傅', mobile: '13922223333', role: 'TECHNICIAN', skills: ['平缝机'], region: '城南' },
-      admin.token,
+      boss.token,
     )
     expect(created.body.code).toBe(0)
     const member = created.body.data as StaffMember
@@ -36,9 +43,9 @@ describe('staff and voucher images', () => {
     expect(member.ref.startsWith('tech-')).toBe(true)
 
     const listed = handle('GET', paths.technicians, {}, null, admin.token).body.data as Technician[]
-    expect(listed.some((item) => item.id === member.technicianId)).toBe(true)
+    expect(listed.some((item) => item.id === member.technicianId && item.name === '赵师傅' && item.mobile === '13922223333')).toBe(true)
 
-    const disabled = handle('POST', paths.staffStatus(member.ref), {}, { status: 'DISABLED' }, admin.token)
+    const disabled = handle('POST', paths.staffStatus(member.ref), {}, { status: 'DISABLED' }, boss.token)
     expect(disabled.body.code).toBe(0)
     const after = handle('GET', paths.technicians, {}, null, admin.token).body.data as Technician[]
     expect(after.some((item) => item.id === member.technicianId)).toBe(false)
@@ -76,10 +83,18 @@ describe('staff and voucher images', () => {
       }),
     ).toThrow(/停用/)
 
-    const self = handle('POST', paths.staffStatus('user-1'), {}, { status: 'DISABLED' }, admin.token)
+    const self = handle('POST', paths.staffStatus('user-3'), {}, { status: 'DISABLED' }, boss.token)
     expect(self.body.code).toBe(3003)
+    const demote = handle(
+      'PUT',
+      paths.staffOne('user-3'),
+      {},
+      { name: '老板', mobile: '13900000000', role: 'ADMIN', status: 'ENABLED' },
+      boss.token,
+    )
+    expect(demote.body.code).toBe(3003)
 
-    const page = handle('GET', paths.staff, { keyword: '赵师傅' }, null, admin.token).body.data as PageResult<StaffMember>
+    const page = handle('GET', paths.staff, { keyword: '赵师傅' }, null, boss.token).body.data as PageResult<StaffMember>
     expect(page.list[0]?.status).toBe('DISABLED')
   })
 

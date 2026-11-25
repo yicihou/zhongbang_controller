@@ -52,7 +52,7 @@ class CustomerModuleTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(2003));
 
-        String sales = createSales(admin);
+        String sales = createSales();
         mockMvc.perform(get("/api/admin/customers").header("Authorization", "Bearer " + sales))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(2003));
@@ -68,7 +68,7 @@ class CustomerModuleTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.list").isArray());
         mockMvc.perform(get("/api/admin/staff").header("Authorization", "Bearer " + boss))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -251,9 +251,10 @@ class CustomerModuleTest {
         }
     }
 
-    private String createSales(String admin) throws Exception {
+    private String createSales() throws Exception {
+        String boss = login("boss", "boss123");
         mockMvc.perform(post("/api/admin/staff")
-                        .header("Authorization", "Bearer " + admin)
+                        .header("Authorization", "Bearer " + boss)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"客户模块业务员","mobile":"13900007701","role":"SALES","username":"custsales","password":"sales123"}

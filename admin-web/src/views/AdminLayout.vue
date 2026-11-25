@@ -42,7 +42,7 @@
           <el-menu-item index="/customers/analysis">客户分析</el-menu-item>
           <el-menu-item index="/customers/levels">等级规则</el-menu-item>
         </el-sub-menu>
-        <el-menu-item v-if="session.isAdmin" index="/staff">
+        <el-menu-item v-if="session.isBoss" index="/staff">
           <el-icon><User /></el-icon>
           <span>员工管理</span>
         </el-menu-item>

@@ -39,7 +39,7 @@ export const router = createRouter({
         { path: 'repairs/:id', name: 'repair-detail', component: RepairDetailView, meta: { title: '报修详情' } },
         { path: 'technicians', name: 'technicians', component: TechnicianView, meta: { title: '师傅排期' } },
         { path: 'receivables', name: 'receivables', component: ReceivableView, meta: { title: '待收款' } },
-        { path: 'staff', name: 'staff', component: StaffView, meta: { title: '员工管理', admin: true } },
+        { path: 'staff', name: 'staff', component: StaffView, meta: { title: '员工管理', boss: true } },
         { path: 'customers', name: 'customers', component: CustomerListView, meta: { title: '客户', boss: true } },
         { path: 'customers/reminders', name: 'customer-reminders', component: CustomerRemindView, meta: { title: '还款提醒', boss: true } },
         { path: 'customers/analysis', name: 'customer-analysis', component: CustomerAnalysisView, meta: { title: '客户分析', boss: true } },
@@ -57,7 +57,6 @@ router.beforeEach((to) => {
     session.logout()
     return { path: '/login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
   }
-  if (to.meta.admin && !session.isAdmin) return '/'
   if (to.meta.boss && !session.isBoss) return '/'
   if (to.path === '/login' && session.isStaff) return '/'
   return true
