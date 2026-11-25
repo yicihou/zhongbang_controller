@@ -1,19 +1,7 @@
 <template>
   <div>
     <div class="page-head">
-      <div>
-        <h2>师傅与排期</h2>
-        <p>
-          一行一个师傅，一天一格，整月一眼看完。格子里的小条是当天上午、下午、晚上三段：
-          灰是空闲，橙是有人，红是排满。点格子或点师傅名字直接排单。
-        </p>
-      </div>
-      <div class="nav">
-        <el-button @click="shiftMonth(-1)">上一月</el-button>
-        <span class="month">{{ monthLabel }}</span>
-        <el-button @click="shiftMonth(1)">下一月</el-button>
-        <el-button @click="goToday">回到本月</el-button>
-      </div>
+      <h2>师傅与排期</h2>
     </div>
 
     <section class="panel">
@@ -31,38 +19,66 @@
 
     <section class="panel block">
       <div class="panel-head">
-        <h3>排期 · {{ monthLabel }}</h3>
+        <div class="schedule-controls">
+          <h3>排期</h3>
+          <el-date-picker
+            v-model="selectedDate"
+            class="schedule-date"
+            type="date"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            aria-label="选择排期日期"
+            :editable="false"
+            :clearable="false"
+          />
+          <el-radio-group v-model="view" aria-label="排期视图">
+            <el-radio-button value="week">周</el-radio-button>
+            <el-radio-button value="month">月</el-radio-button>
+          </el-radio-group>
+          <el-button-group>
+            <el-button @click="shiftPeriod(-1)">上一{{ periodLabel }}</el-button>
+            <el-button @click="shiftPeriod(1)">下一{{ periodLabel }}</el-button>
+          </el-button-group>
+          <el-button @click="goToday">今天</el-button>
+        </div>
         <div class="legend">
           <span><i class="bar free" />空闲</span>
           <span><i class="bar some" />有单</span>
           <span><i class="bar full" />排满</span>
         </div>
       </div>
-      <div class="month-scroll">
-        <div class="grid" :style="{ gridTemplateColumns: `88px repeat(${days.length}, 34px)` }">
+      <div v-if="!loadingSchedules && !schedulesAvailable" class="schedule-error">
+        <span>排期加载失败</span>
+        <el-button link type="primary" @click="loadSchedules">重试</el-button>
+      </div>
+      <div v-else ref="scheduleScroll" v-loading="loadingSchedules" class="schedule-scroll" :aria-busy="loadingSchedules">
+        <div class="grid" :class="{ 'week-grid': view === 'week' }" :style="{ '--schedule-days': days.length }">
           <div class="cell head corner">师傅</div>
           <div
             v-for="day in days"
             :key="`h-${day}`"
             class="cell head day-head"
-            :class="{ weekend: isWeekend(day), today: day === today }"
+            :class="{ weekend: isWeekend(day), selected: day === selectedDate }"
+            :aria-current="day === today ? 'date' : undefined"
           >
-            <b>{{ Number(day.slice(8)) }}</b>
+            <time :datetime="day">{{ view === 'week' ? day.slice(5).replace('-', '/') : Number(day.slice(8)) }}</time>
             <span>{{ weekdayLabel(day) }}</span>
           </div>
 
           <template v-for="tech in technicians" :key="tech.id">
-            <div class="cell tech" :class="{ today: false }" :title="`给 ${tech.name} 排单`" @click="openAssign(tech, today)">
+            <button type="button" class="cell tech" :title="`给 ${tech.name} 排单`" @click="openAssign(tech, selectedDate)">
               {{ tech.name }}
-            </div>
-            <div
+            </button>
+            <button
               v-for="day in days"
               :key="`${tech.id}-${day}`"
+              type="button"
               class="cell day"
-              :class="{ weekend: isWeekend(day), today: day === today, clickable: true }"
+              :class="{ weekend: isWeekend(day), today: day === today, selected: day === selectedDate }"
+              :aria-label="schedulesAvailable ? tooltip(tech, day) : `${tech.name} · ${day}`"
               @click="openAssign(tech, day)"
             >
-              <el-tooltip :content="tooltip(tech, day)" placement="top" :show-after="150">
+              <el-tooltip v-if="schedulesAvailable" :content="tooltip(tech, day)" placement="top" :show-after="150">
                 <div class="slots">
                   <i
                     v-for="slot in SLOTS"
@@ -72,16 +88,13 @@
                   />
                 </div>
               </el-tooltip>
-            </div>
+            </button>
           </template>
         </div>
       </div>
     </section>
 
     <el-dialog v-model="assignVisible" :title="assignTitle" width="520px">
-      <p class="muted">
-        在这里直接派工，不用先跳去订单详情。派完档期和订单上的安装师傅会一起更新。
-      </p>
       <el-form label-width="80px">
         <el-form-item label="师傅">
           <el-select v-model="form.technicianId" style="width: 100%">
@@ -116,7 +129,7 @@
           <el-input v-model="form.reason" placeholder="改期或改派时填写，正常排单可留空" />
         </el-form-item>
       </el-form>
-      <p v-if="!pending.length" class="muted">现在没有待排的安装单。等客户下单选了上门安装，这里就会出现。</p>
+      <p v-if="!pending.length" class="muted">暂无待排安装单</p>
       <template #footer>
         <el-button @click="assignVisible = false">取消</el-button>
         <el-button type="primary" :disabled="!form.orderItemId" @click="submitAssign">保存排单</el-button>
@@ -126,36 +139,28 @@
 </template>
 
 <script setup lang="ts">
-/**
- * 师傅名单与整月排期。改版的起因是原来的 7 天宽表一屏看不全，也不好直接派工。
- * 现在：一行一个师傅、一天一格，格子里的三条小杠是上午/下午/晚上，点格子或名字就弹排单窗口。
- * 排单走 POST /api/admin/orders/{id}/assign，档期由后端写，这里只刷新。
- */
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { assignOrder, listPendingInstalls, listSchedules, listTechnicians } from '@/api/admin'
 import type { PendingInstall, Technician, TechnicianSchedule } from '@/api/types'
-import { addDays, todayShanghai, weekdayLabel } from '@/domain/clock'
+import { todayShanghai, weekdayLabel } from '@/domain/clock'
+import { scheduleDays, shiftScheduleDate, type ScheduleView } from '@/domain/schedule-calendar'
 import { run } from '@/utils/feedback'
 
 const SLOTS = ['上午', '下午', '晚上']
 const technicians = ref<Technician[]>([])
 const schedules = ref<TechnicianSchedule[]>([])
 const pending = ref<PendingInstall[]>([])
-const today = todayShanghai()
-/** 当前显示哪个月，存当月 1 号。 */
-const monthStart = ref(today.slice(0, 8) + '01')
-
-const monthLabel = computed(() => monthStart.value.slice(0, 7))
-const days = computed(() => {
-  const list: string[] = []
-  let cursor = monthStart.value
-  // 一直排到月底：只要下一天还在同一个月就继续。
-  while (cursor.slice(0, 7) === monthLabel.value) {
-    list.push(cursor)
-    cursor = addDays(cursor, 1)
-  }
-  return list
-})
+const today = ref(todayShanghai())
+const selectedDate = ref(today.value)
+const view = ref<ScheduleView>('week')
+const periodLabel = computed(() => view.value === 'week' ? '周' : '月')
+const days = computed(() => scheduleDays(selectedDate.value, view.value))
+const firstDay = computed(() => days.value[0])
+const lastDay = computed(() => days.value.at(-1))
+const scheduleScroll = ref<HTMLDivElement>()
+const loadingSchedules = ref(false)
+const schedulesAvailable = ref(false)
+let scheduleRequestId = 0
 
 function isWeekend(day: string): boolean {
   const label = weekdayLabel(day)
@@ -185,32 +190,45 @@ function tooltip(tech: Technician, day: string): string {
   return `${tech.name} · ${day} ${parts.join('，')}`
 }
 
-async function load() {
+async function loadSchedules() {
+  const requestId = ++scheduleRequestId
+  const from = firstDay.value
+  const to = lastDay.value
+  loadingSchedules.value = true
+  schedulesAvailable.value = false
   await run(async () => {
-    technicians.value = await listTechnicians()
-    const from = days.value[0]
-    const to = days.value[days.value.length - 1]
-    schedules.value = await listSchedules({ from, to })
+    try {
+      const rows = await listSchedules({ from, to })
+      if (requestId === scheduleRequestId) {
+        schedules.value = rows
+        schedulesAvailable.value = true
+      }
+    } catch (error) {
+      if (requestId === scheduleRequestId) throw error
+    }
+  })
+  if (requestId === scheduleRequestId) loadingSchedules.value = false
+}
+
+async function loadPending() {
+  await run(async () => {
     pending.value = await listPendingInstalls()
   })
 }
 
-function shiftMonth(delta: number) {
-  const [year, month] = monthLabel.value.split('-').map(Number)
-  const target = new Date(Date.UTC(year, (month || 1) - 1 + delta, 1))
-  monthStart.value = target.toISOString().slice(0, 10)
-  void load()
+function shiftPeriod(direction: -1 | 1) {
+  selectedDate.value = shiftScheduleDate(selectedDate.value, view.value, direction)
 }
 
 function goToday() {
-  monthStart.value = today.slice(0, 8) + '01'
-  void load()
+  today.value = todayShanghai()
+  selectedDate.value = today.value
 }
 
 const assignVisible = ref(false)
 const form = reactive({
   technicianId: 0,
-  installDate: today,
+  installDate: today.value,
   installSlot: '上午',
   orderItemId: undefined as number | undefined,
   reason: '',
@@ -221,7 +239,6 @@ const assignTitle = computed(() => {
   return `排单 · ${tech ? tech.name : ''} · ${form.installDate || ''}`
 })
 
-/** 点师傅名字用今天，点某一格用那一天。 */
 function openAssign(tech: Technician, day: string) {
   form.technicianId = tech.id
   form.installDate = day
@@ -245,34 +262,52 @@ async function submitAssign() {
   })
   if (!ok) return
   assignVisible.value = false
-  await load()
+  await Promise.all([loadSchedules(), loadPending()])
 }
 
+watch([firstDay, lastDay], loadSchedules, { immediate: true })
+
+watch([selectedDate, view, scheduleScroll], () => {
+  const viewport = scheduleScroll.value
+  const header = viewport?.querySelector('.day-head.selected')
+  if (!viewport || !header) return
+
+  const dayBounds = header.getBoundingClientRect()
+  const viewportBounds = viewport.getBoundingClientRect()
+  if (dayBounds.left < viewportBounds.left) {
+    viewport.scrollLeft += dayBounds.left - viewportBounds.left
+  } else if (dayBounds.right > viewportBounds.right) {
+    viewport.scrollLeft += dayBounds.right - viewportBounds.right
+  }
+}, { flush: 'post' })
+
 onMounted(() => {
-  void load()
+  void run(async () => {
+    technicians.value = await listTechnicians()
+  })
+  void loadPending()
 })
 </script>
 
 <style scoped>
-.nav {
+.schedule-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  color: var(--zb-muted);
 }
-.month {
-  font-weight: 600;
-  color: var(--zb-text, #1f2329);
-  min-width: 78px;
-  text-align: center;
+.schedule-date.el-date-editor {
+  --el-date-editor-width: 146px;
 }
 .block {
   margin-top: 12px;
 }
 .panel-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 10px;
 }
 h3 {
@@ -290,14 +325,27 @@ h3 {
   align-items: center;
   gap: 4px;
 }
-.month-scroll {
+.schedule-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--zb-muted);
+}
+.schedule-scroll {
   overflow-x: auto;
   padding-bottom: 4px;
 }
 .grid {
   display: grid;
+  grid-template-columns: 88px repeat(var(--schedule-days), 34px);
   gap: 2px;
   width: max-content;
+}
+.week-grid {
+  grid-template-columns: 88px repeat(var(--schedule-days), minmax(46px, 1fr));
+  width: 100%;
+  min-width: 424px;
 }
 .cell {
   display: flex;
@@ -311,16 +359,33 @@ h3 {
   flex-direction: column;
   gap: 1px;
 }
-.head b {
+.head time {
   font-size: 12px;
+  font-weight: 700;
   color: var(--zb-text, #1f2329);
 }
 .corner {
   justify-content: flex-start;
   padding-left: 4px;
 }
-.day-head.weekend b {
+.day-head.weekend time {
   color: var(--zb-red);
+}
+.day-head.selected,
+.day.selected {
+  background: var(--zb-tint);
+}
+.day-head.selected {
+  border-radius: 4px;
+  box-shadow: inset 0 -2px var(--zb-red);
+}
+.tech,
+.day {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-family: inherit;
+  color: inherit;
 }
 .tech {
   justify-content: flex-start;
@@ -337,7 +402,7 @@ h3 {
   border-radius: 4px;
   cursor: pointer;
 }
-.day.weekend {
+.day.weekend:not(.selected) {
   background: #fafafa;
 }
 .day.today {
