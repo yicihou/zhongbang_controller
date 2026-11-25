@@ -17,6 +17,10 @@ public class ProductSku {
     private Long productId;
     private String title;
     private Long price;
+    /** 当前进价，单位分。空表示还没设过，不能当成 0。 */
+    private Long costPrice;
+    /** 最低库存。空则用全店默认值。 */
+    private Integer minStock;
     private Integer stock;
     private Integer locked;
     private Integer deleted;
@@ -31,6 +35,10 @@ public class ProductSku {
     public void setTitle(String title) { this.title = title; }
     public Long getPrice() { return price; }
     public void setPrice(Long price) { this.price = price; }
+    public Long getCostPrice() { return costPrice; }
+    public void setCostPrice(Long costPrice) { this.costPrice = costPrice; }
+    public Integer getMinStock() { return minStock; }
+    public void setMinStock(Integer minStock) { this.minStock = minStock; }
     public Integer getStock() { return stock; }
     public void setStock(Integer stock) { this.stock = stock; }
     public Integer getLocked() { return locked; }

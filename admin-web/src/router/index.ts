@@ -22,6 +22,11 @@ import CustomerDetailView from '@/views/CustomerDetailView.vue'
 import CustomerRemindView from '@/views/CustomerRemindView.vue'
 import CustomerAnalysisView from '@/views/CustomerAnalysisView.vue'
 import CustomerLevelView from '@/views/CustomerLevelView.vue'
+import SupplierView from '@/views/SupplierView.vue'
+import PurchaseView from '@/views/PurchaseView.vue'
+import StockAlertView from '@/views/StockAlertView.vue'
+import MarginView from '@/views/MarginView.vue'
+import ImportView from '@/views/ImportView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -33,6 +38,11 @@ export const router = createRouter({
       children: [
         { path: '', name: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
         { path: 'products', name: 'products', component: ProductView, meta: { title: '商品' } },
+        { path: 'suppliers', name: 'suppliers', component: SupplierView, meta: { title: '供应商' } },
+        { path: 'purchases', name: 'purchases', component: PurchaseView, meta: { title: '采购入库' } },
+        { path: 'stock-alerts', name: 'stock-alerts', component: StockAlertView, meta: { title: '库存预警' } },
+        { path: 'margin', name: 'margin', component: MarginView, meta: { title: '销售毛利', boss: true } },
+        { path: 'imports', name: 'imports', component: ImportView, meta: { title: '数据导入', boss: true } },
         { path: 'orders', name: 'orders', component: OrderListView, meta: { title: '订单' } },
         { path: 'orders/:id', name: 'order-detail', component: OrderDetailView, meta: { title: '订单详情' } },
         { path: 'repairs', name: 'repairs', component: RepairListView, meta: { title: '报修' } },

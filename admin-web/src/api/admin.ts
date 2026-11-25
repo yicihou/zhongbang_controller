@@ -317,6 +317,107 @@ export function importCustomers(file: File): Promise<{ created: number; skipped:
   return requestForm(paths.customerImport, form)
 }
 
+export function listSuppliers(keyword?: string) {
+  return request<PageResult<Record<string, unknown>>>('GET', paths.suppliers, { query: { keyword } })
+}
+
+export function saveSupplier(body: Record<string, unknown>, id?: number) {
+  return request(id ? 'PUT' : 'POST', id ? paths.supplier(id) : paths.suppliers, { body })
+}
+
+export function supplierLedger(id: number) {
+  return request<Record<string, unknown>>('GET', paths.supplierLedger(id))
+}
+
+export function paySupplier(id: number, body: { amount: number; method?: string; remark?: string }) {
+  return request('POST', paths.supplierPay(id), { body })
+}
+
+export function listPurchases(status?: string) {
+  return request<PageResult<Record<string, unknown>>>('GET', paths.purchases, { query: { status } })
+}
+
+export function savePurchase(body: Record<string, unknown>) {
+  return request<Record<string, unknown>>('POST', paths.purchases, { body })
+}
+
+export function receivePurchase(id: number) {
+  return request('POST', paths.purchaseReceive(id))
+}
+
+export function voidPurchase(id: number) {
+  return request('POST', paths.purchaseVoid(id))
+}
+
+export function listStockAlerts() {
+  return request<{ defaultMinStock: number; suggestMultiplier: number; list: Record<string, unknown>[] }>('GET', paths.stockAlerts)
+}
+
+export function setMinStock(skuId: number, minStock: number | null) {
+  return request('PUT', paths.stockMin(skuId), { body: { minStock } })
+}
+
+export function marginReport(query: { period?: string; key?: string; scope?: string }) {
+  return request<Record<string, unknown>>('GET', paths.margin, { query })
+}
+
+export function marginProducts(query: { period?: string; key?: string; scope?: string }) {
+  return request<{ list: Record<string, unknown>[] }>('GET', paths.marginProducts, { query })
+}
+
+export function askMarginInsight(body: { period?: string; key?: string; scope?: string }) {
+  return request<{ configured: boolean; saved: boolean; message: string; analysis?: { resultText: string } | null }>('POST', paths.marginInsights, { body })
+}
+
+export function marginHistory(query: { period?: string; key?: string; scope?: string }) {
+  return request<Record<string, unknown>[]>('GET', paths.marginInsights, { query })
+}
+
+export function setSkuCost(skuId: number, costPrice: number) {
+  return request('PUT', paths.skuCost(skuId), { body: { costPrice } })
+}
+
+export function markOrderInvoice(id: number, body: { invoiced: boolean; invoiceType?: string; taxRate?: number; taxIncluded?: boolean }) {
+  return request('PUT', paths.orderInvoice(id), { body })
+}
+
+export function previewImport(kind: string, file: File) {
+  if (USE_MOCK) {
+    return file.text().then((csv) => request<Record<string, unknown>>('POST', paths.importsPreview, { body: { kind, csv } }))
+  }
+  const form = new FormData()
+  form.append('file', file)
+  return requestForm<Record<string, unknown>>(paths.importsPreview, form, { kind })
+}
+
+export function commitImport(token: string, mapping: Record<string, string>) {
+  return request<{ created: number; skipped: number; errors: string[] }>('POST', paths.importsCommit, { body: { token, mapping } })
+}
+
+export async function downloadImportTemplate(kind: string): Promise<void> {
+  if (USE_MOCK) {
+    const data = await request<{ text: string; filename: string }>('GET', paths.importsTemplate, { query: { kind } })
+    saveText(data.text, data.filename)
+    return
+  }
+  await saveRemote(`${paths.importsTemplate}?kind=${kind}&format=csv`, `导入模板-${kind}.csv`)
+}
+
+export async function downloadMargin(query: { period?: string; key?: string; scope?: string }): Promise<void> {
+  if (USE_MOCK) {
+    const data = await request<{ text: string; filename: string }>('GET', paths.marginExport, { query })
+    saveText(data.text, data.filename)
+    return
+  }
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) if (value) params.set(key, value)
+  await saveRemote(`${paths.marginExport}?${params.toString()}`, '毛利报表.xlsx')
+}
+
+export function seedTradeDemo() {
+  return request<{ created: boolean; message: string }>('POST', paths.tradeDemo)
+}
+
 function toQuery(query: object): string {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) {

@@ -13,6 +13,9 @@ import com.zhongbang.controller.pojo.product.dto.ProductRequests;
 import com.zhongbang.controller.pojo.product.entity.Product;
 import com.zhongbang.controller.pojo.product.entity.ProductSku;
 import com.zhongbang.controller.pojo.product.vo.ProductVo;
+import com.zhongbang.controller.security.StaffRoles;
+import com.zhongbang.controller.security.UserContext;
+import com.zhongbang.controller.service.stock.StockAlertService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,10 +43,12 @@ public class ProductService {
 
     private final ProductMapper productMapper;
     private final ProductSkuMapper productSkuMapper;
+    private final StockAlertService stockAlertService;
 
-    public ProductService(ProductMapper productMapper, ProductSkuMapper productSkuMapper) {
+    public ProductService(ProductMapper productMapper, ProductSkuMapper productSkuMapper, StockAlertService stockAlertService) {
         this.productMapper = productMapper;
         this.productSkuMapper = productSkuMapper;
+        this.stockAlertService = stockAlertService;
     }
 
     /** 公开列表。下架和已删除的不会出现。可按分类编号、关键字筛选。 */
@@ -139,6 +144,7 @@ public class ProductService {
         apply(product, request, true);
         productMapper.insert(product);
         replaceSkus(product.getId(), request.getSkus(), true);
+        watchStock(product.getId());
         return adminGet(product.getId());
     }
 
@@ -149,6 +155,7 @@ public class ProductService {
         productMapper.updateById(product);
         if (request.getSkus() != null) {
             replaceSkus(id, request.getSkus(), false);
+            watchStock(id);
         }
         return adminGet(id);
     }
@@ -293,6 +300,12 @@ public class ProductService {
         return product;
     }
 
+    private void watchStock(long productId) {
+        for (ProductSku sku : skus(productId)) {
+            stockAlertService.evaluate(sku.getId());
+        }
+    }
+
     private List<ProductSku> skus(long productId) {
         return productSkuMapper.selectList(new LambdaQueryWrapper<ProductSku>()
                 .eq(ProductSku::getProductId, productId)
@@ -375,7 +388,14 @@ public class ProductService {
                 stock(rows),
                 DateTimes.format(product.getCreatedAt()),
                 DateTimes.format(product.getUpdatedAt()),
-                rows.stream().map(sku -> new ProductVo.AdminSku(sku.getId(), sku.getTitle(), nz(sku.getPrice()), sku.getStock() == null ? 0 : sku.getStock())).toList()
+                rows.stream().map(sku -> new ProductVo.AdminSku(
+                        sku.getId(),
+                        sku.getTitle(),
+                        nz(sku.getPrice()),
+                        sku.getStock() == null ? 0 : sku.getStock(),
+                        StaffRoles.isBoss(UserContext.currentOrNull()) ? sku.getCostPrice() : null,
+                        sku.getMinStock()
+                )).toList()
         );
     }
 

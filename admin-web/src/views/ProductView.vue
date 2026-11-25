@@ -32,6 +32,12 @@
           <template #default="{ row }"><span class="money">¥{{ formatYuan(row.price) }}</span></template>
         </el-table-column>
         <el-table-column prop="stock" label="库存" width="80" />
+        <el-table-column v-if="session.isBoss" label="进价" width="120">
+          <template #default="{ row }">
+            <span v-if="row.skus?.[0]?.costPrice != null">¥{{ formatYuan(row.skus[0].costPrice) }}</span>
+            <span v-else class="muted">未设</span>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'ON' ? 'success' : 'info'">{{ row.status === 'ON' ? '上架' : '下架' }}</el-tag>
@@ -41,6 +47,7 @@
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button link type="primary" @click="openPrice(row)">改价</el-button>
+            <el-button v-if="session.isBoss" link type="primary" @click="openCost(row)">进价</el-button>
             <el-button link type="primary" @click="toggle(row)">{{ row.status === 'ON' ? '下架' : '上架' }}</el-button>
             <el-button link type="danger" @click="remove(row)">删除</el-button>
           </template>
@@ -122,6 +129,24 @@
         <el-button type="primary" @click="submitPrice">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="costVisible" title="进价" width="420px">
+      <p class="muted">只老板能改。每次保存都会留下改前、改后和操作人。</p>
+      <el-form label-width="88px">
+        <el-form-item label="规格">
+          <el-select v-model="costForm.skuId" style="width: 100%">
+            <el-option v-for="sku in costForm.skus" :key="sku.id" :label="sku.title" :value="sku.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="进价">
+          <el-input-number v-model="costForm.costYuan" :min="0" :precision="2" :step="10" />
+          <span class="muted"> 元</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button type="primary" @click="submitCost">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -133,10 +158,13 @@
  */
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import { changeProductPrice, createProduct, deleteProduct, listProducts, shelveProduct, updateProduct } from '@/api/admin'
+import { changeProductPrice, createProduct, deleteProduct, listProducts, setSkuCost, shelveProduct, updateProduct } from '@/api/admin'
 import type { AdminProduct, ProductStatus } from '@/api/types'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
+import { useSessionStore } from '@/stores/session'
 import { run } from '@/utils/feedback'
+
+const session = useSessionStore()
 
 const categories = [
   { id: 1, name: '家用多功能' },
@@ -173,6 +201,8 @@ const form = reactive({
   skus: [] as SkuForm[],
 })
 const priceVisible = ref(false)
+const costVisible = ref(false)
+const costForm = reactive({ skuId: 0, costYuan: 0, skus: [] as AdminProduct['skus'] })
 const priceForm = reactive({
   productId: 0,
   skuId: 0,
@@ -279,6 +309,22 @@ function openPrice(row: AdminProduct) {
   priceForm.skuId = row.skus[0]?.id ?? 0
   priceForm.priceYuan = fenToYuanNumber(row.skus[0]?.price ?? row.price)
   priceVisible.value = true
+}
+
+function openCost(row: AdminProduct) {
+  costForm.skus = row.skus
+  costForm.skuId = row.skus[0]?.id ?? 0
+  costForm.costYuan = fenToYuanNumber(row.skus[0]?.costPrice ?? 0)
+  costVisible.value = true
+}
+
+async function submitCost() {
+  const ok = await run(async () => {
+    await setSkuCost(costForm.skuId, yuanToFen(costForm.costYuan))
+  })
+  if (!ok) return
+  costVisible.value = false
+  await load()
 }
 
 async function submitPrice() {

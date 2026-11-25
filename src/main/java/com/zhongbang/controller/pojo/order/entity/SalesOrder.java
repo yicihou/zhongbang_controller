@@ -48,6 +48,11 @@ public class SalesOrder {
     private String customerName;
     private String customerMobile;
     private String requestId;
+    /** 0 不开票，1 开票。税率是百分数乘 100，1300 表示 13%。 */
+    private Integer invoiced;
+    private String invoiceType;
+    private Integer taxRate;
+    private Integer taxIncluded;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -115,4 +120,12 @@ public class SalesOrder {
     public void setCustomerMobile(String customerMobile) { this.customerMobile = customerMobile; }
     public String getRequestId() { return requestId; }
     public void setRequestId(String requestId) { this.requestId = requestId; }
+    public Integer getInvoiced() { return invoiced; }
+    public void setInvoiced(Integer invoiced) { this.invoiced = invoiced; }
+    public String getInvoiceType() { return invoiceType; }
+    public void setInvoiceType(String invoiceType) { this.invoiceType = invoiceType; }
+    public Integer getTaxRate() { return taxRate; }
+    public void setTaxRate(Integer taxRate) { this.taxRate = taxRate; }
+    public Integer getTaxIncluded() { return taxIncluded; }
+    public void setTaxIncluded(Integer taxIncluded) { this.taxIncluded = taxIncluded; }
 }
