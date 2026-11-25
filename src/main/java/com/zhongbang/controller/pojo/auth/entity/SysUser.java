@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 /**
  * 后台员工。密码列存 BCrypt 哈希，不是明文。
- * role 可以是 ADMIN（管理员）、SALES（业务员）、TECHNICIAN（师傅）或旧数据里的 STAFF。
+ * role 可以是 BOSS（老板）、ADMIN（管理员）、SALES（业务员）、TECHNICIAN（师傅）或旧数据里的 STAFF。
  * 签发的 JWT 类型都是 STAFF，另外带上这个角色，这样普通员工进得了后台，但管不了员工。
  * status 为 ENABLED 或 DISABLED。停用不是删除，列表里还能看到。
  */

@@ -11,6 +11,10 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 zhongbang:
+  demo:
+    # 生产环境不能生成演示客户。
+    enabled: false
+    auto-seed: false
   redis:
     enabled: true
   rabbitmq:

@@ -22,6 +22,7 @@ public class AdminNotice {
     private Long bizId;
     private String eventType;
     private Integer readFlag;
+    private String audience;
     private LocalDateTime createdAt;
 
     public Long getId() { return id; }
@@ -40,6 +41,9 @@ public class AdminNotice {
     public void setEventType(String eventType) { this.eventType = eventType; }
     public Integer getReadFlag() { return readFlag; }
     public void setReadFlag(Integer readFlag) { this.readFlag = readFlag; }
+    /** ALL 所有员工；BOSS 只给老板，例如协议还款提醒。空的老数据当成 ALL。 */
+    public String getAudience() { return audience; }
+    public void setAudience(String audience) { this.audience = audience; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

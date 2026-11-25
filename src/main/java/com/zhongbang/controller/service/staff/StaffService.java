@@ -38,7 +38,7 @@ import java.util.Set;
 @Service
 public class StaffService {
 
-    private static final Set<String> ROLES = Set.of("ADMIN", "SALES", "TECHNICIAN");
+    private static final Set<String> ROLES = Set.of("ADMIN", "SALES", "TECHNICIAN", "BOSS");
 
     private final SysUserMapper sysUserMapper;
     private final TechnicianMapper technicianMapper;
@@ -197,7 +197,7 @@ public class StaffService {
     private StaffMemberVo updateTechOnly(Technician tech, Parsed parsed, LocalDateTime now) {
         if (!"TECHNICIAN".equals(parsed.role)) {
             if (parsed.username == null || parsed.password == null) {
-                throw new BusinessException(ErrorCode.BAD_REQUEST, "改成管理员或业务员时，请填写用户名和密码");
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "改成老板、管理员或业务员时，请填写用户名和密码");
             }
             assertUsernameFree(parsed.username);
             tech.setStatus("DISABLED");
@@ -308,7 +308,7 @@ public class StaffService {
         }
         String role = request.getRole() == null ? "" : request.getRole().trim().toUpperCase(Locale.ROOT);
         if (!ROLES.contains(role)) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "角色只能是管理员、业务员或师傅");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "角色只能是老板、管理员、业务员或师傅");
         }
         String status = request.getStatus() == null || request.getStatus().isBlank()
                 ? "ENABLED"
@@ -327,12 +327,12 @@ public class StaffService {
             }
         }
         String password = blankToNull(request.getPassword());
-        boolean needLogin = "ADMIN".equals(role) || "SALES".equals(role);
+        boolean needLogin = "ADMIN".equals(role) || "SALES".equals(role) || "BOSS".equals(role);
         if (needLogin && username == null) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "管理员和业务员必须填写用户名和密码");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "老板、管理员和业务员必须填写用户名和密码");
         }
         if (creating && needLogin && password == null) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "管理员和业务员必须填写用户名和密码");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "老板、管理员和业务员必须填写用户名和密码");
         }
         if (creating && "TECHNICIAN".equals(role) && username != null && password == null) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "开通登录请设置密码");

@@ -11,6 +11,7 @@ public record NoticeVo(
         Long bizId,
         String eventType,
         boolean readFlag,
-        String createdAt
+        String createdAt,
+        String audience
 ) {
 }

@@ -17,6 +17,11 @@ import TechnicianView from '@/views/TechnicianView.vue'
 import ReceivableView from '@/views/ReceivableView.vue'
 import ProductView from '@/views/ProductView.vue'
 import StaffView from '@/views/StaffView.vue'
+import CustomerListView from '@/views/CustomerListView.vue'
+import CustomerDetailView from '@/views/CustomerDetailView.vue'
+import CustomerRemindView from '@/views/CustomerRemindView.vue'
+import CustomerAnalysisView from '@/views/CustomerAnalysisView.vue'
+import CustomerLevelView from '@/views/CustomerLevelView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -35,6 +40,11 @@ export const router = createRouter({
         { path: 'technicians', name: 'technicians', component: TechnicianView, meta: { title: '师傅排期' } },
         { path: 'receivables', name: 'receivables', component: ReceivableView, meta: { title: '待收款' } },
         { path: 'staff', name: 'staff', component: StaffView, meta: { title: '员工管理', admin: true } },
+        { path: 'customers', name: 'customers', component: CustomerListView, meta: { title: '客户', boss: true } },
+        { path: 'customers/reminders', name: 'customer-reminders', component: CustomerRemindView, meta: { title: '还款提醒', boss: true } },
+        { path: 'customers/analysis', name: 'customer-analysis', component: CustomerAnalysisView, meta: { title: '客户分析', boss: true } },
+        { path: 'customers/levels', name: 'customer-levels', component: CustomerLevelView, meta: { title: '等级规则', boss: true } },
+        { path: 'customers/:id', name: 'customer-detail', component: CustomerDetailView, meta: { title: '客户详情', boss: true } },
       ],
     },
   ],
@@ -48,6 +58,7 @@ router.beforeEach((to) => {
     return { path: '/login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
   }
   if (to.meta.admin && !session.isAdmin) return '/'
+  if (to.meta.boss && !session.isBoss) return '/'
   if (to.path === '/login' && session.isStaff) return '/'
   return true
 })

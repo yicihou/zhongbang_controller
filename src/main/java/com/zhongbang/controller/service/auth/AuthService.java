@@ -129,7 +129,7 @@ public class AuthService {
         return mobile.substring(0, 3) + "****" + mobile.substring(mobile.length() - 4);
     }
 
-    /** 1 或 null：普通客户；2 银卡；3 金卡。其他数字也显示普通客户。等级没有自动升级逻辑。 */
+    /** 1 或 null：普通客户；2 银卡；3 金卡；4 VIP。自动升级在客户模块里，不在登录时计算。 */
     private static String levelText(Integer level) {
         if (level == null) {
             return "普通客户";
@@ -137,6 +137,7 @@ public class AuthService {
         return switch (level) {
             case 2 -> "银卡客户";
             case 3 -> "金卡客户";
+            case 4 -> "VIP客户";
             default -> "普通客户";
         };
     }

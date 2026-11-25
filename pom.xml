@@ -99,6 +99,12 @@
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- 客户名单导出 xlsx、导入模板。版本写死，Spring Boot 父工程不管 POI。 -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.3.0</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -6,7 +6,7 @@ import type { PageResult, Technician } from '@/api/types'
 import { ApiError } from '@/domain/errors'
 import { paginate } from '@/domain/page'
 
-export type StaffRole = 'ADMIN' | 'SALES' | 'TECHNICIAN' | 'STAFF'
+export type StaffRole = 'ADMIN' | 'SALES' | 'TECHNICIAN' | 'STAFF' | 'BOSS'
 export type StaffStatus = 'ENABLED' | 'DISABLED'
 
 /** Mock 里能登录的账号。password 是明文。 */
@@ -160,7 +160,7 @@ function updateUser(store: Store, located: Located, parsed: Parsed, operatorId: 
 function updateTechOnly(store: Store, tech: Technician, parsed: Parsed): StaffMember {
   if (parsed.role !== 'TECHNICIAN') {
     if (!parsed.username || !parsed.password) {
-      throw new ApiError(1001, '改成管理员或业务员时，请填写用户名和密码')
+      throw new ApiError(1001, '改成老板、管理员或业务员时，请填写用户名和密码')
     }
     assertUsernameFree(store.users, parsed.username)
     tech.status = 'DISABLED'
@@ -269,8 +269,8 @@ function parse(body: StaffSave, creating: boolean, existing: LoginAccount | unde
   const mobile = requireText(body.mobile, '手机号', 20)
   if (!/^1\d{10}$/.test(mobile)) throw new ApiError(1001, '手机号应为 11 位数字')
   const role = (body.role ?? '').trim().toUpperCase()
-  if (role !== 'ADMIN' && role !== 'SALES' && role !== 'TECHNICIAN') {
-    throw new ApiError(1001, '角色只能是管理员、业务员或师傅')
+  if (role !== 'ADMIN' && role !== 'SALES' && role !== 'TECHNICIAN' && role !== 'BOSS') {
+    throw new ApiError(1001, '角色只能是老板、管理员、业务员或师傅')
   }
   const status = body.status ? normalizeStatus(body.status) : 'ENABLED'
   const remark = limit(body.remark?.trim() ?? '', '备注', 500)
@@ -280,9 +280,9 @@ function parse(body: StaffSave, creating: boolean, existing: LoginAccount | unde
     throw new ApiError(1001, '用户名需要 3 到 64 位，且不能有空格')
   }
   const password = body.password?.trim() || ''
-  const needLogin = role === 'ADMIN' || role === 'SALES'
-  if (needLogin && !username) throw new ApiError(1001, '管理员和业务员必须填写用户名和密码')
-  if (creating && needLogin && !password) throw new ApiError(1001, '管理员和业务员必须填写用户名和密码')
+  const needLogin = role === 'ADMIN' || role === 'SALES' || role === 'BOSS'
+  if (needLogin && !username) throw new ApiError(1001, '老板、管理员和业务员必须填写用户名和密码')
+  if (creating && needLogin && !password) throw new ApiError(1001, '老板、管理员和业务员必须填写用户名和密码')
   if (creating && role === 'TECHNICIAN' && username && !password) throw new ApiError(1001, '开通登录请设置密码')
   if (password) checkPassword(password)
   const skills = (body.skills ?? []).map((item) => item.trim()).filter(Boolean)

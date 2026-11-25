@@ -1,7 +1,7 @@
 /**
  * 浏览器内存里的假数据库。刷新页面会回到 createSeed() 的初始数据，改价、发货不会留下。
  * resetDb 给单元测试用，把单例恢复成种子。
- * 员工：admin / admin123（李敏，管理员），clerk / clerk123（周晓，业务员）。密码是明文，只存在于这份种子里。
+ * 员工：admin / admin123（李敏，管理员），clerk / clerk123（周晓，业务员），boss / boss123（老板，才能看客户）。密码是明文，只存在于这份种子里。
  * 金额是分。这些行不是 Flyway 建的表，也没有和 Java 同步。
  */
 import type {
@@ -14,6 +14,7 @@ import type {
   TechnicianSchedule,
 } from '@/api/types'
 import type { LoginAccount } from '@/domain/staff'
+import { buildCustomerBundle, type CustomerBundle } from '@/domain/customer'
 
 export type StaffAccount = LoginAccount
 
@@ -28,6 +29,14 @@ export interface Database {
   repairs: RepairTicket[]
   notices: AdminNotice[]
   products: AdminProduct[]
+  customers: CustomerBundle['customers']
+  addresses: CustomerBundle['addresses']
+  follows: CustomerBundle['follows']
+  assets: CustomerBundle['assets']
+  agreements: CustomerBundle['agreements']
+  preferences: CustomerBundle['preferences']
+  levelRules: CustomerBundle['levelRules']
+  analyses: CustomerBundle['analyses']
 }
 
 function payment(partial: Payment): Payment {
@@ -735,6 +744,10 @@ export function createSeed(): Database {
     },
   ]
 
+  const customers = buildCustomerBundle()
+  orders.push(...customers.extraOrders)
+  repairs.push(...customers.extraRepairs)
+
   return {
     seq: 100000,
     dailySeq: 30,
@@ -742,12 +755,21 @@ export function createSeed(): Database {
     staff: [
       { id: 1, username: 'admin', password: 'admin123', name: '李敏', mobile: '13800000001', role: 'ADMIN', status: 'ENABLED', remark: '初始管理员' },
       { id: 2, username: 'clerk', password: 'clerk123', name: '周晓', mobile: '13800000002', role: 'SALES', status: 'ENABLED', remark: '业务员' },
+      { id: 3, username: 'boss', password: 'boss123', name: '老板', mobile: '13900000000', role: 'BOSS', status: 'ENABLED', remark: '客户模块' },
     ],
     technicians,
     schedules,
     orders,
     repairs,
     notices,
+    customers: customers.customers,
+    addresses: customers.addresses,
+    follows: customers.follows,
+    assets: customers.assets,
+    agreements: customers.agreements,
+    preferences: customers.preferences,
+    levelRules: customers.levelRules,
+    analyses: customers.analyses,
     products: [
       {
         id: 101,

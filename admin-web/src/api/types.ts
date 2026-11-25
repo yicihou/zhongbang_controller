@@ -49,7 +49,13 @@ export type RepairStatus =
   | 'CANCELLED'
 export type ShipmentStatus = 'PENDING' | 'DISPATCHED' | 'DONE' | 'CANCELLED'
 export type AssetSource = 'INTERNAL' | 'EXTERNAL'
-export type StreamEventType = 'ORDER_CREATED' | 'REPAIR_CREATED' | 'PAYMENT_OFFLINE_PENDING'
+export type StreamEventType =
+  | 'ORDER_CREATED'
+  | 'REPAIR_CREATED'
+  | 'PAYMENT_OFFLINE_PENDING'
+  | 'REPAY_SOON'
+  | 'REPAY_TODAY'
+  | 'REPAY_OVERDUE'
 
 export interface Shipment {
   id: number
@@ -207,11 +213,13 @@ export interface AdminNotice {
   id: number
   title: string
   body: string
-  bizType: 'ORDER' | 'REPAIR' | 'PAYMENT'
+  bizType: 'ORDER' | 'REPAIR' | 'PAYMENT' | 'CUSTOMER'
   bizId: number
   eventType: StreamEventType
   readFlag: boolean
   createdAt: string
+  /** ALL 所有员工可见。BOSS 只有老板能在通知里看到，例如协议还款。 */
+  audience?: 'ALL' | 'BOSS'
 }
 
 export interface Technician {
@@ -266,6 +274,7 @@ export interface UploadedImage {
   name: string
   size: number
   contentType?: string
+  kind?: 'IMAGE' | 'AUDIO' | 'DOCUMENT' | string
 }
 
 export type ProductStatus = 'ON' | 'OFF'

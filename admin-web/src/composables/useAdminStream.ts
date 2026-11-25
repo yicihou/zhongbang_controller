@@ -17,6 +17,7 @@ import { API_BASE, USE_MOCK } from '@/config'
 import { consumeSseBuffer, initialStreamState, registerStreamFailure, registerStreamOpen, type StreamState } from '@/domain/sse'
 import { subscribeMockStream } from '@/mock/bus'
 import { useInboxStore } from '@/stores/inbox'
+import { useSessionStore } from '@/stores/session'
 import { playChime } from './sound'
 
 export function useAdminStream() {
@@ -24,6 +25,7 @@ export function useAdminStream() {
   const router = useRouter()
 
   function openNotice(notice: AdminNotice) {
+    if (notice.audience === 'BOSS' && !useSessionStore().isBoss) return
     const fresh = inbox.ingest(notice, true)
     if (!fresh) return
     if (inbox.soundOn) {
@@ -41,6 +43,7 @@ export function useAdminStream() {
       onClick: () => {
         if (notice.bizType === 'ORDER') void router.push(`/orders/${notice.bizId}`)
         else if (notice.bizType === 'REPAIR') void router.push(`/repairs/${notice.bizId}`)
+        else if (notice.bizType === 'CUSTOMER') void router.push(`/customers/${notice.bizId}`)
       },
     })
   }

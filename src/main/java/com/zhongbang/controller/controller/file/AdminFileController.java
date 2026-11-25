@@ -2,6 +2,7 @@ package com.zhongbang.controller.controller.file;
 
 import com.zhongbang.controller.common.api.ApiResponse;
 import com.zhongbang.controller.pojo.file.vo.UploadedFileVo;
+import com.zhongbang.controller.security.StaffRoles;
 import com.zhongbang.controller.service.file.FileUploadService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,6 +34,9 @@ public class AdminFileController {
             @RequestParam("file") List<MultipartFile> files,
             @RequestParam(required = false) String biz
     ) {
+        if (biz != null && "agreement".equalsIgnoreCase(biz.trim())) {
+            StaffRoles.requireBoss("只有老板可以上传协议材料");
+        }
         return ApiResponse.ok(fileUploadService.storeAll(files, biz));
     }
 }
