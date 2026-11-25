@@ -58,7 +58,7 @@ src/main/java/com/zhongbang/controller
 mvn spring-boot:run
 ```
 
-看到端口 `8080` 即可。初始管理员 **admin / admin123**，老板 **boss / boss123**（密码在库里是 BCrypt）。客户档案只有老板能进。
+看到端口 `8080` 即可。初始管理员 **admin / admin123**，老板 **boss / boss123**（密码在库里是 BCrypt）。客户档案和员工管理只有老板能进。
 
 2. 启动管理端：
 
@@ -68,7 +68,7 @@ npm install
 npm run dev
 ```
 
-浏览器打开 `http://127.0.0.1:5173`。开发配置默认 `VITE_USE_MOCK=false`，请求发到 `http://127.0.0.1:8080`（见 `admin-web/.env.development`）。用 admin / admin123 或 boss / boss123 登录。左侧有「商品」「报修」，老板还能看到「客户」。
+浏览器打开 `http://127.0.0.1:5173`。开发配置默认 `VITE_USE_MOCK=false`，请求发到 `http://127.0.0.1:8080`（见 `admin-web/.env.development`）。用 admin / admin123 或 boss / boss123 登录。左侧有「商品」「报修」，老板还能看到「客户」和「员工管理」。Mock 同样只给老板这两个入口。
 
 客户分析要调用 DeepSeek 时，启动前设置环境变量 `DEEPSEEK_API_KEY`（不要写进仓库）。可选 `DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`。没配密钥时页面会提示，接口不会 500。开发环境老板可以点「生成演示数据」；生产配置里这个开关是关的。
 

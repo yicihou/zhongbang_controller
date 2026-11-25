@@ -12,7 +12,11 @@ import java.util.List;
 
 /**
  * 师傅查询。小程序选师傅要登录；管理端名单和档期要 STAFF。
- * 派工本身在订单接口里，不在这个类。
+ * 派工本身在订单和报修接口里，不在这个类。
+ *
+ * <p>{@code GET /api/admin/technicians} 只列启用中的师傅，给报修和安装的下拉框用，
+ * 和管理端员工管理不是同一个接口。管理员可以查，不必是老板。
+ * 除了 id、姓名、手机，还带技能和区域，下拉文案和排期页要用。
  */
 @RestController
 public class TechnicianController {

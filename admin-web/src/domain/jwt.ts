@@ -72,13 +72,13 @@ export function issueMockStaffToken(
   return `${header}.${payload}.mock`
 }
 
-/** 员工管理页面只给管理员。type 仍是 STAFF，角色声明是 ROLE_ADMIN。 */
+/** 管理员令牌。type 仍是 STAFF，角色声明是 ROLE_ADMIN。员工管理不再看这个。 */
 export function isAdminPayload(payload: JwtPayload | null, nowSec = Date.now() / 1000): boolean {
   if (!isStaffPayload(payload, nowSec)) return false
   return payload?.role === 'ROLE_ADMIN' || payload?.role === 'ADMIN'
 }
 
-/** 客户模块只给老板。type 仍是 STAFF，角色声明是 ROLE_BOSS。 */
+/** 客户模块和员工管理只给老板。type 仍是 STAFF，角色声明是 ROLE_BOSS。 */
 export function isBossPayload(payload: JwtPayload | null, nowSec = Date.now() / 1000): boolean {
   if (!isStaffPayload(payload, nowSec)) return false
   return payload?.role === 'ROLE_BOSS' || payload?.role === 'BOSS'

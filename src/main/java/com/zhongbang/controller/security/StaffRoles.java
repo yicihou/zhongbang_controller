@@ -5,7 +5,7 @@ import com.zhongbang.controller.common.exception.ErrorCode;
 
 /**
  * 判断当前登录员工是不是老板。
- * 客户档案、协议还款和分析只允许角色 BOSS。管理员和业务员的令牌进得了别的后台接口，到这里会被拒绝。
+ * 客户档案、协议还款、分析和员工管理只允许角色 BOSS。管理员和业务员的令牌进得了别的后台接口，到这里会被拒绝。
  */
 public final class StaffRoles {
 

@@ -13,6 +13,7 @@ import com.zhongbang.controller.pojo.staff.dto.StaffSaveRequest;
 import com.zhongbang.controller.pojo.staff.vo.StaffMemberVo;
 import com.zhongbang.controller.pojo.technician.entity.Technician;
 import com.zhongbang.controller.security.LoginUser;
+import com.zhongbang.controller.security.StaffRoles;
 import com.zhongbang.controller.security.UserContext;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,7 +34,8 @@ import java.util.Set;
  * 师傅写在 {@code technician}，可以不登录；填了用户名和密码才会同时建一条登录账号，两边用 id 互相关联。
  * 停用师傅后，报修和安装派工都会拒绝。
  *
- * <p>每个会改数据的方法都先确认当前人是管理员。普通员工令牌进得了别的管理接口，进不了这里。
+ * <p>每个会改数据的方法都先确认当前人是老板。管理员和业务员的令牌进得了别的管理接口，进不了这里。
+ * 老板不能停用自己，也不能把自己的角色改成别的，否则就没有人能再进员工管理。
  */
 @Service
 public class StaffService {
@@ -51,7 +53,7 @@ public class StaffService {
     }
 
     public PageResult<StaffMemberVo> list(String keyword, String role, String status, int page, int size) {
-        requireAdmin();
+        requireBoss();
         int p = PageResult.normalizePage(page);
         int s = PageResult.normalizeSize(size);
         List<StaffMemberVo> all = loadAll();
@@ -80,7 +82,7 @@ public class StaffService {
 
     @Transactional
     public StaffMemberVo create(StaffSaveRequest request) {
-        requireAdmin();
+        requireBoss();
         Parsed parsed = parse(request, true, null);
         if ("TECHNICIAN".equals(parsed.role)) {
             Technician tech = newTechnician(parsed);
@@ -102,7 +104,7 @@ public class StaffService {
 
     @Transactional
     public StaffMemberVo update(String ref, StaffSaveRequest request) {
-        requireAdmin();
+        requireBoss();
         Located located = locate(ref);
         Parsed parsed = parse(request, false, located.user);
         LocalDateTime now = DateTimes.now();
@@ -114,7 +116,7 @@ public class StaffService {
 
     @Transactional
     public StaffMemberVo changeStatus(String ref, String status) {
-        requireAdmin();
+        requireBoss();
         String next = normalizeStatus(status);
         Located located = locate(ref);
         LocalDateTime now = DateTimes.now();
@@ -140,7 +142,7 @@ public class StaffService {
 
     @Transactional
     public void resetPassword(String ref, String password) {
-        requireAdmin();
+        requireBoss();
         String raw = checkPassword(password);
         Located located = locate(ref);
         SysUser user = located.user;
@@ -156,6 +158,7 @@ public class StaffService {
         SysUser user = located.user;
         assertNotSelf(user, parsed.status);
         assertKeepsAdmin(user, parsed.role, parsed.status);
+        assertKeepsOwnBoss(user, parsed.role);
         if (parsed.username != null && !parsed.username.equals(user.getUsername())) {
             assertUsernameFree(parsed.username);
             user.setUsername(parsed.username);
@@ -422,6 +425,9 @@ public class StaffService {
         }
     }
 
+    /**
+     * 谁都不能停用自己。老板把自己停用后，就没有人能再进员工管理。
+     */
     private void assertNotSelf(SysUser user, String nextStatus) {
         if (!"DISABLED".equalsIgnoreCase(nextStatus)) {
             return;
@@ -429,6 +435,19 @@ public class StaffService {
         LoginUser current = UserContext.require();
         if (user.getId().equals(current.getUserId())) {
             throw new BusinessException(ErrorCode.ILLEGAL_STATE, "不能停用自己的账号");
+        }
+    }
+
+    /**
+     * 当前登录的老板不能把自己改成别的角色。别的老板仍可以改别人。
+     */
+    private void assertKeepsOwnBoss(SysUser user, String nextRole) {
+        if (!"BOSS".equals(user.getRole()) || "BOSS".equals(nextRole)) {
+            return;
+        }
+        LoginUser current = UserContext.require();
+        if (user.getId().equals(current.getUserId())) {
+            throw new BusinessException(ErrorCode.ILLEGAL_STATE, "不能改掉自己的老板角色");
         }
     }
 
@@ -471,12 +490,8 @@ public class StaffService {
         );
     }
 
-    private static void requireAdmin() {
-        LoginUser user = UserContext.require();
-        boolean admin = user.getAuthorities().stream().anyMatch(auth -> "ROLE_ADMIN".equals(auth.getAuthority()));
-        if (!admin) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "只有管理员可以管理员工");
-        }
+    private static void requireBoss() {
+        StaffRoles.requireBoss("只有老板可以管理员工");
     }
 
     private static String normalizeStatus(String status) {
