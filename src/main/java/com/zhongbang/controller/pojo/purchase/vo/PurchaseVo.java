@@ -59,6 +59,21 @@ public final class PurchaseVo {
     ) {
     }
 
+    public record BatchRow(Long id, String purchaseNo, String orderDate, String status,
+                           List<String> suppliers, Long totalAmount) {
+    }
+
+    public record Batch(BatchRow summary, List<SupplierOrder> orders) {
+    }
+
+    public record SupplierOrder(Detail purchase, String contact, String mobile, int revision,
+                                List<Correction> corrections) {
+    }
+
+    public record Correction(Long id, String reason, String operatorName, String createdAt,
+                             Detail before, Detail after) {
+    }
+
     public record Detail(
             Long id,
             String purchaseNo,

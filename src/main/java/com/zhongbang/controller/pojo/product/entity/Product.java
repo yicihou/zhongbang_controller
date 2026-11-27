@@ -1,6 +1,8 @@
 package com.zhongbang.controller.pojo.product.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
@@ -18,6 +20,8 @@ public class Product {
     private Long tenantId;
     private String name;
     private String brand;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private Long purchaseSupplierId;
     private String category;
     private Integer categoryId;
     private String model;
@@ -37,6 +41,8 @@ public class Product {
     public void setName(String name) { this.name = name; }
     public String getBrand() { return brand; }
     public void setBrand(String brand) { this.brand = brand; }
+    public Long getPurchaseSupplierId() { return purchaseSupplierId; }
+    public void setPurchaseSupplierId(Long purchaseSupplierId) { this.purchaseSupplierId = purchaseSupplierId; }
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
     public Integer getCategoryId() { return categoryId; }

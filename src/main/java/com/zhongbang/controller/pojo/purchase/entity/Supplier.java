@@ -1,6 +1,8 @@
 package com.zhongbang.controller.pojo.purchase.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
@@ -13,10 +15,15 @@ public class Supplier {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private String name;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String contact;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String mobile;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String brands;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Integer accountDays;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String remark;
     private String source;
     private Integer deleted;

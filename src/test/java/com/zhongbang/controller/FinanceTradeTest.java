@@ -170,6 +170,146 @@ class FinanceTradeTest {
     }
 
     @Test
+    void purchaseBatchGroupsSuppliersAndCorrectsReceivedStock() throws Exception {
+        String boss = login("boss", "boss123");
+        String admin = login("admin", "admin123");
+        long firstSupplier = supplier(boss, "分单品牌甲");
+        long secondSupplier = supplier(boss, "分单渠道乙");
+        long firstSku = createPurchaseSku(admin, "采购批次甲", "分单品牌甲", null);
+        long secondSku = createPurchaseSku(admin, "采购批次乙", "分单品牌甲", secondSupplier);
+        long productId = jdbc.queryForObject("select product_id from product_sku where id = ?", Long.class, secondSku);
+        mockMvc.perform(get("/api/products/" + productId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.brand").value("分单品牌甲"))
+                .andExpect(jsonPath("$.data.purchaseSupplierId").doesNotExist());
+
+        String batches = "/api/admin/purchases/batches";
+        String selection = """
+                {"requestId":"97fa4d73-0161-4810-8f2f-4487ce317742","lines":[
+                    {"skuId":%d,"quantity":2},{"skuId":%d,"quantity":1},{"skuId":%d,"quantity":1}]}
+                """.formatted(firstSku, secondSku, firstSku);
+        JsonNode batch = read(mockMvc.perform(post(batches).header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON).content(selection))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.orders.length()").value(2))
+                .andExpect(jsonPath("$.data.orders[0].purchase.supplierId").value(firstSupplier))
+                .andExpect(jsonPath("$.data.orders[0].purchase.lines[0].quantity").value(3))
+                .andExpect(jsonPath("$.data.orders[1].purchase.supplierId").value(secondSupplier))
+                .andReturn()).path("data");
+        long batchId = batch.path("summary").path("id").asLong();
+        long firstOrder = batch.path("orders").get(0).path("purchase").path("id").asLong();
+        long secondOrder = batch.path("orders").get(1).path("purchase").path("id").asLong();
+        String order = "/api/admin/purchases/" + firstOrder;
+        mockMvc.perform(post(batches).header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON).content(selection))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary.id").value(batchId));
+        mockMvc.perform(get(batches).header("Authorization", "Bearer " + admin)
+                        .param("keyword", batch.path("summary").path("purchaseNo").asText()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.list[0].suppliers.length()").value(2));
+        assertThat(jdbc.queryForObject("select stock from product_sku where id = ?", Integer.class, firstSku)).isEqualTo(4);
+
+        String draft = """
+                {"supplierId":%d,"revision":1,"freightAmount":500,"lines":[{"skuId":%d,"quantity":3,"unitCost":10000}]}
+                """.formatted(firstSupplier, firstSku);
+        mockMvc.perform(put(order).header("Authorization", "Bearer " + boss)
+                        .contentType(MediaType.APPLICATION_JSON).content(draft))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(order + "/receive").header("Authorization", "Bearer " + boss).param("revision", "1"))
+                .andExpect(jsonPath("$.code").value(4090));
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mockMvc.perform(post(order + "/receive").header("Authorization", "Bearer " + boss))
+                    .andExpect(status().isOk());
+        }
+        assertThat(jdbc.queryForObject("select stock from product_sku where id = ?", Integer.class, firstSku)).isEqualTo(7);
+        mockMvc.perform(get(batches + "/" + batchId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary.status").value("PARTIAL"))
+                .andExpect(jsonPath("$.data.orders[0].purchase.lines[0].unitCost").doesNotExist())
+                .andExpect(jsonPath("$.data.orders[1].purchase.status").value("DRAFT"));
+
+        String correction = """
+                {"reason":"实际收货数量和进价","revision":3,"purchase":{"supplierId":%d,"freightAmount":500,
+                "lines":[{"skuId":%d,"quantity":2,"unitCost":9000}]}}
+                """.formatted(firstSupplier, firstSku);
+        mockMvc.perform(post(order + "/correction").header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON).content(correction))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post(order + "/void").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post(order + "/correction").header("Authorization", "Bearer " + boss)
+                        .contentType(MediaType.APPLICATION_JSON).content(correction))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalAmount").value(18500));
+        assertThat(jdbc.queryForObject("select stock from product_sku where id = ?", Integer.class, firstSku)).isEqualTo(6);
+        assertThat(jdbc.queryForObject("select cost_price from product_sku where id = ?", Long.class, firstSku)).isEqualTo(9000L);
+        mockMvc.perform(get("/api/admin/suppliers/" + firstSupplier + "/ledger").header("Authorization", "Bearer " + boss))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.payable").value(18500))
+                .andExpect(jsonPath("$.data.balance").value(18500));
+        mockMvc.perform(get(batches + "/" + batchId).header("Authorization", "Bearer " + boss))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orders[0].corrections[0].before.lines[0].quantity").value(3))
+                .andExpect(jsonPath("$.data.orders[0].corrections[0].after.lines[0].quantity").value(2));
+        mockMvc.perform(post(order + "/correction").header("Authorization", "Bearer " + boss)
+                        .contentType(MediaType.APPLICATION_JSON).content(correction))
+                .andExpect(jsonPath("$.code").value(4090));
+        mockMvc.perform(post("/api/admin/purchases/" + secondOrder + "/receive").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
+        mockMvc.perform(get(batches + "/" + batchId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary.status").value("RECEIVED"))
+                .andExpect(jsonPath("$.data.orders[0].corrections").isEmpty());
+    }
+
+    @Test
+    void regroupingDraftsKeepsTheOriginalMainRecord() throws Exception {
+        String admin = login("admin", "admin123");
+        long from = supplier(admin, "草稿改派甲");
+        long to = supplier(admin, "草稿改派乙");
+        long sku = createPurchaseSku(admin, "草稿改派测试", "草稿改派甲", null);
+        String batches = "/api/admin/purchases/batches";
+        String selection = """
+                {"requestId":"f28511c2-8447-4a16-adcb-f67294c57656","lines":[
+                    {"skuId":%d,"quantity":2},{"skuId":%d,"quantity":1,"supplierId":%d}]}
+                """.formatted(sku, sku, to);
+        JsonNode group = read(mockMvc.perform(post(batches).header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON).content(selection))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orders[0].purchase.supplierId").value(from))
+                .andReturn()).path("data");
+        long rootId = group.path("summary").path("id").asLong();
+        String draft = """
+                {"supplierId":%d,"revision":1,"lines":[{"skuId":%d,"quantity":3}]}
+                """.formatted(to, sku);
+        mockMvc.perform(put("/api/admin/purchases/" + rootId).header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON).content(draft))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.lines[0].quantity").value(4));
+        mockMvc.perform(get(batches + "/" + rootId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary.id").value(rootId))
+                .andExpect(jsonPath("$.data.summary.purchaseNo").value(group.path("summary").path("purchaseNo").asText()))
+                .andExpect(jsonPath("$.data.orders.length()").value(1))
+                .andExpect(jsonPath("$.data.orders[0].purchase.supplierId").value(to))
+                .andExpect(jsonPath("$.data.orders[0].purchase.lines[0].quantity").value(4));
+        assertThat(jdbc.queryForObject("select stock from product_sku where id = ?", Integer.class, sku)).isEqualTo(4);
+    }
+
+    private long createPurchaseSku(String admin, String name, String brand, Long supplierId) throws Exception {
+        String body = """
+                {"name":"%s","brand":"%s","purchaseSupplierId":%s,"status":"ON",
+                 "skus":[{"title":"标准","price":20000,"stock":4}]}
+                """.formatted(name, brand, supplierId);
+        return read(mockMvc.perform(post("/api/admin/products").header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andReturn()).path("data").path("skus").get(0).path("id").asLong();
+    }
+
+    @Test
     void orderSnapshotsCostAndUnknownIsNotZero() throws Exception {
         String boss = login("boss", "boss123");
         String admin = login("admin", "admin123");
@@ -367,7 +507,7 @@ class FinanceTradeTest {
                 .andExpect(status().isOk());
         assertThat(countAlerts(boss, skuId)).isEqualTo(1);
         mockMvc.perform(post("/api/admin/purchases/" + draft.path("data").path("id").asLong() + "/void")
-                        .header("Authorization", "Bearer " + admin))
+                        .header("Authorization", "Bearer " + boss))
                 .andExpect(status().isOk());
         assertThat(countAlerts(boss, skuId)).isEqualTo(2);
         String adminNotices = mockMvc.perform(get("/api/admin/notices").header("Authorization", "Bearer " + admin).param("size", "100"))

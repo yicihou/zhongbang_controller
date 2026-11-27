@@ -33,10 +33,17 @@ public class AdminProductController {
     public ApiResponse<PageResult<ProductVo.Admin>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false) String brand,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(productService.adminList(keyword, status, page, size));
+        return ApiResponse.ok(productService.adminList(keyword, status, categoryId, brand, page, size));
+    }
+
+    @GetMapping("/options")
+    public ApiResponse<ProductVo.Options> options() {
+        return ApiResponse.ok(productService.adminOptions());
     }
 
     @GetMapping("/{id}")

@@ -13,6 +13,8 @@ public final class ProductRequests {
     public static class Save {
         private String name;
         private String brand;
+        private Long purchaseSupplierId;
+        private boolean purchaseSupplierProvided;
         private String category;
         private Integer categoryId;
         private String model;
@@ -26,6 +28,12 @@ public final class ProductRequests {
         public void setName(String name) { this.name = name; }
         public String getBrand() { return brand; }
         public void setBrand(String brand) { this.brand = brand; }
+        public Long getPurchaseSupplierId() { return purchaseSupplierId; }
+        public void setPurchaseSupplierId(Long purchaseSupplierId) {
+            this.purchaseSupplierId = purchaseSupplierId;
+            this.purchaseSupplierProvided = true;
+        }
+        public boolean hasPurchaseSupplier() { return purchaseSupplierProvided; }
         public String getCategory() { return category; }
         public void setCategory(String category) { this.category = category; }
         public Integer getCategoryId() { return categoryId; }

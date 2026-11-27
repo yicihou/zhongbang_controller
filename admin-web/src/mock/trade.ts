@@ -1,11 +1,13 @@
 /**
  * Mock 的进销存接口。规则和后端同一套：非老板看不到进价、应付和毛利。
  */
+import type { PurchaseBatch, PurchaseBatchRow, PurchaseDetail } from '@/api/purchase'
 import type { AdminOrder, AdminProduct, PageResult, Payment } from '@/api/types'
 import type { MarginPeriod, MarginTotals, MarginTrendPoint, MarginTrendValues } from '@/api/margin'
 import { addDays, formatDateTime, todayShanghai } from '@/domain/clock'
 import { ApiError } from '@/domain/errors'
 import { paginate } from '@/domain/page'
+import { matchPurchaseSupplier } from '@/domain/purchase'
 import {
   IMPORT_FIELDS,
   marginText,
@@ -20,7 +22,7 @@ import {
   type InvoiceScope,
 } from '@/domain/trade'
 import { db } from './db'
-import type { PurchaseLine, PurchaseRow, SupplierRow } from './tradeSeed'
+import type { LedgerRow, PurchaseLine, PurchaseRow, SupplierRow } from './tradeSeed'
 
 const previews = new Map<string, { kind: string; headers: string[]; rows: Record<string, string>[] }>()
 
@@ -37,7 +39,15 @@ function supplierView(row: SupplierRow, boss: boolean): SupplierRow {
   return rest
 }
 
-function purchaseView(row: PurchaseRow, boss: boolean): PurchaseRow {
+function purchaseView(row: PurchaseRow, boss: boolean): PurchaseDetail {
+  const { requestId, batchId, revision, merged, corrections, ...purchase } = row
+  void requestId
+  void batchId
+  void revision
+  void merged
+  void corrections
+  const supplier = db.suppliers.find((item) => item.id === row.supplierId)
+  purchase.supplierName = supplier?.name ?? purchase.supplierName
   const lines = row.lines.map((line) => {
     if (boss) return line
     const { unitCost, lineAmount, ...rest } = line
@@ -45,12 +55,140 @@ function purchaseView(row: PurchaseRow, boss: boolean): PurchaseRow {
     void lineAmount
     return rest
   })
-  if (boss) return { ...row, lines }
-  const { freightAmount, goodsAmount, totalAmount, ...rest } = row
+  if (boss) return { ...purchase, lines }
+  const { freightAmount, goodsAmount, totalAmount, ...rest } = purchase
   void freightAmount
   void goodsAmount
   void totalAmount
   return { ...rest, lines }
+}
+
+function batchOrders(root: PurchaseRow) {
+  return root.batchId == null ? [root] : db.purchases.filter((row) => row.batchId === root.id && !row.merged)
+}
+
+function batchSummary(root: PurchaseRow, boss: boolean): PurchaseBatchRow {
+  const rows = batchOrders(root)
+  const active = rows.filter((row) => row.status !== 'VOID')
+  const received = active.filter((row) => row.status === 'RECEIVED').length
+  const status = !active.length ? 'VOID' : !received ? 'DRAFT' : received === active.length ? 'RECEIVED' : 'PARTIAL'
+  const source = active.length ? active : rows
+  const suppliers = [...new Set(source.map((row) => purchaseView(row, false).supplierName))].sort()
+  const totalAmount = boss ? active.reduce((sum, row) => sum + (row.totalAmount ?? 0), 0) : undefined
+  return { id: root.id, purchaseNo: root.purchaseNo, orderDate: root.batchId == null ? root.orderDate : root.createdAt.slice(0, 10), status, suppliers, totalAmount }
+}
+
+function batchView(root: PurchaseRow, boss: boolean): PurchaseBatch {
+  return { summary: batchSummary(root, boss), orders: batchOrders(root).map((row) => {
+    const supplier = db.suppliers.find((item) => item.id === row.supplierId)
+    return {
+      purchase: purchaseView(row, boss), contact: supplier?.contact, mobile: supplier?.mobile,
+      revision: row.revision ?? 0, corrections: boss ? row.corrections ?? [] : [],
+    }
+  }) }
+}
+
+function purchaseInput(record: Record<string, unknown> | undefined) {
+  const lines = Array.isArray(record?.lines) ? (record.lines as Record<string, unknown>[]) : []
+  if (!lines.length) throw new ApiError(1001, '请至少填写一行明细')
+  if (lines.some((line) => !line || !Number.isInteger(Number(line.quantity)) || Number(line.quantity) < 1)) {
+    throw new ApiError(1001, '请选择商品规格并填写有效数量')
+  }
+  return lines
+}
+
+function purchaseDraft(record: Record<string, unknown>, boss: boolean, previous?: PurchaseRow): PurchaseRow {
+  const lines = purchaseInput(record)
+  const supplier = db.suppliers.find((item) => item.id === Number(record.supplierId))
+  if (!supplier) throw new ApiError(4040, '供应商不存在')
+  const id = previous?.id ?? ++db.seq
+  const invoiced = record.invoiced === true
+  const purchase: PurchaseRow = {
+    ...previous,
+    id,
+    purchaseNo: previous?.purchaseNo ?? `PO${todayShanghai().replace(/-/g, '')}${id}`,
+    supplierId: supplier.id,
+    supplierName: supplier.name,
+    orderDate: String(record.orderDate || todayShanghai()),
+    status: previous?.status ?? 'DRAFT',
+    revision: (previous?.revision ?? 0) + 1,
+    invoiced,
+    invoiceType: invoiced && record.invoiceType ? String(record.invoiceType) : undefined,
+    taxRate: invoiced && typeof record.taxRate === 'number' ? record.taxRate : undefined,
+    taxIncluded: invoiced && typeof record.taxIncluded === 'boolean' ? record.taxIncluded : undefined,
+    attachmentUrls: Array.isArray(record.attachmentUrls) ? record.attachmentUrls.map(String) : [],
+    remark: record.remark ? String(record.remark) : undefined,
+    freightAmount: boss ? Number(record.freightAmount ?? 0) : previous?.freightAmount ?? 0,
+    lines: lines.map((line): PurchaseLine => {
+      const skuId = Number(line.skuId)
+      const info = skuName(skuId)
+      const quantity = Number(line.quantity)
+      const unitCost = boss ? line.unitCost == null ? undefined : Number(line.unitCost)
+        : previous?.lines.find((old) => old.skuId === skuId)?.unitCost
+      const lineAmount = unitCost == null ? undefined : unitCost * quantity
+      return { id: ++db.seq, skuId, productName: info.productName, skuName: info.skuName, quantity, unitCost, lineAmount }
+    }),
+    operatorName: boss ? '老板' : '员工',
+    createdAt: previous?.createdAt ?? formatDateTime(),
+  }
+  setPurchaseTotals(purchase)
+  return purchase
+}
+
+function setPurchaseTotals(row: PurchaseRow) {
+  row.goodsAmount = row.lines.reduce((sum, line) => sum + (line.lineAmount ?? 0), 0)
+  row.totalAmount = row.goodsAmount + (row.freightAmount ?? 0)
+}
+
+function checkPurchaseRevision(row: PurchaseRow, expected: unknown) {
+  if (expected != null && Number(expected) !== (row.revision ?? 0)) {
+    throw new ApiError(4090, '采购记录已更新，请重新打开后编辑')
+  }
+}
+
+function applyPurchaseStock(id: number, original: PurchaseLine[], updated: PurchaseLine[],
+  type: 'PURCHASE_IN' | 'PURCHASE_VOID' | 'PURCHASE_CORRECT', boss: boolean) {
+  const affected = [...new Set([...original, ...updated].map((line) => line.skuId))]
+  const changes = affected.map((skuId) => {
+    const product = db.products.find((item) => item.skus.some((sku) => sku.id === skuId))
+    const sku = product?.skus.find((item) => item.id === skuId)
+    if (!product || !sku) throw new ApiError(4040, '商品规格不存在')
+    const before = original.filter((line) => line.skuId === skuId)
+    const after = updated.filter((line) => line.skuId === skuId)
+    const delta = [...after.map((line) => line.quantity), ...before.map((line) => -line.quantity)].reduce((a, b) => a + b, 0)
+    if (sku.stock + delta < 0) throw new ApiError(3001, '当前库存不足')
+    const value = (lines: PurchaseLine[]) => lines.reduce((sum, line) => sum + (line.lineAmount ?? 0), 0)
+    return { product, sku, delta, valueDelta: value(after) - value(before), unit: after.at(-1)?.unitCost ?? before.at(-1)?.unitCost }
+  })
+  for (const { product, sku, delta, valueDelta, unit } of changes) {
+    const oldStock = sku.stock
+    sku.stock += delta
+    if (unit != null && (delta || valueDelta)) {
+      if (type === 'PURCHASE_IN') {
+        sku.costPrice = db.finance.costMethod === 'LATEST' ? unit : movingAverage(sku.costPrice, oldStock, unit, delta)
+      } else if (db.finance.costMethod === 'MOVING_AVERAGE' && sku.stock > 0 && sku.costPrice != null) {
+        sku.costPrice = Math.max(0, Math.round((sku.costPrice * oldStock + valueDelta) / sku.stock))
+      } else if (type === 'PURCHASE_CORRECT') {
+        sku.costPrice = unit
+      }
+    }
+    if (delta) db.stockLogs.unshift({
+      id: ++db.seq, skuId: sku.id, productName: product.name, model: product.model ?? '',
+      skuName: sku.title, bizType: type, bizId: id, quantity: delta, stockAfter: sku.stock,
+      unitCost: unit ?? null, operatorName: boss ? '老板' : '员工', createdAt: formatDateTime(),
+    })
+  }
+}
+
+function addPurchaseLedger(row: PurchaseRow, delta: number, entryType: LedgerRow['entryType'], remark?: string) {
+  if (!delta) return
+  db.ledgers.unshift({ id: ++db.seq, supplierId: row.supplierId, purchaseId: row.id, entryType,
+    amount: Math.abs(delta), remark, operatorName: row.operatorName ?? '系统', createdAt: formatDateTime() })
+  const supplier = db.suppliers.find((item) => item.id === row.supplierId)
+  if (supplier) {
+    if (entryType !== 'VOID') supplier.payable = (supplier.payable ?? 0) + delta
+    supplier.balance = (supplier.balance ?? 0) + delta
+  }
 }
 
 function presentOrder(order: AdminOrder, boss: boolean): AdminOrder {
@@ -408,7 +546,7 @@ export function dispatchTrade(method: string, path: string, query: Record<string
   if (path === '/api/admin/suppliers' && method === 'GET') {
     const keyword = query.keyword?.trim()
     const rows = db.suppliers.filter((item) => !keyword || item.name.includes(keyword) || item.brands.includes(keyword))
-    return paginate(rows.map((item) => supplierView(item, boss)), 1, 50)
+    return paginate(rows.map((item) => supplierView(item, boss)), Number(query.page), Number(query.size))
   }
   if (path === '/api/admin/suppliers' && method === 'POST') {
     const row: SupplierRow = {
@@ -445,96 +583,162 @@ export function dispatchTrade(method: string, path: string, query: Record<string
       supplier.balance = (supplier.payable ?? 0) - (supplier.paid ?? 0)
       return { supplierId: supplier.id, supplierName: supplier.name, payable: supplier.payable ?? 0, paid: supplier.paid ?? 0, balance: supplier.balance ?? 0, rows: db.ledgers.filter((item) => item.supplierId === supplier.id) }
     }
+    if (!supplierMatch[2] && method === 'PUT') {
+      const name = String(record.name ?? '').trim()
+      if (!name) throw new ApiError(1001, '请填写供应商名称')
+      Object.assign(supplier, {
+        name, contact: String(record.contact ?? ''), mobile: String(record.mobile ?? ''),
+        brands: String(record.brands ?? ''), remark: String(record.remark ?? ''), accountDays: Number(record.accountDays ?? 0),
+      })
+      return supplierView(supplier, boss)
+    }
     if (!supplierMatch[2] && method === 'DELETE') {
       db.suppliers = db.suppliers.filter((item) => item.id !== supplier.id)
       return null
     }
   }
 
+  if (path === '/api/admin/purchases/batches' && method === 'GET') {
+    const rows = db.purchases.filter((row) => (row.batchId == null || row.batchId === row.id)
+      && (!query.keyword || row.purchaseNo.includes(query.keyword)))
+    return paginate(rows.map((row) => batchSummary(row, boss)), Number(query.page), Number(query.size))
+  }
+  if (path === '/api/admin/purchases/batches' && method === 'POST') {
+    const requestId = String(record.requestId ?? '')
+    if (!/^[a-f0-9-]{16,40}$/i.test(requestId)) throw new ApiError(1001, '采购请求无效，请重新发起')
+    const saved = db.purchases.find((row) => row.requestId === requestId)
+    if (saved) return batchView(saved, boss)
+    const lines = purchaseInput(record)
+    const groups = new Map<number, Record<string, unknown>[]>()
+    for (const line of lines) {
+      const skuId = Number(line.skuId)
+      const product = db.products.find((item) => item.skus.some((sku) => sku.id === skuId))
+      if (!product) throw new ApiError(4040, '商品规格不存在')
+      const supplierId = Number(line.supplierId ?? matchPurchaseSupplier(product, db.suppliers))
+      if (!db.suppliers.some((item) => item.id === supplierId)) throw new ApiError(1001, '请选择供应商')
+      const group = groups.get(supplierId) ?? []
+      const existing = group.find((item) => Number(item.skuId) === skuId)
+      if (existing) existing.quantity = Number(existing.quantity) + Number(line.quantity)
+      else group.push({ skuId, quantity: line.quantity })
+      groups.set(supplierId, group)
+    }
+    const orders = [...groups].map(([supplierId, group]) => purchaseDraft({ supplierId, lines: group }, boss))
+    const root = orders[0]
+    if (!root) throw new ApiError(1001, '请选择进货商品')
+    root.requestId = requestId
+    for (const order of orders) order.batchId = root.id
+    db.purchases.unshift(...orders)
+    return batchView(root, boss)
+  }
+  const batchMatch = path.match(/^\/api\/admin\/purchases\/batches\/(\d+)$/)
+  if (batchMatch && method === 'GET') {
+    const root = db.purchases.find((row) => row.id === Number(batchMatch[1]) && (row.batchId == null || row.batchId === row.id))
+    if (!root) throw new ApiError(4040, '进货记录不存在')
+    return batchView(root, boss)
+  }
   if (path === '/api/admin/purchases' && method === 'GET') {
-    const rows = db.purchases.filter((item) => !query.status || item.status === query.status)
-    return paginate(rows.map((item) => purchaseView(item, boss)), 1, 50)
+    const rows = db.purchases.filter((item) => !item.merged && (!query.status || item.status === query.status))
+    return paginate(rows.map((item) => purchaseView(item, boss)), Number(query.page), Number(query.size))
   }
   if (path === '/api/admin/purchases' && method === 'POST') {
-    const lines = Array.isArray(record.lines) ? (record.lines as Record<string, unknown>[]) : []
-    if (lines.length === 0) throw new ApiError(1001, '请至少填写一行明细')
-    const supplier = db.suppliers.find((item) => item.id === Number(record.supplierId))
-    if (!supplier) throw new ApiError(4040, '供应商不存在')
-    const purchase: PurchaseRow = {
-      id: ++db.seq,
-      purchaseNo: `PO${todayShanghai().replace(/-/g, '')}${String(db.seq).slice(-4)}`,
-      supplierId: supplier.id,
-      supplierName: supplier.name,
-      orderDate: todayShanghai(),
-      status: 'DRAFT',
-      invoiced: record.invoiced === true,
-      invoiceType: record.invoiceType ? String(record.invoiceType) : undefined,
-      taxRate: typeof record.taxRate === 'number' ? record.taxRate : undefined,
-      taxIncluded: typeof record.taxIncluded === 'boolean' ? record.taxIncluded : undefined,
-      attachmentUrls: Array.isArray(record.attachmentUrls) ? record.attachmentUrls.map(String) : [],
-      remark: record.remark ? String(record.remark) : undefined,
-      freightAmount: boss ? Number(record.freightAmount ?? 0) : 0,
-      lines: lines.map((line) => {
-        const info = skuName(Number(line.skuId))
-        const quantity = Number(line.quantity)
-        const unitCost = boss && line.unitCost != null ? Number(line.unitCost) : undefined
-        const item: PurchaseLine = { id: ++db.seq, skuId: Number(line.skuId), productName: info.productName, skuName: info.skuName, quantity }
-        if (unitCost != null) {
-          item.unitCost = unitCost
-          item.lineAmount = unitCost * quantity
-        }
-        return item
-      }),
-      createdAt: formatDateTime(),
-    }
-    purchase.goodsAmount = purchase.lines.reduce((sum, line) => sum + (line.lineAmount ?? 0), 0)
-    purchase.totalAmount = (purchase.goodsAmount ?? 0) + (purchase.freightAmount ?? 0)
+    const purchase = purchaseDraft(record, boss)
     db.purchases.unshift(purchase)
     return purchaseView(purchase, boss)
   }
-  const purchaseMatch = path.match(/^\/api\/admin\/purchases\/(\d+)(?:\/(receive|void))?$/)
+  const purchaseMatch = path.match(/^\/api\/admin\/purchases\/(\d+)(?:\/(receive|void|correction))?$/)
   if (purchaseMatch) {
     const purchase = db.purchases.find((item) => item.id === Number(purchaseMatch[1]))
     if (!purchase) throw new ApiError(4040, '采购单不存在')
     if (!purchaseMatch[2] && method === 'GET') return purchaseView(purchase, boss)
-    if (purchaseMatch[2] === 'receive' && method === 'POST') {
-      if (purchase.status !== 'DRAFT') throw new ApiError(3003, '只有草稿可以入库')
-      for (const line of purchase.lines) {
-        for (const product of db.products) {
-          const sku = product.skus.find((item) => item.id === line.skuId)
-          if (!sku) continue
-          const oldStock = sku.stock
-          sku.stock += line.quantity
-          if (boss && line.unitCost != null) {
-            sku.costPrice = db.finance.costMethod === 'LATEST' ? line.unitCost : movingAverage(sku.costPrice, oldStock, line.unitCost, line.quantity)
-          }
+    if (!purchaseMatch[2] && method === 'PUT') {
+      if (purchase.status !== 'DRAFT') throw new ApiError(3003, '只有草稿可以修改')
+      checkPurchaseRevision(purchase, record.revision)
+      const next = purchaseDraft(record, boss, purchase)
+      const target = purchase.batchId != null && next.supplierId !== purchase.supplierId
+        ? db.purchases.find((row) => row.batchId === purchase.batchId && row.id !== purchase.id
+            && row.supplierId === next.supplierId && row.status !== 'VOID')
+        : undefined
+      if (target) {
+        if (target.status !== 'DRAFT') throw new ApiError(4090, '该供应商的子单已入库')
+        if (target.invoiced !== next.invoiced || (target.invoiced && (target.invoiceType !== next.invoiceType
+          || target.taxRate !== next.taxRate || target.taxIncluded !== next.taxIncluded))) {
+          throw new ApiError(4090, '两张草稿的开票信息不同，请先调整开票信息')
         }
-      }
-      purchase.status = 'RECEIVED'
-      if (boss && (purchase.totalAmount ?? 0) > 0) {
-        const supplier = db.suppliers.find((item) => item.id === purchase.supplierId)
-        if (supplier) {
-          supplier.payable = (supplier.payable ?? 0) + (purchase.totalAmount ?? 0)
-          supplier.balance = (supplier.payable ?? 0) - (supplier.paid ?? 0)
+        const merged = new Map(target.lines.map((line) => [line.skuId, { ...line }]))
+        for (const line of next.lines) {
+          const old = merged.get(line.skuId)
+          if (old && old.unitCost !== line.unitCost) throw new ApiError(4090, '相同规格的进价不同，请先核对进价')
+          const quantity = (old?.quantity ?? 0) + line.quantity
+          merged.set(line.skuId, { ...line, quantity, lineAmount: line.unitCost == null ? undefined : line.unitCost * quantity })
         }
-        db.ledgers.unshift({ id: ++db.seq, supplierId: purchase.supplierId, purchaseId: purchase.id, entryType: 'PAYABLE', amount: purchase.totalAmount ?? 0, operatorName: '老板', createdAt: formatDateTime() })
+        target.lines = [...merged.values()]
+        target.freightAmount = (target.freightAmount ?? 0) + (next.freightAmount ?? 0)
+        target.attachmentUrls = [...new Set([...target.attachmentUrls, ...next.attachmentUrls])]
+        target.remark = [target.remark, next.remark].filter(Boolean).join('\n')
+        target.revision = (target.revision ?? 0) + 1
+        setPurchaseTotals(target)
+        purchase.status = 'VOID'
+        purchase.merged = true
+        purchase.revision = (purchase.revision ?? 0) + 1
+        return purchaseView(target, boss)
       }
+      Object.assign(purchase, next)
       return purchaseView(purchase, boss)
     }
+    if (purchaseMatch[2] === 'receive' && method === 'POST') {
+      if (purchase.status === 'RECEIVED') return purchaseView(purchase, boss)
+      if (purchase.status !== 'DRAFT') throw new ApiError(3003, '只有草稿可以入库')
+      checkPurchaseRevision(purchase, query.revision)
+      if (boss && purchase.lines.some((line) => line.unitCost == null)) throw new ApiError(1001, '请先填写每行进价再入库')
+      applyPurchaseStock(purchase.id, [], purchase.lines, 'PURCHASE_IN', boss)
+      purchase.status = 'RECEIVED'
+      purchase.revision = (purchase.revision ?? 0) + 1
+      addPurchaseLedger(purchase, purchase.totalAmount ?? 0, 'PAYABLE')
+      return purchaseView(purchase, boss)
+    }
+    if (purchaseMatch[2] === 'correction' && method === 'POST') {
+      requireBoss(boss, '只有老板可以更正已入库的采购单')
+      if (purchase.status !== 'RECEIVED') throw new ApiError(3003, '只有已入库的采购单可以更正')
+      const reason = String(record.reason ?? '').trim()
+      if (!reason || reason.length > 240 || record.revision == null) throw new ApiError(1001, '请填写更正原因')
+      checkPurchaseRevision(purchase, record.revision)
+      const next = purchaseDraft(record.purchase as Record<string, unknown>, boss, purchase)
+      if (next.supplierId !== purchase.supplierId) throw new ApiError(1001, '已入库的采购单须保留原供应商')
+      if (next.lines.some((line) => line.unitCost == null)) throw new ApiError(1001, '请填写更正后的每行进价')
+      if (new Set(next.lines.map((line) => line.skuId)).size !== next.lines.length) throw new ApiError(1001, '请合并重复的商品规格')
+      const before = purchaseView(purchase, true)
+      const delta = (next.totalAmount ?? 0) - (purchase.totalAmount ?? 0)
+      applyPurchaseStock(purchase.id, purchase.lines, next.lines, 'PURCHASE_CORRECT', boss)
+      Object.assign(purchase, next)
+      addPurchaseLedger(purchase, delta, delta > 0 ? 'CORRECT_ADD' : 'CORRECT_SUB', reason)
+      const after = purchaseView(purchase, true)
+      const history = purchase.corrections ??= []
+      history.unshift({ id: ++db.seq, reason, operatorName: '老板', createdAt: formatDateTime(), before, after })
+      return after
+    }
     if (purchaseMatch[2] === 'void' && method === 'POST') {
+      if (purchase.status === 'VOID') throw new ApiError(3003, '采购单已经作废')
+      checkPurchaseRevision(purchase, query.revision)
       if (purchase.status === 'RECEIVED') {
-        for (const line of purchase.lines) {
-          for (const product of db.products) {
-            const sku = product.skus.find((item) => item.id === line.skuId)
-            if (sku) sku.stock = Math.max(0, sku.stock - line.quantity)
-          }
-        }
+        requireBoss(boss, '只有老板可以作废已入库的采购单')
+        applyPurchaseStock(purchase.id, purchase.lines, [], 'PURCHASE_VOID', boss)
+        addPurchaseLedger(purchase, -(purchase.totalAmount ?? 0), 'VOID')
       }
       purchase.status = 'VOID'
+      purchase.revision = (purchase.revision ?? 0) + 1
       return purchaseView(purchase, boss)
     }
   }
 
+  if (path === '/api/admin/stock-logs' && method === 'GET') {
+    const logs = db.stockLogs.filter((row) =>
+      (!query.skuId || row.skuId === Number(query.skuId)) &&
+      (!query.bizType || row.bizType === query.bizType) &&
+      (!query.from || row.createdAt.slice(0, 10) >= query.from) &&
+      (!query.to || row.createdAt.slice(0, 10) <= query.to),
+    )
+    return paginate(logs.map((row) => ({ ...row, unitCost: boss ? row.unitCost : undefined })), Number(query.page), Number(query.size))
+  }
   if (path === '/api/admin/stock-alerts' && method === 'GET') return alerts()
   const minMatch = path.match(/^\/api\/admin\/stock-alerts\/skus\/(\d+)$/)
   if (minMatch && method === 'PUT') {

@@ -2,6 +2,7 @@
  * Mock 里的进销存种子：供应商、采购、进价、开票和不开票的订单、低库存规格。
  * 不读网络。金额是分。
  */
+import type { PurchaseCorrection } from '@/api/purchase'
 import type { AdminOrder, AdminProduct, RepairTicket } from '@/api/types'
 
 export interface SupplierRow {
@@ -21,7 +22,7 @@ export interface LedgerRow {
   id: number
   supplierId: number
   purchaseId?: number
-  entryType: 'PAYABLE' | 'PAID' | 'VOID'
+  entryType: 'PAYABLE' | 'PAID' | 'VOID' | 'CORRECT_ADD' | 'CORRECT_SUB'
   amount: number
   method?: string
   remark?: string
@@ -42,6 +43,12 @@ export interface PurchaseLine {
 export interface PurchaseRow {
   id: number
   purchaseNo: string
+  batchId?: number
+  requestId?: string
+  revision?: number
+  merged?: boolean
+  corrections?: PurchaseCorrection[]
+  operatorName?: string
   supplierId: number
   supplierName: string
   orderDate: string

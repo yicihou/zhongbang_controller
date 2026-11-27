@@ -1,6 +1,7 @@
 /** 进价、毛利口径、建议采购量和导入列映射。非老板的 Mock 响应里没有进价。 */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { paths } from '../src/api/paths'
+import type { PurchaseBatch, PurchaseBatchRow } from '../src/api/purchase'
 import type { PageResult, StaffLoginResponse } from '../src/api/types'
 import { marginText, movingAverage, rowError, splitTax, suggestMapping, suggestQty, IMPORT_FIELDS } from '../src/domain/trade'
 import { handle } from '../src/mock/handle'
@@ -51,4 +52,34 @@ describe('trade mock permissions', () => {
     const insight = handle('POST', paths.marginInsights, {}, { period: 'MONTH' }, boss).body.data as { message: string }
     expect(insight.message).toContain('DEEPSEEK_API_KEY')
   })
+
+  it('shows a single supplier batch and gates corrections after receipt', () => {
+    const clerk = (handle('POST', paths.staffLogin, {}, { username: 'clerk', password: 'clerk123' }, '').body.data as StaffLoginResponse).token
+    const boss = (handle('POST', paths.staffLogin, {}, { username: 'boss', password: 'boss123' }, '').body.data as StaffLoginResponse).token
+    const selection = {
+      requestId: '1234abcd9876fedc1234',
+      lines: [{ skuId: 1011, quantity: 1, supplierId: 301 }, { skuId: 1012, quantity: 2, supplierId: 302 }],
+    }
+    const create = () => handle('POST', paths.purchaseBatches, {}, selection, clerk).body.data as PurchaseBatch
+    const created = create()
+    expect(created.orders.map((row) => row.purchase.supplierId)).toEqual([301, 302])
+    expect(create().summary.id).toBe(created.summary.id)
+    const batches = handle('GET', paths.purchaseBatches, { keyword: created.summary.purchaseNo }, null, clerk).body.data as PageResult<PurchaseBatchRow>
+    expect(batches.total).toBe(1)
+    const order = created.orders[0]!
+    const id = order.purchase.id
+    expect(handle('POST', paths.purchaseReceive(id), { revision: String(order.revision) }, null, clerk).body.code).toBe(0)
+    const getBatch = (token: string) => handle('GET', paths.purchaseBatch(created.summary.id), {}, null, token).body.data as PurchaseBatch
+    const received = getBatch(clerk)
+    expect(received.summary.status).toBe('PARTIAL')
+    const body = {
+      revision: received.orders[0]!.revision, reason: '核对进价',
+      purchase: { supplierId: 301, lines: [{ skuId: 1011, quantity: 1, unitCost: 1000 }] },
+    }
+    expect(handle('POST', paths.purchaseCorrection(id), {}, body, clerk).body.code).toBe(2003)
+    expect(handle('POST', paths.purchaseCorrection(id), {}, body, boss).body.code).toBe(0)
+    expect(getBatch(clerk).orders[0]!.corrections).toHaveLength(0)
+    expect(getBatch(boss).orders[0]!.corrections[0]?.after.lines[0]?.unitCost).toBe(1000)
+  })
+
 })

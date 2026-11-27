@@ -1,6 +1,7 @@
 package com.zhongbang.controller.service.product;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhongbang.controller.common.api.PageResult;
 import com.zhongbang.controller.common.exception.BusinessException;
@@ -9,6 +10,7 @@ import com.zhongbang.controller.common.util.DateTimes;
 import com.zhongbang.controller.common.util.Jsons;
 import com.zhongbang.controller.mapper.product.ProductMapper;
 import com.zhongbang.controller.mapper.product.ProductSkuMapper;
+import com.zhongbang.controller.mapper.purchase.SupplierMapper;
 import com.zhongbang.controller.pojo.product.dto.ProductRequests;
 import com.zhongbang.controller.pojo.product.entity.Product;
 import com.zhongbang.controller.pojo.product.entity.ProductSku;
@@ -24,7 +26,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * 商品。小程序只看上架的；管理端可以新增、改资料、改价、上下架和删除。
@@ -46,17 +50,20 @@ public class ProductService {
     private final ProductSkuMapper productSkuMapper;
     private final StockAlertService stockAlertService;
     private final StockLogService stockLogService;
+    private final SupplierMapper supplierMapper;
 
     public ProductService(
             ProductMapper productMapper,
             ProductSkuMapper productSkuMapper,
             StockAlertService stockAlertService,
-            StockLogService stockLogService
+            StockLogService stockLogService,
+            SupplierMapper supplierMapper
     ) {
         this.productMapper = productMapper;
         this.productSkuMapper = productSkuMapper;
         this.stockAlertService = stockAlertService;
         this.stockLogService = stockLogService;
+        this.supplierMapper = supplierMapper;
     }
 
     /** 公开列表。下架和已删除的不会出现。可按分类编号、关键字筛选。 */
@@ -120,12 +127,30 @@ public class ProductService {
         );
     }
 
-    public PageResult<ProductVo.Admin> adminList(String keyword, String status, int page, int size) {
+    public ProductVo.Options adminOptions() {
+        Map<String, String> brands = new TreeMap<>();
+        productMapper.selectObjs(new QueryWrapper<Product>()
+                        .select("DISTINCT TRIM(brand)").isNotNull("brand").apply("TRIM(brand) <> ''"))
+                .stream().map(Object::toString)
+                .forEach(brand -> brands.putIfAbsent(brand.toLowerCase(Locale.ROOT), brand));
+        List<ProductVo.AdminCategory> categories = CATEGORIES.entrySet().stream()
+                .map(entry -> new ProductVo.AdminCategory(entry.getKey(), entry.getValue(), true)).toList();
+        return new ProductVo.Options(categories, List.copyOf(brands.values()));
+    }
+
+    public PageResult<ProductVo.Admin> adminList(String keyword, String status, Integer categoryId, String brand,
+                                                 int page, int size) {
         int p = PageResult.normalizePage(page);
         int s = PageResult.normalizeSize(size);
         LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<Product>().orderByDesc(Product::getId);
         if (status != null && !status.isBlank()) {
             wrapper.eq(Product::getStatus, status.trim());
+        }
+        if (categoryId != null) {
+            wrapper.eq(Product::getCategoryId, categoryId);
+        }
+        if (brand != null && !brand.isBlank()) {
+            wrapper.apply("LOWER(TRIM(brand)) = {0}", brand.trim().toLowerCase(Locale.ROOT));
         }
         if (keyword != null && !keyword.isBlank()) {
             String like = keyword.trim();
@@ -222,6 +247,13 @@ public class ProductService {
         }
         product.setName(request.getName().trim());
         product.setBrand(blankToNull(request.getBrand()));
+        if (request.hasPurchaseSupplier()) {
+            Long supplierId = request.getPurchaseSupplierId();
+            if (supplierId != null && supplierMapper.selectById(supplierId) == null) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "采购供应商不存在");
+            }
+            product.setPurchaseSupplierId(supplierId);
+        }
         product.setModel(blankToNull(request.getModel()));
         product.setSubtitle(blankToNull(request.getSubtitle()));
         product.setCoverImage(request.getCoverImage() == null ? "" : request.getCoverImage().trim());
@@ -409,6 +441,7 @@ public class ProductService {
                 stock(rows),
                 DateTimes.format(product.getCreatedAt()),
                 DateTimes.format(product.getUpdatedAt()),
+                product.getPurchaseSupplierId(),
                 rows.stream().map(sku -> new ProductVo.AdminSku(
                         sku.getId(),
                         sku.getTitle(),

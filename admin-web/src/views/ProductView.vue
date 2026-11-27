@@ -79,6 +79,12 @@
         <el-form-item label="品牌">
           <el-input v-model="form.brand" />
         </el-form-item>
+        <el-form-item label="采购供应商">
+          <el-select v-model="form.purchaseSupplierId" :loading="loadingSuppliers" clearable filterable
+            placeholder="默认按商品品牌匹配" style="width: 100%">
+            <el-option v-for="supplier in suppliers" :key="supplier.id" :label="supplier.name" :value="supplier.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="分类">
           <el-select v-model="form.categoryId" clearable placeholder="选择分类" style="width: 100%">
             <el-option v-for="item in categories" :key="item.id" :label="item.name" :value="item.id" />
@@ -204,11 +210,13 @@ import {
   createProduct,
   deleteProduct,
   listProducts,
+  purchaseSuppliers,
   listStockAlerts,
   setSkuCost,
   shelveProduct,
   updateProduct,
 } from '@/api/admin'
+import type { PurchaseSupplier } from '@/api/purchase'
 import type { AdminProduct, ProductStatus } from '@/api/types'
 import { fenToYuanNumber, formatYuan, yuanToFen } from '@/domain/money'
 import { useSessionStore } from '@/stores/session'
@@ -222,6 +230,16 @@ const categories = [
   { id: 3, name: '包缝绷缝' },
   { id: 4, name: '特种机' },
 ]
+
+const suppliers = ref<PurchaseSupplier[]>([])
+const loadingSuppliers = ref(false)
+
+async function loadSuppliers() {
+  if (loadingSuppliers.value) return
+  loadingSuppliers.value = true
+  await run(async () => { suppliers.value = await purchaseSuppliers() })
+  loadingSuppliers.value = false
+}
 
 interface SkuForm {
   id?: number
@@ -244,6 +262,7 @@ const editingId = ref<number | null>(null)
 const form = reactive({
   name: '',
   brand: '',
+  purchaseSupplierId: undefined as number | undefined,
   categoryId: undefined as number | undefined,
   model: '',
   subtitle: '',
@@ -267,6 +286,7 @@ const priceForm = reactive({
 function resetForm() {
   form.name = ''
   form.brand = ''
+  form.purchaseSupplierId = undefined
   form.categoryId = undefined
   form.model = ''
   form.subtitle = ''
@@ -319,12 +339,14 @@ function openCreate() {
   editingId.value = null
   resetForm()
   editorVisible.value = true
+  void loadSuppliers()
 }
 
 function openEdit(row: AdminProduct) {
   editingId.value = row.id
   form.name = row.name
   form.brand = row.brand || ''
+  form.purchaseSupplierId = row.purchaseSupplierId
   form.categoryId = row.categoryId
   form.model = row.model || ''
   form.subtitle = row.subtitle || ''
@@ -338,6 +360,7 @@ function openEdit(row: AdminProduct) {
     stock: sku.stock,
   }))
   editorVisible.value = true
+  void loadSuppliers()
 }
 
 function categoryName(id?: number) {
@@ -348,6 +371,7 @@ async function submit() {
   const body = {
     name: form.name.trim(),
     brand: form.brand.trim(),
+    purchaseSupplierId: form.purchaseSupplierId || null,
     categoryId: form.categoryId,
     category: categoryName(form.categoryId),
     model: form.model.trim(),

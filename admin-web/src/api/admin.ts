@@ -30,10 +30,12 @@ import type {
   PendingInstall,
   StockLogRow,
   AdminProduct,
+  ProductOptions,
   ChangeProductPriceRequest,
   SaveProductRequest,
   UploadedImage,
 } from './types'
+import type { BatchRequest, PurchaseBatch, PurchaseBatchRow, PurchaseDetail, PurchaseDraft, PurchaseSupplier } from './purchase'
 import type { StaffMember, StaffSave } from '@/domain/staff'
 import type { CustomerListItem, LevelRule } from '@/domain/customer'
 import { API_BASE, USE_MOCK } from '@/config'
@@ -171,7 +173,11 @@ export function listSchedules(query: ScheduleQuery = {}): Promise<TechnicianSche
   return request('GET', paths.schedules, { query })
 }
 
-export function listProducts(query: { keyword?: string; status?: string; page?: number; size?: number } = {}): Promise<PageResult<AdminProduct>> {
+export function productOptions(): Promise<ProductOptions> {
+  return request('GET', paths.productOptions)
+}
+
+export function listProducts(query: { keyword?: string; status?: string; categoryId?: number; brand?: string; page?: number; size?: number } = {}): Promise<PageResult<AdminProduct>> {
   return request('GET', paths.products, { query })
 }
 
@@ -336,20 +342,41 @@ export function paySupplier(id: number, body: { amount: number; method?: string;
   return request('POST', paths.supplierPay(id), { body })
 }
 
-export function listPurchases(status?: string) {
-  return request<PageResult<Record<string, unknown>>>('GET', paths.purchases, { query: { status } })
+export async function purchaseSuppliers() {
+  const suppliers: PurchaseSupplier[] = []
+  for (let page = 1; ; page += 1) {
+    const data = await request<PageResult<PurchaseSupplier>>('GET', paths.suppliers, { query: { page, size: 100 } })
+    suppliers.push(...data.list)
+    if (!data.list.length || suppliers.length >= data.total) return suppliers
+  }
 }
 
-export function savePurchase(body: Record<string, unknown>) {
-  return request<Record<string, unknown>>('POST', paths.purchases, { body })
+export function listPurchaseBatches(query: PageQuery & { keyword?: string }) {
+  return request<PageResult<PurchaseBatchRow>>('GET', paths.purchaseBatches, { query })
 }
 
-export function receivePurchase(id: number) {
-  return request('POST', paths.purchaseReceive(id))
+export function getPurchaseBatch(id: number) {
+  return request<PurchaseBatch>('GET', paths.purchaseBatch(id))
 }
 
-export function voidPurchase(id: number) {
-  return request('POST', paths.purchaseVoid(id))
+export function createPurchaseBatch(body: BatchRequest) {
+  return request<PurchaseBatch>('POST', paths.purchaseBatches, { body })
+}
+
+export function updatePurchase(id: number, body: PurchaseDraft) {
+  return request<PurchaseDetail>('PUT', paths.purchase(id), { body })
+}
+
+export function correctPurchase(id: number, body: { reason: string; revision: number; purchase: PurchaseDraft }) {
+  return request<PurchaseDetail>('POST', paths.purchaseCorrection(id), { body })
+}
+
+export function receivePurchase(id: number, revision: number) {
+  return request('POST', paths.purchaseReceive(id), { query: { revision } })
+}
+
+export function voidPurchase(id: number, revision: number) {
+  return request('POST', paths.purchaseVoid(id), { query: { revision } })
 }
 
 export function listStockAlerts() {

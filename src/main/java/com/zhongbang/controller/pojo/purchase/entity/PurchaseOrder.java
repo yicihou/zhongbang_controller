@@ -1,18 +1,23 @@
 package com.zhongbang.controller.pojo.purchase.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDateTime;
 
-/** 采购单。草稿可以改，确认入库后只能作废。作废已入库的单子会把库存减回去。 */
+/** 一家供应商的采购单。批次首单的 ID 也是该批次的主单 ID。 */
 @TableName("purchase_order")
 public class PurchaseOrder {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private String purchaseNo;
+    private Long batchId;
+    private String clientToken;
+    private Integer revision;
     private Long supplierId;
     private String orderDate;
     private String status;
@@ -20,10 +25,14 @@ public class PurchaseOrder {
     private Long goodsAmount;
     private Long totalAmount;
     private Integer invoiced;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String invoiceType;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Integer taxRate;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Integer taxIncluded;
     private String attachmentUrls;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String remark;
     private String source;
     private String costMethod;
@@ -35,6 +44,12 @@ public class PurchaseOrder {
     public void setId(Long id) { this.id = id; }
     public String getPurchaseNo() { return purchaseNo; }
     public void setPurchaseNo(String purchaseNo) { this.purchaseNo = purchaseNo; }
+    public Long getBatchId() { return batchId; }
+    public void setBatchId(Long batchId) { this.batchId = batchId; }
+    public String getClientToken() { return clientToken; }
+    public void setClientToken(String clientToken) { this.clientToken = clientToken; }
+    public Integer getRevision() { return revision; }
+    public void setRevision(Integer revision) { this.revision = revision; }
     public Long getSupplierId() { return supplierId; }
     public void setSupplierId(Long supplierId) { this.supplierId = supplierId; }
     public String getOrderDate() { return orderDate; }

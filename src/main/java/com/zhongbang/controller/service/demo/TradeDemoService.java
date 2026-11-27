@@ -227,7 +227,7 @@ public class TradeDemoService {
         List<PurchaseOrder> purchases = purchaseOrderMapper.selectList(new LambdaQueryWrapper<PurchaseOrder>().eq(PurchaseOrder::getSource, "DEMO"));
         for (PurchaseOrder purchase : purchases) {
             if ("RECEIVED".equals(purchase.getStatus())) {
-                purchaseService.voidPurchase(purchase.getId());
+                purchaseService.voidPurchase(purchase.getId(), null);
             }
             purchaseItemMapper.delete(new LambdaQueryWrapper<PurchaseItem>().eq(PurchaseItem::getPurchaseId, purchase.getId()));
             supplierLedgerMapper.delete(new LambdaQueryWrapper<SupplierLedger>().eq(SupplierLedger::getPurchaseId, purchase.getId()));

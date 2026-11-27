@@ -73,6 +73,7 @@ public final class ProductVo {
             int stock,
             String createdAt,
             String updatedAt,
+            Long purchaseSupplierId,
             List<AdminSku> skus
     ) {
     }
@@ -85,5 +86,11 @@ public final class ProductVo {
     }
 
     public record Category(int id, String name, long count) {
+    }
+
+    public record AdminCategory(int id, String name, boolean enabled) {
+    }
+
+    public record Options(List<AdminCategory> categories, List<String> brands) {
     }
 }

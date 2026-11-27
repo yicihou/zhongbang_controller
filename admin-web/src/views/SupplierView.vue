@@ -26,12 +26,13 @@
         </el-table-column>
         <el-table-column label="操作" width="160">
           <template #default="{ row }">
+            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button v-if="session.isBoss" link type="primary" @click="openPay(row)">登记付款</el-button>
           </template>
         </el-table-column>
       </el-table>
     </div>
-    <el-dialog v-model="visible" title="供应商" width="480px">
+    <el-dialog v-model="visible" :title="editingId ? '编辑供应商' : '新增供应商'" width="480px">
       <el-form label-width="88px">
         <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="联系人"><el-input v-model="form.contact" /></el-form-item>
@@ -74,6 +75,7 @@ const rows = ref<Record<string, unknown>[]>([])
 const keyword = ref('')
 const visible = ref(false)
 const payVisible = ref(false)
+const editingId = ref<number>()
 const payYuan = ref(0)
 const payMethod = ref('BANK_TRANSFER')
 const payingId = ref(0)
@@ -87,6 +89,7 @@ async function reload() {
 }
 
 function openCreate() {
+  editingId.value = undefined
   form.name = ''
   form.contact = ''
   form.mobile = ''
@@ -96,9 +99,20 @@ function openCreate() {
   visible.value = true
 }
 
+function openEdit(row: Record<string, unknown>) {
+  editingId.value = Number(row.id)
+  form.name = String(row.name ?? '')
+  form.contact = String(row.contact ?? '')
+  form.mobile = String(row.mobile ?? '')
+  form.brands = String(row.brands ?? '')
+  form.accountDays = Number(row.accountDays ?? 0)
+  form.remark = String(row.remark ?? '')
+  visible.value = true
+}
+
 async function save() {
   await run(async () => {
-    await saveSupplier({ ...form })
+    await saveSupplier({ ...form }, editingId.value)
     visible.value = false
     await reload()
   })

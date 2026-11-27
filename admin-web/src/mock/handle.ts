@@ -250,11 +250,27 @@ function summarizeProduct(product: AdminProduct): AdminProduct {
 function handleProduct(method: string, path: string, query: Record<string, string>, body: unknown): unknown | undefined {
   if (path !== '/api/admin/products' && !path.startsWith('/api/admin/products/')) return undefined
   const now = formatDateTime()
+  if (method === 'GET' && path === '/api/admin/products/options') {
+    const categories = new Map<number, string>()
+    const brands = new Set<string>()
+    for (const product of db.products) {
+      if (product.categoryId != null && product.category) categories.set(product.categoryId, product.category)
+      if (product.brand?.trim()) brands.add(product.brand.trim())
+    }
+    return {
+      categories: [...categories].map(([id, name]) => ({ id, name, enabled: true })),
+      brands: [...brands].sort((a, b) => a.localeCompare(b, 'zh')),
+    }
+  }
   if (method === 'GET' && path === '/api/admin/products') {
     const keyword = query.keyword?.trim()
     const status = query.status?.trim()
+    const categoryId = num(query.categoryId)
+    const brand = query.brand?.trim().toLowerCase()
     const rows = db.products.filter((item) => {
       if (status && item.status !== status) return false
+      if (categoryId != null && item.categoryId !== categoryId) return false
+      if (brand && item.brand?.trim().toLowerCase() !== brand) return false
       if (!keyword) return true
       return item.name.includes(keyword) || (item.model ?? '').includes(keyword)
     })
@@ -317,11 +333,16 @@ function saveProduct(id: number | undefined, record: Record<string, unknown>, no
     return { id: Number(row.id) || ids().next(), title, price, stock }
   })
   const status = record.status === 'OFF' ? 'OFF' : 'ON'
+  const purchaseSupplierId = record.purchaseSupplierId == null ? undefined : Number(record.purchaseSupplierId)
+  if (purchaseSupplierId != null && !db.suppliers.some((supplier) => supplier.id === purchaseSupplierId)) {
+    throw new ApiError(1001, '采购供应商不存在')
+  }
   if (id == null) {
     const created = summarizeProduct({
       id: ids().next(),
       name,
       brand: String(record.brand ?? ''),
+      purchaseSupplierId,
       category: String(record.category ?? ''),
       categoryId: record.categoryId == null ? undefined : Number(record.categoryId),
       model: String(record.model ?? ''),
@@ -341,6 +362,7 @@ function saveProduct(id: number | undefined, record: Record<string, unknown>, no
   const current = db.products.find((item) => item.id === id)
   if (!current) throw new ApiError(4040, '商品不存在')
   current.name = name
+  if ('purchaseSupplierId' in record) current.purchaseSupplierId = purchaseSupplierId
   current.brand = String(record.brand ?? '')
   current.category = String(record.category ?? current.category ?? '')
   current.categoryId = record.categoryId == null ? current.categoryId : Number(record.categoryId)

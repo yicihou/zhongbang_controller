@@ -306,10 +306,22 @@ export interface AdminProductSku {
   minStock?: number
 }
 
+export interface ProductCategory {
+  id: number
+  name: string
+  enabled: boolean
+}
+
+export interface ProductOptions {
+  categories: ProductCategory[]
+  brands: string[]
+}
+
 export interface AdminProduct {
   id: number
   name: string
   brand?: string
+  purchaseSupplierId?: number
   category?: string
   categoryId?: number
   model?: string
@@ -334,6 +346,7 @@ export interface ProductSkuDraft {
 export interface SaveProductRequest {
   name: string
   brand?: string
+  purchaseSupplierId?: number | null
   category?: string
   categoryId?: number
   model?: string
@@ -480,7 +493,7 @@ export interface StockLogRow {
   productName: string
   model: string
   skuName: string
-  bizType: 'INIT' | 'PURCHASE_IN' | 'PURCHASE_VOID' | 'SALE_OUT' | 'SALE_CANCEL' | 'ADJUST'
+  bizType: 'INIT' | 'PURCHASE_IN' | 'PURCHASE_VOID' | 'PURCHASE_CORRECT' | 'PURCHASE_CORRECT_IN' | 'SALE_OUT' | 'SALE_CANCEL' | 'ADJUST'
   bizId: number | null
   quantity: number
   stockAfter: number

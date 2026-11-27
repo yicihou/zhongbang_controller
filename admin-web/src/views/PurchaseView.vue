@@ -1,143 +1,94 @@
 <template>
   <div>
     <div class="page-head">
-      <div>
-        <h2>采购入库</h2>
-        <p>草稿确认后增加库存。作废已入库的单子会把库存减回去。进价和金额只有老板能看。</p>
-      </div>
-      <el-button type="primary" @click="openCreate">新建采购单</el-button>
+      <h2>采购入库</h2>
+      <el-button type="primary" @click="router.push({ name: 'purchase-catalog' })">新建采购</el-button>
     </div>
     <div class="panel">
-      <el-table :data="rows">
-        <el-table-column prop="purchaseNo" label="单号" width="170" />
-        <el-table-column prop="supplierName" label="供应商" min-width="140" />
-        <el-table-column prop="orderDate" label="日期" width="120" />
-        <el-table-column label="开票" width="90">
-          <template #default="{ row }">{{ row.invoiced ? '开票' : '不开票' }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">{{ statusText(String(row.status)) }}</template>
-        </el-table-column>
-        <el-table-column v-if="session.isBoss" label="合计" width="120">
-          <template #default="{ row }">¥{{ formatYuan(Number(row.totalAmount ?? 0)) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="180">
+      <form class="filters" @submit.prevent="search">
+        <el-input v-model="keyword" clearable placeholder="搜索主单号" aria-label="主单号" style="width: 260px" @clear="search" />
+        <el-button native-type="submit">查询</el-button>
+      </form>
+      <el-table v-loading="loading" :data="rows" row-key="id" empty-text="暂无进货记录">
+        <el-table-column label="主单号" min-width="220">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'DRAFT'" link type="primary" @click="receive(Number(row.id))">入库</el-button>
-            <el-button v-if="row.status !== 'VOID'" link type="danger" @click="voidOne(Number(row.id))">作废</el-button>
+            <router-link :to="{ name: 'purchase-detail', params: { id: row.id } }">{{ row.purchaseNo }}</router-link>
+          </template>
+        </el-table-column>
+        <el-table-column label="供应商" min-width="160">
+          <template #default="{ row }">{{ row.suppliers.join('、') || '—' }}</template>
+        </el-table-column>
+        <el-table-column prop="orderDate" label="日期" width="120" />
+        <el-table-column label="状态" width="108">
+          <template #default="{ row }">
+            <el-tag :type="purchaseStatus[row.status as PurchaseStatus].type" effect="light">
+              {{ purchaseStatus[row.status as PurchaseStatus].text }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="session.isBoss" label="已录入金额" width="130">
+          <template #default="{ row }">¥{{ formatYuan(row.totalAmount ?? 0) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="155">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="router.push({ name: 'purchase-detail', params: { id: row.id } })">查看</el-button>
+            <el-button v-if="row.status !== 'VOID'" link type="primary"
+              @click="router.push({ name: 'purchase-contacts', params: { id: row.id } })">联系供应商</el-button>
           </template>
         </el-table-column>
       </el-table>
+      <div class="pager">
+        <el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total, prev, pager, next" />
+      </div>
     </div>
-    <el-dialog v-model="visible" title="采购单" width="640px">
-      <el-form label-width="88px">
-        <el-form-item label="供应商">
-          <el-select v-model="form.supplierId" style="width: 100%">
-            <el-option v-for="item in suppliers" :key="String(item.id)" :label="String(item.name)" :value="Number(item.id)" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="开票">
-          <el-switch v-model="form.invoiced" />
-        </el-form-item>
-        <el-form-item v-if="form.invoiced" label="发票类型">
-          <el-input v-model="form.invoiceType" placeholder="例如增值税专用发票" />
-        </el-form-item>
-        <el-form-item v-if="form.invoiced" label="税率(%)">
-          <el-input-number v-model="form.taxPercent" :min="0" :precision="2" />
-        </el-form-item>
-        <el-form-item v-if="session.isBoss" label="运费(元)">
-          <el-input-number v-model="form.freightYuan" :min="0" :precision="2" />
-        </el-form-item>
-        <el-form-item label="规格">
-          <el-select v-model="form.skuId" style="width: 100%">
-            <el-option v-for="sku in skuOptions" :key="sku.id" :label="sku.label" :value="sku.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="数量">
-          <el-input-number v-model="form.quantity" :min="1" />
-        </el-form-item>
-        <el-form-item v-if="session.isBoss" label="进价(元)">
-          <el-input-number v-model="form.costYuan" :min="0" :precision="2" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button type="primary" @click="save">保存草稿</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { listProducts, listPurchases, listSuppliers, receivePurchase, savePurchase, voidPurchase } from '@/api/admin'
-import { formatYuan, yuanToFen } from '@/domain/money'
+import { ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { listPurchaseBatches } from '@/api/admin'
+import type { PurchaseBatchRow, PurchaseStatus } from '@/api/purchase'
+import { formatYuan } from '@/domain/money'
+import { purchaseStatus } from '@/domain/purchase'
 import { useSessionStore } from '@/stores/session'
 import { run } from '@/utils/feedback'
 
 const session = useSessionStore()
-const rows = ref<Record<string, unknown>[]>([])
-const suppliers = ref<Record<string, unknown>[]>([])
-const skuOptions = ref<{ id: number; label: string }[]>([])
-const visible = ref(false)
-const form = reactive({
-  supplierId: undefined as number | undefined,
-  invoiced: false,
-  invoiceType: '',
-  taxPercent: 13,
-  freightYuan: 0,
-  skuId: undefined as number | undefined,
-  quantity: 1,
-  costYuan: 0,
-})
+const router = useRouter()
+const rows = ref<PurchaseBatchRow[]>([])
+const loading = ref(false)
+const keyword = ref('')
+const appliedKeyword = ref('')
+const page = ref(1)
+const total = ref(0)
+const size = 20
+let loadId = 0
 
-function statusText(status: string) {
-  if (status === 'RECEIVED') return '已入库'
-  if (status === 'VOID') return '作废'
-  return '草稿'
+function search() {
+  if (appliedKeyword.value === keyword.value.trim() && page.value === 1) {
+    void reload()
+    return
+  }
+  appliedKeyword.value = keyword.value.trim()
+  page.value = 1
 }
 
 async function reload() {
+  const id = ++loadId
+  loading.value = true
   await run(async () => {
-    rows.value = (await listPurchases()).list
+    const data = await listPurchaseBatches({ keyword: appliedKeyword.value, page: page.value, size })
+    if (id !== loadId) return
+    rows.value = data.list
+    total.value = data.total
   })
+  if (id === loadId) loading.value = false
 }
 
-async function openCreate() {
-  suppliers.value = (await listSuppliers()).list
-  const products = await listProducts({ size: 100 })
-  skuOptions.value = products.list.flatMap((product) => product.skus.map((sku) => ({ id: sku.id, label: `${product.name} / ${sku.title}` })))
-  visible.value = true
-}
-
-async function save() {
-  await run(async () => {
-    await savePurchase({
-      supplierId: form.supplierId,
-      invoiced: form.invoiced,
-      invoiceType: form.invoiceType,
-      taxRate: form.invoiced ? Math.round(form.taxPercent * 100) : undefined,
-      taxIncluded: form.invoiced ? true : undefined,
-      freightAmount: session.isBoss ? yuanToFen(form.freightYuan) : undefined,
-      lines: [{ skuId: form.skuId, quantity: form.quantity, unitCost: session.isBoss ? yuanToFen(form.costYuan) : undefined }],
-    })
-    visible.value = false
-    await reload()
-  })
-}
-
-async function receive(id: number) {
-  await run(async () => {
-    await receivePurchase(id)
-    await reload()
-  })
-}
-
-async function voidOne(id: number) {
-  await run(async () => {
-    await voidPurchase(id)
-    await reload()
-  })
-}
-
-onMounted(reload)
+watch([page, appliedKeyword], reload, { immediate: true })
 </script>
+
+<style scoped>
+.pager { display: flex; justify-content: flex-end; margin-top: 16px; }
+</style>

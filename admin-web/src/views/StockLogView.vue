@@ -86,6 +86,8 @@ const BIZ_TYPE_LABEL: Record<string, string> = {
   INIT: '期初',
   PURCHASE_IN: '进货入库',
   PURCHASE_VOID: '入库作废',
+  PURCHASE_CORRECT: '采购更正',
+  PURCHASE_CORRECT_IN: '更正新增规格',
   SALE_OUT: '销售出库',
   SALE_CANCEL: '取消回滚',
   ADJUST: '盘点调整',

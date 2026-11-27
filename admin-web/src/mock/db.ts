@@ -10,6 +10,7 @@ import type {
   AdminProduct,
   Payment,
   RepairTicket,
+  StockLogRow,
   Technician,
   TechnicianSchedule,
 } from '@/api/types'
@@ -41,6 +42,7 @@ export interface Database {
   suppliers: SupplierRow[]
   ledgers: LedgerRow[]
   purchases: PurchaseRow[]
+  stockLogs: StockLogRow[]
   finance: FinanceSetting
   insights: InsightRow[]
 }
@@ -802,6 +804,7 @@ export function createSeed(): Database {
     suppliers: trade.suppliers,
     ledgers: trade.ledgers,
     purchases: trade.purchases,
+    stockLogs: [],
     finance: trade.setting,
     insights: trade.insights,
   }

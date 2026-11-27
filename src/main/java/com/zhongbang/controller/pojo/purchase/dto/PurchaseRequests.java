@@ -30,7 +30,21 @@ public final class PurchaseRequests {
         public void setRemark(String remark) { this.remark = remark; }
     }
 
+    public record Selection(Long skuId, Integer quantity, Long supplierId) {
+    }
+
+    public record BatchCreate(String requestId, List<Selection> lines) {
+    }
+
+    public record Correction(String reason, Integer revision, PurchaseSave purchase) {
+    }
+
     public static class PurchaseSave {
+        private Integer revision;
+
+        public Integer getRevision() { return revision; }
+        public void setRevision(Integer revision) { this.revision = revision; }
+
         private Long supplierId;
         private String orderDate;
         private Long freightAmount;
